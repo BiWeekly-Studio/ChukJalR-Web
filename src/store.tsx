@@ -27,7 +27,7 @@ const INITIAL: AppState = {
   onboarded: false,
   handle: '샤라포바',
   leagueOrder: [],
-  favoriteTeamId: null,
+  favoriteTeamIds: [],
   predictions: {},
   settlements: {},
   rating: 1240,
@@ -42,7 +42,7 @@ type Action =
   | { type: 'hydrate'; state: Partial<AppState> }
   | { type: 'ready' }
   | { type: 'error'; message: string | null }
-  | { type: 'completeOnboarding'; leagueOrder: number[]; favoriteTeamId: number | null }
+  | { type: 'completeOnboarding'; leagueOrder: number[]; favoriteTeamIds: number[] }
   | { type: 'predict'; fixtureId: number; pick: Outcome; confidence: Confidence }
   | { type: 'clearPrediction'; fixtureId: number }
   | { type: 'reorderLeagues'; leagueOrder: number[] };
@@ -63,7 +63,7 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         onboarded: true,
         leagueOrder: action.leagueOrder,
-        favoriteTeamId: action.favoriteTeamId,
+        favoriteTeamIds: action.favoriteTeamIds,
         // 온보딩 완료 보상 300포인트 (명세 4.2). 서버 모드에서는 트리거가 이미 지급했다.
         lifetimePoints:
           repository.kind === 'mock' ? state.lifetimePoints + 300 : state.lifetimePoints,
@@ -104,7 +104,7 @@ interface Ctx {
   state: AppState;
   dispatch: React.Dispatch<Action>;
   predict: (fixtureId: number, pick: Outcome, confidence: Confidence) => void;
-  completeOnboarding: (leagueOrder: number[], favoriteTeamId: number | null) => void;
+  completeOnboarding: (leagueOrder: number[], favoriteTeamIds: number[]) => void;
   level: ReturnType<typeof levelFromPoints>;
   tier: ReturnType<typeof tierFromPercentile>;
   isFavoriteFixture: (fixtureId: number) => boolean;
@@ -189,9 +189,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const completeOnboarding = useCallback(
-    (leagueOrder: number[], favoriteTeamId: number | null) => {
-      dispatch({ type: 'completeOnboarding', leagueOrder, favoriteTeamId });
-      repository.saveOnboarding(leagueOrder, favoriteTeamId).catch(() => {
+    (leagueOrder: number[], favoriteTeamIds: number[]) => {
+      dispatch({ type: 'completeOnboarding', leagueOrder, favoriteTeamIds });
+      repository.saveOnboarding(leagueOrder, favoriteTeamIds).catch(() => {
         dispatch({ type: 'error', message: '설정을 저장하지 못했어요.' });
       });
     },
@@ -200,12 +200,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const isFavoriteFixture = useCallback(
     (fixtureId: number) => {
-      if (state.favoriteTeamId == null) return false;
+      if (state.favoriteTeamIds.length === 0) return false;
       const f = fixture(fixtureId);
       if (!f) return false;
-      return f.homeTeamId === state.favoriteTeamId || f.awayTeamId === state.favoriteTeamId;
+      return (
+        state.favoriteTeamIds.includes(f.homeTeamId) ||
+        state.favoriteTeamIds.includes(f.awayTeamId)
+      );
     },
-    [state.favoriteTeamId]
+    [state.favoriteTeamIds]
   );
 
   const value = useMemo<Ctx>(

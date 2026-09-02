@@ -89,14 +89,17 @@ function abbrOf(name: string, code: string | null): string {
 async function syncTeams(sb: Db, a: Api, season: number) {
   for (const leagueId of LEAGUES) {
     const { response } = await a.get(`/teams?league=${leagueId}&season=${season}`);
-    const rows = (response as { team: { id: number; name: string; code: string | null } }[]).map(
-      (r) => ({
-        id: r.team.id,
-        league_id: leagueId,
-        name: r.team.name,
-        abbr: abbrOf(r.team.name, r.team.code),
-      })
-    );
+    const rows = (
+      response as { team: { id: number; name: string; code: string | null; logo: string | null } }[]
+    ).map((r) => ({
+      id: r.team.id,
+      league_id: leagueId,
+      name: r.team.name,
+      abbr: abbrOf(r.team.name, r.team.code),
+      // 엠블럼은 API 가 준다. 간혹 비어 오는데, CDN 경로가 팀 id 로 결정되므로 규칙으로 채운다.
+      // 한글명·색은 우리가 관리하므로 여기서 건드리지 않는다.
+      logo_url: r.team.logo ?? `https://media.api-sports.io/football/teams/${r.team.id}.png`,
+    }));
     if (rows.length) await sb.upsert('teams', rows);
   }
 }

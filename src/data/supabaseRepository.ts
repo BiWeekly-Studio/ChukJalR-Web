@@ -50,7 +50,7 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
       const horizon = new Date(Date.now() + 14 * 864e5).toISOString();
       const [leagues, teams, fixtures] = await Promise.all([
         sb.from('leagues').select('id, name, short_name, country'),
-        sb.from('teams').select('id, league_id, name, name_ko, abbr, color, tint'),
+        sb.from('teams').select('id, league_id, name, name_ko, abbr, color, tint, logo_url'),
         sb
           .from('fixtures')
           .select(
@@ -80,7 +80,8 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
           id: l.id, name: l.name, short: l.short_name, country: l.country,
         })),
         teams: teams.data.map((t) => ({
-          id: t.id, leagueId: t.league_id, name: t.name_ko ?? t.name, abbr: t.abbr,
+          id: t.id, leagueId: t.league_id, name: t.name_ko ?? t.name, nameEn: t.name,
+          abbr: t.abbr, logoUrl: t.logo_url,
           color: t.color, tint: t.tint,
         })),
         fixtures: fixtures.data.map((f) => toFixture(f, byId.get(f.id))),
@@ -102,7 +103,7 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
       }
 
       const [profile, rating, board, preds, settled] = await Promise.all([
-        sb.from('profiles').select('handle, league_order, favorite_team_id, onboarded_at')
+        sb.from('profiles').select('handle, league_order, favorite_team_ids, onboarded_at')
           .eq('id', userId).single(),
         sb.from('ratings').select('rating, lifetime_points, balance, streak, settled_matches')
           .eq('user_id', userId).order('season', { ascending: false }).limit(1).single(),
@@ -120,7 +121,7 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
       return {
         handle: profile.data.handle,
         leagueOrder: profile.data.league_order,
-        favoriteTeamId: profile.data.favorite_team_id,
+        favoriteTeamIds: profile.data.favorite_team_ids ?? [],
         onboarded: Boolean(profile.data.onboarded_at),
         rating: rating.data.rating,
         lifetimePoints: rating.data.lifetime_points,
@@ -146,14 +147,14 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
       };
     },
 
-    async saveOnboarding(leagueOrder, favoriteTeamId) {
+    async saveOnboarding(leagueOrder, favoriteTeamIds) {
       const userId = await uid();
       if (!userId) throw new Error('NOT_AUTHENTICATED');
       const { error } = await sb
         .from('profiles')
         .update({
           league_order: leagueOrder,
-          favorite_team_id: favoriteTeamId,
+          favorite_team_ids: favoriteTeamIds,
           onboarded_at: new Date().toISOString(),
         })
         .eq('id', userId);

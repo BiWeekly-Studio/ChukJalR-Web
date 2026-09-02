@@ -13,7 +13,7 @@ export interface Catalog {
 export interface MeSnapshot {
   handle: string;
   leagueOrder: number[];
-  favoriteTeamId: number | null;
+  favoriteTeamIds: number[];
   onboarded: boolean;
   rating: number;
   lifetimePoints: number;
@@ -34,7 +34,8 @@ export interface Repository {
   readonly kind: 'mock' | 'supabase';
   loadCatalog(): Promise<Catalog>;
   loadMe(): Promise<MeSnapshot>;
-  saveOnboarding(leagueOrder: number[], favoriteTeamId: number | null): Promise<void>;
+  /** 최애 팀은 최대 5개 */
+  saveOnboarding(leagueOrder: number[], favoriteTeamIds: number[]): Promise<void>;
   upsertPrediction(fixtureId: number, pick: Outcome, confidence: Confidence): Promise<void>;
   loadRanking(): Promise<RankRow[]>;
   /** 순위표에 오른 경우 내 행. 배치 중이면 null */

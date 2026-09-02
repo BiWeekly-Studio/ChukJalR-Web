@@ -32,7 +32,9 @@ export function MatchCard({ fixtureId, onOpen }: { fixtureId: number; onOpen: ()
     AWAY: `${away.name} 승`,
   };
 
-  const favTeam = isFav && state.favoriteTeamId != null ? team(state.favoriteTeamId) : null;
+  // 한 경기에 내 팀이 둘일 수도 있다(더비). 홈 쪽을 먼저 잡는다.
+  const myTeamId = [f.homeTeamId, f.awayTeamId].find((id) => state.favoriteTeamIds.includes(id));
+  const favTeam = myTeamId != null ? team(myTeamId) : null;
 
   function choose(o: Outcome) {
     if (!canPredict) return;

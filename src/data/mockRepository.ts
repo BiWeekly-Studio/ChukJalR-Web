@@ -16,7 +16,7 @@ export const mockRepository: Repository = {
     return {
       handle: '샤라포바',
       leagueOrder: LEAGUES.map((l) => l.id),
-      favoriteTeamId: null,
+      favoriteTeamIds: [],
       onboarded: false,
       rating: 1240,
       lifetimePoints: 2610,
@@ -50,7 +50,7 @@ export const mockRepository: Repository = {
         { confidence: 2, n: 18, expected: 0.71, actual: 0.74 },
         { confidence: 3, n: 14, expected: 0.82, actual: 0.69 },
       ],
-      fanBias: { teamId: 42, n: 12, bias: -12 },
+      fanBias: { teamIds: [42], n: 12, bias: -12 },
       recent: [1, 1, 0, 1, 1, 0, 1, 1, 0, 1].map((c) => ({ correct: c === 1, delta: c ? 18 : -25 })),
     };
   },

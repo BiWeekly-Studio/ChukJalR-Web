@@ -20,7 +20,7 @@ export function Profile() {
   const hasRecord = (stats?.settled ?? 0) > 0;
   const inPlacement = state.settledMatches < PLACEMENT_MATCHES;
   const accuracy = hasRecord ? stats!.hits / stats!.settled : null;
-  const fav = state.favoriteTeamId != null ? team(state.favoriteTeamId) : null;
+  const favTeams = state.favoriteTeamIds.map((id) => team(id));
 
   return (
     <div className="scroll">
@@ -175,11 +175,11 @@ export function Profile() {
           )}
         </Section>
 
-        {fav && (
-          <Section title="팬심 편향" hint={fav.name}>
+        {favTeams.length > 0 && (
+          <Section title="팬심 편향" hint={favTeams.map((t) => t.name).join(' · ')}>
             {!stats?.fanBias || stats.fanBias.n < MIN_FAN_BIAS_N ? (
               <Pending
-                text={`${fav.name} 경기가 ${MIN_FAN_BIAS_N}건 쌓이면, 팬심이 예측을 흐리는지 알려드려요.`}
+                text={`내 팀 경기가 ${MIN_FAN_BIAS_N}건 쌓이면, 팬심이 예측을 흐리는지 알려드려요.`}
               />
             ) : (
               <div
@@ -197,8 +197,8 @@ export function Profile() {
                 </div>
                 <p className="small muted" style={{ margin: '8px 0 0' }}>
                   {stats.fanBias.bias < 0
-                    ? `${fav.name} 경기에서 평균 ${Math.abs(stats.fanBias.bias)}점을 손해 보고 있어요. 다른 경기에서는 잘 보시는데요.`
-                    : `내 팀 경기에서 오히려 더 잘 맞히는 드문 유형이에요.`}
+                    ? `내 팀 경기에서 평균 ${Math.abs(stats.fanBias.bias)}점을 손해 보고 있어요. 다른 경기에서는 잘 보시는데요.`
+                    : '내 팀 경기에서 오히려 더 잘 맞히는 드문 유형이에요.'}
                 </p>
               </div>
             )}

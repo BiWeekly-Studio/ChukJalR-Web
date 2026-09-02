@@ -10,9 +10,13 @@ export interface League {
 export interface Team {
   id: number;
   leagueId: number;
+  /** 화면에 쓰는 이름. 한글명이 있으면 그것 */
   name: string;
+  /** API 원본 영문명. 검색에서만 쓴다 */
+  nameEn?: string;
   abbr: string;
-  /** 엠블럼 라이선스 확인 전까지 팀 컬러 + 약어 모노그램을 쓴다. (명세 12.1) */
+  /** API-Football 이 주는 엠블럼. 없거나 로딩에 실패하면 모노그램으로 떨어진다 */
+  logoUrl?: string | null;
   color: string;
   tint: string;
 }
@@ -100,6 +104,6 @@ export interface MyStats {
   byLeague: { leagueId: number; n: number; accuracy: number }[];
   /** expected = 내가 건 평균 확률, actual = 실제 적중률 */
   calibration: { confidence: 1 | 2 | 3; n: number; expected: number; actual: number }[];
-  fanBias: { teamId: number; n: number; bias: number } | null;
+  fanBias: { teamIds: number[]; n: number; bias: number } | null;
   recent: { correct: boolean; delta: number }[];
 }
