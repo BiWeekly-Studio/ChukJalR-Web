@@ -1,0 +1,1385 @@
+<title>축잘알 기술 명세</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@700;800;900&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #F1F2F4;
+    --surface: #FFFFFF;
+    --surface-2: #F7F8F9;
+    --ink: #15171C;
+    --ink-2: #545A66;
+    --ink-3: #878E9B;
+    --line: #E0E3E8;
+    --line-strong: #C9CFD8;
+    --accent: #C9552F;
+    --accent-soft: #FBEDE7;
+    --gold: #A8760C;
+    --gold-soft: #FAF2DF;
+    --gain: #1B7A4C;
+    --gain-soft: #E7F3EC;
+    --loss: #BE3B2B;
+    --loss-soft: #FBEAE7;
+    --shadow: 0 1px 0 0 var(--line), 0 8px 24px -18px rgba(21,23,28,0.5);
+
+    --kr: 'IBM Plex Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    --display: 'Gothic A1', 'Apple SD Gothic Neo', sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0E1014;
+      --surface: #171A20;
+      --surface-2: #1C2027;
+      --ink: #E7EAEF;
+      --ink-2: #A0A7B3;
+      --ink-3: #6E7683;
+      --line: #272C35;
+      --line-strong: #39404B;
+      --accent: #E8794F;
+      --accent-soft: #2C1D17;
+      --gold: #D2A03C;
+      --gold-soft: #26200F;
+      --gain: #4BBE85;
+      --gain-soft: #12281D;
+      --loss: #E8705F;
+      --loss-soft: #2A1714;
+      --shadow: 0 1px 0 0 var(--line), 0 8px 24px -18px rgba(0,0,0,0.9);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E1014;
+    --surface: #171A20;
+    --surface-2: #1C2027;
+    --ink: #E7EAEF;
+    --ink-2: #A0A7B3;
+    --ink-3: #6E7683;
+    --line: #272C35;
+    --line-strong: #39404B;
+    --accent: #E8794F;
+    --accent-soft: #2C1D17;
+    --gold: #D2A03C;
+    --gold-soft: #26200F;
+    --gain: #4BBE85;
+    --gain-soft: #12281D;
+    --loss: #E8705F;
+    --loss-soft: #2A1714;
+    --shadow: 0 1px 0 0 var(--line), 0 8px 24px -18px rgba(0,0,0,0.9);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--kr);
+    font-size: 15px;
+    line-height: 1.7;
+    padding: 0 20px 120px;
+  }
+  ::selection { background: var(--accent-soft); }
+  a { color: var(--accent); text-underline-offset: 3px; }
+  a:hover { text-decoration-thickness: 2px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+  .wrap { max-width: 800px; margin: 0 auto; }
+  .wide { max-width: 1060px; margin-left: auto; margin-right: auto; }
+
+  /* ---------- masthead ---------- */
+  .mast { max-width: 1060px; margin: 0 auto; padding: 68px 0 0; }
+  .mast-eyebrow {
+    font-family: var(--mono); font-size: 11px; font-weight: 500;
+    letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-3);
+  }
+  .mast h1 {
+    font-family: var(--display); font-weight: 900; font-size: clamp(34px, 6vw, 52px);
+    letter-spacing: -0.04em; line-height: 1.02; margin: 14px 0 0; text-wrap: balance;
+  }
+  .mast .lede {
+    max-width: 620px; margin: 18px 0 0; font-size: 16px; color: var(--ink-2); text-wrap: pretty;
+  }
+  .meta-row {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 26px;
+    padding-bottom: 30px; border-bottom: 1px solid var(--line);
+  }
+  .tag {
+    font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.04em;
+    padding: 5px 10px; border-radius: 5px; background: var(--surface);
+    border: 1px solid var(--line); color: var(--ink-2);
+  }
+  .tag.on { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+
+  /* ---------- toc ---------- */
+  .toc { display: none; }
+  @media (min-width: 1300px) {
+    .toc {
+      display: block; position: fixed; left: 28px; top: 50%; transform: translateY(-50%);
+      width: 178px; font-size: 12px; line-height: 1.5;
+    }
+    .toc ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+    .toc a { color: var(--ink-3); text-decoration: none; display: flex; gap: 8px; }
+    .toc a:hover { color: var(--ink); }
+    .toc a.active { color: var(--accent); font-weight: 600; }
+    .toc .n { font-family: var(--mono); font-size: 10px; padding-top: 2px; opacity: 0.75; }
+  }
+
+  /* ---------- sections ---------- */
+  section { padding-top: 62px; scroll-margin-top: 24px; }
+  .sec-head { display: flex; align-items: baseline; gap: 13px; margin-bottom: 8px; }
+  .sec-num {
+    font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--accent);
+    letter-spacing: 0.06em; padding-top: 4px;
+  }
+  h2 {
+    font-family: var(--display); font-weight: 900; font-size: 27px; letter-spacing: -0.035em;
+    margin: 0; line-height: 1.2; text-wrap: balance;
+  }
+  h3 {
+    font-family: var(--display); font-weight: 800; font-size: 17px; letter-spacing: -0.02em;
+    margin: 38px 0 10px; line-height: 1.35;
+  }
+  h4 {
+    font-family: var(--kr); font-weight: 600; font-size: 14px; margin: 24px 0 8px; color: var(--ink);
+  }
+  p { margin: 0 0 14px; text-wrap: pretty; }
+  .sub { color: var(--ink-2); }
+  .small { font-size: 13px; }
+  strong { font-weight: 600; }
+  code {
+    font-family: var(--mono); font-size: 0.88em; background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px;
+  }
+  ul, ol { margin: 0 0 14px; padding-left: 20px; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--ink-3); }
+  hr { border: none; border-top: 1px solid var(--line); margin: 40px 0; }
+
+  /* ---------- blocks ---------- */
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 20px 22px; box-shadow: var(--shadow);
+  }
+  .formula {
+    background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px;
+    padding: 22px; margin: 20px 0; text-align: center; overflow-x: auto;
+  }
+  .formula .eq {
+    font-family: var(--mono); font-size: 16px; font-weight: 500; white-space: nowrap;
+    display: inline-block; letter-spacing: -0.01em;
+  }
+  .formula .eq em { font-style: normal; color: var(--accent); }
+  .formula .cap { font-size: 12px; color: var(--ink-3); margin-top: 12px; }
+
+  .decision {
+    border-left: 3px solid var(--accent); background: var(--accent-soft);
+    border-radius: 0 10px 10px 0; padding: 14px 18px; margin: 18px 0;
+  }
+  .decision .lbl {
+    font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 5px;
+  }
+  .decision p:last-child { margin-bottom: 0; }
+
+  .note {
+    border: 1px dashed var(--line-strong); border-radius: 10px; padding: 13px 16px;
+    margin: 18px 0; font-size: 13.5px; color: var(--ink-2);
+  }
+  .note p:last-child { margin-bottom: 0; }
+  .note b { color: var(--ink); font-weight: 600; }
+
+  pre {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 15px 17px; overflow-x: auto; margin: 16px 0;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.65; color: var(--ink-2);
+  }
+  pre b { color: var(--ink); font-weight: 600; }
+  pre .c { color: var(--ink-3); }
+  pre .k { color: var(--accent); }
+
+  .scroller { overflow-x: auto; margin: 18px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; min-width: 480px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  th {
+    font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-3); border-bottom: 1px solid var(--line-strong);
+    white-space: nowrap;
+  }
+  td.num, th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: none; }
+  .pos { color: var(--gain); font-weight: 600; }
+  .neg { color: var(--loss); font-weight: 600; }
+  .dim { color: var(--ink-3); }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono);
+    font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; padding: 2px 7px;
+    border-radius: 999px; white-space: nowrap;
+  }
+  .chip.b { background: var(--gold-soft); color: var(--gold); }
+  .chip.s { background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line); }
+  .chip.g { background: var(--accent-soft); color: var(--accent); }
+  .chip.m { background: var(--surface-2); color: var(--ink-3); border: 1px solid var(--line); }
+
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 18px 0; }
+  .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 18px 0; }
+
+  .principle { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 17px 18px; }
+  .principle .n { font-family: var(--mono); font-size: 11px; color: var(--accent); font-weight: 600; }
+  .principle h4 { margin: 7px 0 6px; font-family: var(--display); font-weight: 800; font-size: 15px; letter-spacing: -0.02em; }
+  .principle p { margin: 0; font-size: 13px; color: var(--ink-2); line-height: 1.6; }
+
+  .badge-group { margin-bottom: 26px; }
+  .badge-group > h4 {
+    font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px;
+    padding-bottom: 7px; border-bottom: 1px solid var(--line);
+  }
+  .badge {
+    display: grid; grid-template-columns: 1fr auto; gap: 4px 12px;
+    padding: 10px 0; border-bottom: 1px solid var(--line);
+  }
+  .badge:last-child { border-bottom: none; }
+  .badge .nm { font-weight: 600; font-size: 14px; }
+  .badge .cond { grid-column: 1 / -1; font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); line-height: 1.5; }
+
+  .ep { display: flex; align-items: baseline; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .ep:last-child { border-bottom: none; }
+  .m {
+    font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
+    padding: 2px 6px; border-radius: 4px; min-width: 46px; text-align: center;
+  }
+  .m.get { background: var(--gain-soft); color: var(--gain); }
+  .m.post { background: var(--accent-soft); color: var(--accent); }
+  .m.put { background: var(--gold-soft); color: var(--gold); }
+  .m.ws { background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line); }
+  .ep .path { font-family: var(--mono); font-size: 12.5px; font-weight: 500; }
+  .ep .desc { font-size: 12.5px; color: var(--ink-3); margin-left: auto; }
+
+  /* ---------- calculator ---------- */
+  .calc {
+    background: var(--surface); border: 1px solid var(--line-strong); border-radius: 14px;
+    padding: 22px; margin: 22px 0; box-shadow: var(--shadow);
+  }
+  .calc-title {
+    font-family: var(--display); font-weight: 800; font-size: 15px; margin: 0 0 4px;
+  }
+  .calc-sub { font-size: 12.5px; color: var(--ink-3); margin: 0 0 20px; }
+  .calc-row { margin-bottom: 18px; }
+  .calc-lbl {
+    font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-3); display: block; margin-bottom: 9px;
+  }
+  .segbar { display: flex; gap: 3px; height: 12px; border-radius: 999px; overflow: hidden; margin-bottom: 10px; }
+  .segbar div { transition: flex-grow 0.25s ease; }
+  .sliders { display: flex; flex-direction: column; gap: 10px; }
+  .slider-row { display: grid; grid-template-columns: 62px 1fr 48px; align-items: center; gap: 10px; font-size: 12.5px; }
+  .slider-row .v { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; color: var(--ink-2); font-size: 12.5px; }
+  input[type=range] { width: 100%; accent-color: var(--accent); height: 20px; }
+  .btnset { display: flex; gap: 7px; flex-wrap: wrap; }
+  .btn {
+    flex: 1; min-width: 84px; padding: 10px 12px; border-radius: 9px; cursor: pointer;
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2);
+    font-family: var(--kr); font-size: 13px; font-weight: 500; text-align: center;
+    transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+  }
+  .btn:hover { border-color: var(--line-strong); }
+  .btn[aria-pressed="true"] {
+    background: var(--accent); border-color: var(--accent); color: #FFF; font-weight: 700;
+  }
+  .btn .sm { display: block; font-family: var(--mono); font-size: 10.5px; opacity: 0.75; font-weight: 500; margin-top: 2px; }
+  .calc-out {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px;
+    margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line);
+  }
+  .out-cell { background: var(--surface-2); border-radius: 10px; padding: 13px 14px; }
+  .out-cell .k {
+    font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-3); display: block; margin-bottom: 6px;
+  }
+  .out-cell .v {
+    font-family: var(--display); font-weight: 900; font-size: 26px; line-height: 1;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+  }
+  .out-cell .u { font-size: 12px; color: var(--ink-3); margin-top: 5px; font-family: var(--kr); }
+  .verdict {
+    margin-top: 14px; padding: 12px 15px; border-radius: 10px; background: var(--accent-soft);
+    font-size: 13px; color: var(--accent); line-height: 1.6;
+  }
+  .verdict b { font-weight: 700; }
+
+  footer {
+    max-width: 1060px; margin: 90px auto 0; padding-top: 26px;
+    border-top: 1px solid var(--line); font-size: 12.5px; color: var(--ink-3);
+    display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  }
+</style>
+
+<nav class="toc" aria-label="목차">
+  <ol id="tocList">
+    <li><a href="#s1"><span class="n">01</span><span>제품 원칙</span></a></li>
+    <li><a href="#s2"><span class="n">02</span><span>점수 시스템</span></a></li>
+    <li><a href="#s3"><span class="n">03</span><span>지수·레벨·티어</span></a></li>
+    <li><a href="#s4"><span class="n">04</span><span>포인트 경제</span></a></li>
+    <li><a href="#s5"><span class="n">05</span><span>최애 팀과 리그</span></a></li>
+    <li><a href="#s6"><span class="n">06</span><span>뱃지</span></a></li>
+    <li><a href="#s7"><span class="n">07</span><span>데이터 모델</span></a></li>
+    <li><a href="#s8"><span class="n">08</span><span>API</span></a></li>
+    <li><a href="#s9"><span class="n">09</span><span>정산 파이프라인</span></a></li>
+    <li><a href="#s10"><span class="n">10</span><span>실시간 채팅</span></a></li>
+    <li><a href="#s11"><span class="n">11</span><span>클라이언트</span></a></li>
+    <li><a href="#s12"><span class="n">12</span><span>운영과 어뷰징</span></a></li>
+    <li><a href="#s13"><span class="n">13</span><span>앱인토스 제약</span></a></li>
+    <li><a href="#s14"><span class="n">14</span><span>백엔드 아키텍처</span></a></li>
+    <li><a href="#s15"><span class="n">15</span><span>마일스톤</span></a></li>
+  </ol>
+</nav>
+
+<header class="mast">
+  <div class="mast-eyebrow">기술 명세 · v0.1 · 2026.09</div>
+  <h1>축잘알 기술 명세</h1>
+  <p class="lede">유럽 4대 리그 승부 예측 게임. 이 문서는 웹(JS)·Android·iOS 세 클라이언트와 공용 백엔드가 공유하는 규칙을 정의한다. 핵심은 2장의 점수 공식이며, 나머지는 그것을 실어 나르는 구조다.</p>
+  <div class="meta-row">
+    <span class="tag on">웹 · React</span>
+    <span class="tag on">Android · Compose</span>
+    <span class="tag on">iOS · SwiftUI</span>
+    <span class="tag">EPL · 라리가 · 분데스리가 · 세리에A</span>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section id="s1">
+  <div class="sec-head"><span class="sec-num">01</span><h2>제품 원칙</h2></div>
+  <p class="sub">모든 설계 판단은 이 네 가지로 되돌아가서 검증한다.</p>
+  <div class="grid2">
+    <div class="principle">
+      <span class="n">01</span>
+      <h4>맞췄나가 아니라, 얼마나 알았나</h4>
+      <p>쉬운 경기를 맞히는 것과 어려운 경기를 맞히는 것은 같은 값일 수 없다. 점수는 적중 여부가 아니라 <b>기준선 대비 정보 이득</b>으로 잰다.</p>
+    </div>
+    <div class="principle">
+      <span class="n">02</span>
+      <h4>확신에는 대가가 따른다</h4>
+      <p>확신도를 올리면 맞았을 때 크게 얻지만 틀렸을 때 크게 잃는다. 모두가 최고 확신을 누르는 순간 확신은 정보가 아니게 된다.</p>
+    </div>
+    <div class="principle">
+      <span class="n">03</span>
+      <h4>실력과 성실함을 분리한다</h4>
+      <p>축잘알 지수는 오르내리는 실력 지표(상위 %의 근거), 포인트는 절대 줄지 않는 활동 지표(레벨의 근거). 못 맞혀도 레벨은 오른다.</p>
+    </div>
+    <div class="principle">
+      <span class="n">04</span>
+      <h4>도박이 아니다</h4>
+      <p>배당률, 금전 보상, 마감 초읽기 연출을 쓰지 않는다. 우리가 파는 감정은 &lsquo;딴다&rsquo;가 아니라 <b>&lsquo;내가 봤지?&rsquo;</b>다.</p>
+    </div>
+  </div>
+</section>
+
+<section id="s2">
+  <div class="sec-head"><span class="sec-num">02</span><h2>점수 시스템</h2></div>
+  <p>이 게임의 전부다. 목표는 하나 — <strong>어려운 경기를 확신을 갖고 맞히는 사람이 압도적으로 높은 점수를 받고, 그 확신을 함부로 쓰면 손해를 보게 만든다.</strong></p>
+
+  <h3>2.1 예측 입력</h3>
+  <p>유저는 두 가지를 고른다. 승부 예측 하나와 확신도 하나.</p>
+  <div class="scroller">
+    <table>
+      <thead><tr><th>입력</th><th>값</th><th>UI 표현</th></tr></thead>
+      <tbody>
+        <tr><td><code>pick</code></td><td class="dim"><code>HOME</code> / <code>DRAW</code> / <code>AWAY</code></td><td>보기 3개 중 하나</td></tr>
+        <tr><td><code>confidence</code></td><td class="dim"><code>1</code> / <code>2</code> / <code>3</code></td><td>감이 와요 / 꽤 확신해요 / 이건 확실해요</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h4>예측 창 — 경기 당일에만 연다</h4>
+  <p>예측은 <b>매치데이가 열린 경기</b>에만 가능하다. 마감은 킥오프 5분 전이고, 그 사이에는 몇 번이든 수정할 수 있다. 마감 판정은 항상 서버 시각 기준이다.</p>
+  <div class="decision">
+    <span class="lbl">결정</span>
+    <p><b>매치데이는 자정이 아니라 KST 06:00에 시작한다.</b> 유럽 경기는 한국 시간 새벽에 열린다. 자정으로 하루를 자르면 토요일 밤에 &lsquo;일요일 새벽 4시 경기&rsquo;를 예측할 수 없고, 예측 창이 새벽 0시~4시의 네 시간으로 쪼그라든다. 06:00 경계로 자르면 토요일 아침부터 일요일 새벽 경기까지 <b>한 매치데이 22시간</b>이 이어져 한국 축구팬의 체감과 맞는다. 서버에서는 <code>fixtures.opens_at</code>에 저장하고 RLS가 이 창을 강제한다.</p>
+  </div>
+
+  <h3>2.2 기준선 <span style="font-family:var(--mono);font-weight:600">q</span> — 이 경기가 얼마나 어려운가</h3>
+  <p>경기마다 세 결과에 대한 기준 확률 <code>q = [q_home, q_draw, q_away]</code>를 만든다. 이것이 <b>난이도의 정의</b>다. <code>q</code>가 낮은 결과를 맞히면 점수가 크다.</p>
+  <div class="formula">
+    <span class="eq">q = <em>w</em> · q<sub>model</sub> + (1 − <em>w</em>) · q<sub>crowd</sub>,&nbsp;&nbsp; <em>w</em> = 30 / (30 + N)</span>
+    <div class="cap">N = 마감 시점 예측 참여자 수. 참여가 적으면 모델을, 많아지면 집단지성을 신뢰한다.</div>
+  </div>
+  <ul>
+    <li><code>q_model</code> — 팀 Elo, 최근 5경기 폼, 홈 어드밴티지, 리그별 무승부 기저율로 산출. 초기에는 데이터 제공사의 암시 확률을 그대로 써도 된다.</li>
+    <li><code>q_crowd</code> — 마감 시점 유저 예측 분포에 라플라스 스무딩: <code>(n_i + 1) / (N + 3)</code>. 본인 예측은 제외(leave-one-out)해서 자기 점수를 자기가 흔들지 못하게 한다.</li>
+    <li>최종 <code>q</code>는 <code>[0.03, 0.94]</code>로 클램프 후 합이 1이 되도록 정규화한다.</li>
+  </ul>
+  <div class="decision">
+    <span class="lbl">결정</span>
+    <p><b>q는 마감 시각에 동결(freeze)되어 <code>fixture_baselines</code>에 저장된다.</b> 늦게 예측한 사람이 분포를 보고 유리해지는 것을 막고, 정산을 결정론적·재현 가능하게 만들기 위해서다. 정산 로직은 순수 함수여야 한다.</p>
+  </div>
+
+  <h3>2.3 확신도를 확률로 번역하기</h3>
+  <p>확신도는 절대 확률이 아니라 <b>&ldquo;기준선에서 내 픽 쪽으로 얼마나 이동하는가&rdquo;</b>로 해석한다.</p>
+  <div class="formula">
+    <span class="eq">p<sub>pick</sub> = q<sub>pick</sub> + <em>c</em> · (1 − q<sub>pick</sub>),&nbsp;&nbsp; <em>c</em> ∈ { 0.15, 0.35, 0.60 }</span>
+    <div class="cap">나머지 확률 질량 (1 − p<sub>pick</sub>)은 다른 두 결과에 q 비율대로 분배한다.</div>
+  </div>
+  <div class="note">
+    <p><b>왜 절대 확률이 아닌 상대 이동인가.</b> 확신도를 고정 확률(예: 확신1 = 40%)로 두면, 다수 의견을 낮은 확신으로 골랐을 때 맞히고도 점수가 깎이는 상황이 생긴다. 유저 입장에서 납득 불가능한 경험이다. 상대 이동 방식은 <b>맞히면 항상 이득, 틀리면 항상 손해</b>를 보장한다.</p>
+  </div>
+
+  <h3>2.4 지수 변동 — 로그 스코어</h3>
+  <p>실제 결과가 나오면, 그 결과에 유저가 부여했던 확률을 기준선과 비교한다.</p>
+  <div class="formula">
+    <span class="eq">Δ지수 = round( <em>K</em> · log₂( p(실제결과) / q(실제결과) ) ),&nbsp;&nbsp; <em>K</em> = 40</span>
+    <div class="cap">clamp [−60, +90] 적용. 단위는 비트(bit) — 기준선 대비 이 경기에 대해 당신이 더 알고 있던 정보량.</div>
+  </div>
+  <p>예측 대회(Good Judgment Project, Metaculus)가 쓰는 <strong>적정 채점 규칙(proper scoring rule)</strong>이다. 성질이 하나 있는데, 이게 이 게임의 핵심 안전장치다 — <b>자기 확신을 정직하게 말하는 것이 기대 점수를 최대화한다.</b> 부풀리면 손해다. (검증은 2.6)</p>
+
+  <h3>2.5 실제 숫자로 보기</h3>
+  <p class="small sub">기준선이 <b>홈 62% / 무 21% / 원정 17%</b>인 경기 (아스날 vs 맨시티 같은 상황).</p>
+  <div class="scroller">
+    <table>
+      <thead>
+        <tr><th>내 픽</th><th class="num">확신</th><th class="num">p(픽)</th><th class="num">맞으면</th><th class="num">틀리면</th><th>해석</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>홈 승 <span class="chip m">다수</span></td><td class="num">1</td><td class="num dim">.677</td><td class="num pos">+5</td><td class="num neg">−9</td><td class="small dim">거의 무의미한 예측</td></tr>
+        <tr><td>홈 승 <span class="chip m">다수</span></td><td class="num">2</td><td class="num dim">.753</td><td class="num pos">+11</td><td class="num neg">−25</td><td class="small dim">무난</td></tr>
+        <tr><td>홈 승 <span class="chip m">다수</span></td><td class="num">3</td><td class="num dim">.848</td><td class="num pos">+18</td><td class="num neg">−53</td><td class="small dim">위험 대비 보상 나쁨</td></tr>
+        <tr><td>무승부</td><td class="num">3</td><td class="num dim">.684</td><td class="num pos">+68</td><td class="num neg">−53</td><td class="small dim">무승부는 늘 고배당</td></tr>
+        <tr><td>원정 승 <span class="chip g">소수</span></td><td class="num">1</td><td class="num dim">.294</td><td class="num pos">+32</td><td class="num neg">−9</td><td class="small dim">싸게 거는 역발상</td></tr>
+        <tr><td>원정 승 <span class="chip g">소수</span></td><td class="num">2</td><td class="num dim">.461</td><td class="num pos">+58</td><td class="num neg">−25</td><td class="small dim">—</td></tr>
+        <tr><td><b>원정 승</b> <span class="chip g">소수</span></td><td class="num"><b>3</b></td><td class="num dim">.668</td><td class="num pos"><b>+79</b></td><td class="num neg">−53</td><td class="small"><b>진짜 축잘알의 자리</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>표 하나가 이 게임의 설계를 다 설명한다. <strong>다수 의견에 최고 확신을 걸면 +18, 소수 의견에 최고 확신을 걸어 맞히면 +79.</strong> 네 배가 넘는다. 그런데 둘 다 틀렸을 때의 손해는 −53으로 똑같다. 안전하게 가는 사람은 지수가 거의 오르지 않고, 볼 줄 아는 사람만 치고 올라간다.</p>
+  <div class="note">
+    <p><b>틀렸을 때의 손해가 확신도에만 의존하는 이유.</b> 남은 확률 질량을 q 비율대로 나눴기 때문에 <code>p_wrong / q_wrong</code>이 어떤 오답이든 동일해진다. 결과적으로 <b>틀리면 확신도에 따라 −9 / −25 / −53</b>로 딱 떨어진다. 유저에게 설명하기 쉽고, 예측 화면에서 미리 보여줄 수 있다.</p>
+  </div>
+
+  <h3>2.6 확신을 부풀리면 손해인가 — 검증</h3>
+  <p class="small sub">유저가 속으로 믿는 확률별로, 어느 확신도가 기대 점수를 최대화하는지 계산한 결과다.</p>
+  <div class="scroller">
+    <table>
+      <thead><tr><th>속으로 믿는 홈 승 확률</th><th class="num">확신1 기대값</th><th class="num">확신2 기대값</th><th class="num">확신3 기대값</th><th>최적</th></tr></thead>
+      <tbody>
+        <tr><td>62% <span class="dim small">(기준선과 동일)</span></td><td class="num">−0.4</td><td class="num">−2.5</td><td class="num">−8.9</td><td><span class="chip s">확신1</span></td></tr>
+        <tr><td>70%</td><td class="num pos">+0.7</td><td class="num">+0.4</td><td class="num">−3.2</td><td><span class="chip s">확신1</span></td></tr>
+        <tr><td>78%</td><td class="num">+1.9</td><td class="num pos">+3.3</td><td class="num">+2.5</td><td><span class="chip s">확신2</span></td></tr>
+        <tr><td>85%</td><td class="num">+2.9</td><td class="num">+5.8</td><td class="num pos">+7.4</td><td><span class="chip g">확신3</span></td></tr>
+        <tr><td>92%</td><td class="num">+3.9</td><td class="num">+8.3</td><td class="num pos">+12.4</td><td><span class="chip g">확신3</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>확신3은 <strong>속으로 80% 이상 확신할 때만</strong> 이득이다. 그 아래에서 남발하면 기대값이 마이너스로 떨어진다. 별도의 페널티 규칙 없이 공식 자체가 정직함을 강제한다. 이 점을 확신도 선택 UI에 한 줄로 노출한다 — &ldquo;확신은 아껴 쓰세요&rdquo;.</p>
+
+  <h3>2.7 직접 만져보기</h3>
+  <div class="calc wide">
+    <p class="calc-title">점수 계산기</p>
+    <p class="calc-sub">기준선과 예측을 바꿔가며 실제 지수 변동을 확인한다. 아래 로직은 서버 정산 코드와 동일하다.</p>
+
+    <div class="calc-row">
+      <span class="calc-lbl">기준선 q — 이 경기의 난이도</span>
+      <div class="segbar" id="segbar">
+        <div id="segH" style="flex:62;background:var(--accent)"></div>
+        <div id="segD" style="flex:21;background:var(--line-strong)"></div>
+        <div id="segA" style="flex:17;background:var(--ink-3)"></div>
+      </div>
+      <div class="sliders">
+        <div class="slider-row">
+          <label for="qh">홈 승</label>
+          <input type="range" id="qh" min="5" max="88" value="62">
+          <span class="v" id="qhv">62%</span>
+        </div>
+        <div class="slider-row">
+          <label for="qd">무승부</label>
+          <input type="range" id="qd" min="5" max="40" value="21">
+          <span class="v" id="qdv">21%</span>
+        </div>
+        <div class="slider-row">
+          <span class="dim">원정 승</span>
+          <div style="height:3px;border-radius:2px;background:var(--line)"></div>
+          <span class="v" id="qav">17%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="calc-row">
+      <span class="calc-lbl">내 예측</span>
+      <div class="btnset" id="pickSet">
+        <button class="btn" data-pick="0" aria-pressed="false" type="button">홈 승</button>
+        <button class="btn" data-pick="1" aria-pressed="false" type="button">무승부</button>
+        <button class="btn" data-pick="2" aria-pressed="true" type="button">원정 승</button>
+      </div>
+    </div>
+
+    <div class="calc-row">
+      <span class="calc-lbl">확신도</span>
+      <div class="btnset" id="confSet">
+        <button class="btn" data-conf="1" aria-pressed="false" type="button">감이 와요<span class="sm">c = 0.15</span></button>
+        <button class="btn" data-conf="2" aria-pressed="false" type="button">꽤 확신해요<span class="sm">c = 0.35</span></button>
+        <button class="btn" data-conf="3" aria-pressed="true" type="button">이건 확실해요<span class="sm">c = 0.60</span></button>
+      </div>
+    </div>
+
+    <div class="calc-out">
+      <div class="out-cell">
+        <span class="k">내 확률 p(픽)</span>
+        <div class="v" id="outP">.668</div>
+        <div class="u">기준선 <span id="outQ">17%</span>에서 이동</div>
+      </div>
+      <div class="out-cell">
+        <span class="k">맞으면 지수</span>
+        <div class="v" style="color:var(--gain)" id="outWin">+79</div>
+        <div class="u">포인트 <span id="outPts">+82</span> 적립</div>
+      </div>
+      <div class="out-cell">
+        <span class="k">틀리면 지수</span>
+        <div class="v" style="color:var(--loss)" id="outLose">−53</div>
+        <div class="u">포인트는 <span id="outLosePts">+3</span> (참여)</div>
+      </div>
+    </div>
+    <p class="verdict" id="verdict"></p>
+  </div>
+
+  <h3>2.8 포인트 — 절대 줄지 않는 쪽</h3>
+  <div class="formula">
+    <span class="eq">포인트 = max(0, Δ지수) + 3 + min(연속적중, 10) × 2</span>
+    <div class="cap">참여 보너스 3점은 틀려도 지급한다. 포인트는 레벨의 근거이므로 하락하지 않는다.</div>
+  </div>
+  <p>지수는 실력을 재기 위해 떨어져야 하고, 레벨은 계속 놀게 만들기 위해 떨어지면 안 된다. 두 개를 분리한 이유가 이것이다.</p>
+</section>
+
+<section id="s3">
+  <div class="sec-head"><span class="sec-num">03</span><h2>지수 · 레벨 · 티어</h2></div>
+  <p>세 지표가 각각 다른 질문에 답한다. 목업의 <code>Lv.12 마스터 · 상위 3.1%</code>는 이 셋을 한 줄에 표시한 것이다.</p>
+  <div class="scroller">
+    <table>
+      <thead><tr><th>지표</th><th>답하는 질문</th><th>근거</th><th>하락</th><th>범위</th></tr></thead>
+      <tbody>
+        <tr><td><b>축잘알 지수</b></td><td>얼마나 잘 보는가</td><td>Δ지수 누적</td><td class="pos">있음</td><td>시즌</td></tr>
+        <tr><td><b>레벨</b></td><td>얼마나 오래 했는가</td><td>포인트 누적</td><td class="dim">없음</td><td>영구</td></tr>
+        <tr><td><b>티어</b></td><td>남들 사이에서 어디쯤인가</td><td>지수 백분위</td><td class="pos">있음</td><td>시즌</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>3.1 지수</h3>
+  <ul>
+    <li>시즌 시작값 <code>1000</code>. 경기마다 Δ지수를 더한다.</li>
+    <li>상위 %는 <b>같은 시즌에 20경기 이상 예측한 유저</b> 안에서의 백분위. 표본이 적은 유저가 상위권을 오염시키는 것을 막는다.</li>
+    <li>시즌 종료 시 <code>1000 + (지수 − 1000) × 0.6</code>으로 소프트 리셋. 상위권을 완전히 밀지 않으면서 신규 유저에게 기회를 준다.</li>
+  </ul>
+
+  <h3>3.2 레벨</h3>
+  <div class="formula">
+    <span class="eq">다음 레벨까지 필요 포인트 = 100 + 25 × (L − 1)</span>
+    <div class="cap">Lv.12 도달 = 누적 2,475 포인트. 하루 3경기 예측 기준 약 45일 — 한 시즌의 호흡.</div>
+  </div>
+
+  <h3>3.3 티어</h3>
+  <p>절대값이 아니라 백분위로 나눈다. 유저 수가 늘어도 자동으로 균형이 맞고, &ldquo;상위 몇 %&rdquo;라는 이 게임의 정체성과 직결된다. 매일 04:00 KST 재계산.</p>
+  <div class="scroller">
+    <table>
+      <thead><tr><th>티어</th><th class="num">구간</th><th>UI</th></tr></thead>
+      <tbody>
+        <tr><td>그랜드마스터</td><td class="num">상위 1%</td><td class="small dim">방패 엠블럼 + 금색</td></tr>
+        <tr><td>마스터</td><td class="num">상위 5%</td><td class="small dim">방패 엠블럼</td></tr>
+        <tr><td>다이아몬드</td><td class="num">상위 15%</td><td class="small dim">—</td></tr>
+        <tr><td>플래티넘</td><td class="num">상위 30%</td><td class="small dim">—</td></tr>
+        <tr><td>골드</td><td class="num">상위 50%</td><td class="small dim">—</td></tr>
+        <tr><td>실버</td><td class="num">상위 75%</td><td class="small dim">—</td></tr>
+        <tr><td>브론즈</td><td class="num">그 외</td><td class="small dim">—</td></tr>
+        <tr><td class="dim">배치 중</td><td class="num dim">20경기 미만</td><td class="small dim">진행률 <code>n / 20</code> 표시</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="decision">
+    <span class="lbl">결정</span>
+    <p><b>배치(placement) 20경기를 둔다.</b> 신규 유저가 운으로 상위 1%에 뜨는 것을 막고, 초반 20경기 자체가 하나의 목표가 된다. 배치 중에는 랭킹에 노출되지 않고 &ldquo;앞으로 n경기&rdquo;만 보인다.</p>
+  </div>
+</section>
+
+<section id="s4">
+  <div class="sec-head"><span class="sec-num">04</span><h2>포인트 경제</h2></div>
+  <p>포인트는 어디서 나오고 어디로 사라지는가. 이 절이 없으면 포인트는 레벨 옆에 붙은 죽은 숫자가 된다.</p>
+
+  <h3>4.1 포인트는 두 개다</h3>
+  <p>하나의 이름 아래 성격이 다른 두 값을 관리한다. 획득 이벤트가 발생하면 <b>둘 다</b> 증가하고, 상점에서 쓰면 <b>보유만</b> 감소한다.</p>
+  <div class="scroller">
+    <table>
+      <thead><tr><th>값</th><th>쓰임</th><th>감소</th><th>표시 위치</th></tr></thead>
+      <tbody>
+        <tr><td><b>누적 포인트</b> <code>lifetime</code></td><td>레벨 산정</td><td class="dim">절대 없음</td><td class="small">레벨 게이지</td></tr>
+        <tr><td><b>보유 포인트</b> <code>balance</code></td><td>상점 구매</td><td class="pos">있음</td><td class="small">상점 헤더, 내 기록</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="decision">
+    <span class="lbl">결정</span>
+    <p><b>레벨은 누적 포인트로만 계산한다.</b> 상점에서 썼다고 레벨이 내려가면 아무도 사지 않는다. 이 분리를 안 하면 상점을 여는 순간 경제가 무너진다.</p>
+  </div>
+
+  <h3>4.2 수급 — 포인트는 어디서 나오나</h3>
+  <div class="scroller">
+    <table>
+      <thead><tr><th>출처</th><th class="num">지급량</th><th>조건</th><th>빈도</th></tr></thead>
+      <tbody>
+        <tr><td>예측 적중</td><td class="num">0 ~ 90</td><td class="small"><code>max(0, Δ지수)</code></td><td class="small">경기마다</td></tr>
+        <tr><td>참여 보너스</td><td class="num">3</td><td class="small">정산되면 틀려도 지급</td><td class="small">경기마다</td></tr>
+        <tr><td>스트릭 보너스</td><td class="num">0 ~ 20</td><td class="small"><code>min(연속적중, 10) × 2</code></td><td class="small">경기마다</td></tr>
+        <tr><td>데일리 미션</td><td class="num">10 ~ 25</td><td class="small">하루 3개 제시</td><td class="small">매일</td></tr>
+        <tr><td>위클리 미션</td><td class="num">60 ~ 80</td><td class="small">주 2개 제시</td><td class="small">매주</td></tr>
+        <tr><td>온보딩 완료</td><td class="num">300</td><td class="small">리그·최애 팀 선택 완료</td><td class="small">1회</td></tr>
+        <tr><td>친구 초대</td><td class="num">200</td><td class="small"><b>피초대자가 배치 20경기를 마쳤을 때</b></td><td class="small">초대당 1회</td></tr>
+        <tr><td>시즌 마감 보너스</td><td class="num">500 ~ 3,000</td><td class="small">최종 티어별</td><td class="small">시즌당 1회</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small sub">경기 1건당 기대 획득은 약 <b>18포인트</b>다 (적중률 55%, 평균 Δ지수 +20 가정). 미션을 다 챙기는 유저는 여기에 하루 90~110이 더 붙는다.</p>
+
+  <h3>4.3 속도 — 한 시즌에 어디까지 가나</h3>
+  <div class="formula">
+    <span class="eq">레벨 L 도달 누적 포인트 = (L − 1) · (75 + 12.5 · L)</span>
+    <div class="cap">다음 레벨 필요량 <code>100 + 25(L−1)</code>의 누적. 최대 레벨 50.</div>
+  </div>
+  <div class="scroller">
+    <table>
+      <thead><tr><th>유형</th><th>플레이</th><th class="num">일 획득</th><th class="num">시즌(270일) 누적</th><th>도달 레벨</th></tr></thead>
+      <tbody>
+        <tr><td>라이트</td><td class="small">주말에 4경기</td><td class="num">~19</td><td class="num">5,100</td><td>Lv.18</td></tr>
+        <tr><td>미들</td><td class="small">하루 2경기 + 미션</td><td class="num">~50</td><td class="num">13,500</td><td><b>Lv.30</b></td></tr>
+        <tr><td>헤비</td><td class="small">하루 5경기 + 미션</td><td class="num">~100</td><td class="num">27,000</td><td>Lv.44</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small sub">미들 유저가 한 시즌을 꼬박 하면 Lv.30. 최대 레벨 50은 한 시즌으로 닿지 않게 두어 여러 시즌을 관통하는 목표로 남긴다.</p>
+
+  <h3>4.4 미션 설계 원칙</h3>
+  <p>미션은 포인트 공급의 조절 밸브이자, 유저 행동을 유도하는 <b>유일한 레버</b>다. 그만큼 잘못 쓰면 게임의 핵심 데이터를 오염시킨다.</p>
+  <div class="grid2">
+    <div class="card">
+      <p class="small" style="margin:0 0 8px;color:var(--gain);font-weight:600">이런 미션을 만든다</p>
+      <p class="small sub" style="margin:0">서로 다른 두 리그에서 예측하기 · 경기 채팅에 참여하기 · 예측 근거 한 줄 쓰기 · 이번 주 7경기 예측하기<br><br>모두 <b>행동의 다양성</b>을 유도하고 결과 운에 의존하지 않는다.</p>
+    </div>
+    <div class="card">
+      <p class="small" style="margin:0 0 8px;color:var(--loss);font-weight:600">절대 만들지 않는다</p>
+      <p class="small sub" style="margin:0"><b>&ldquo;확신3으로 예측하기&rdquo;</b> — 확신 신호를 직접 오염시킨다<br><b>&ldquo;오늘 경기 전부 예측하기&rdquo;</b> — 생각 없는 예측을 유도해 <code>q_crowd</code>를 망친다<br><b>적중을 요구하는 데일리 미션</b> — 운을 매일 강요한다 (위클리 1개까지만 허용)</p>
+    </div>
+  </div>
+  <div class="decision">
+    <span class="lbl">결정</span>
+    <p><b>미션 보상은 포인트만 준다. 지수에는 어떤 경우에도 영향을 주지 않는다.</b> 지수는 실력 지표이므로 성실함으로 살 수 없어야 한다.</p>
+  </div>
+
+  <h3>4.5 소비 — 상점</h3>
+  <p>포인트를 쓸 곳이 없으면 미션도 스트릭도 동기가 되지 않는다. 상점은 필요하다. 다만 파는 물건에 한 가지 규칙이 있다.</p>
+  <div class="decision">
+    <span class="lbl">원칙</span>
+    <p><b>코스메틱만 판다.</b> 예측 정확도·점수·랭킹에 영향을 주는 상품은 어떤 형태로도 팔지 않는다. 지수가 돈이나 성실함으로 살 수 있게 되는 순간 &ldquo;상위 3.1%&rdquo;라는 이 앱의 유일한 자산이 무의미해진다.</p>
+  </div>
+  <div class="scroller">
+    <table>
+      <thead><tr><th>상품</th><th class="num">가격</th><th>비고</th></tr></thead>
+      <tbody>
+        <tr><td>닉네임 컬러</td><td class="num">300 ~ 800</td><td class="small dim">채팅에도 적용</td></tr>
+        <tr><td>프로필 프레임</td><td class="num">800 ~ 2,500</td><td class="small dim">티어 엠블럼과 조합</td></tr>
+        <tr><td>채팅 말풍선 스킨</td><td class="num">500 ~ 1,500</td><td class="small dim">경기 채팅에서 눈에 띈다</td></tr>
+        <tr><td>뱃지 진열대 슬롯</td><td class="num">1,000</td><td class="small dim">기본 3칸 → 최대 6칸</td></tr>
+        <tr><td>아바타 파츠</td><td class="num">300 ~ 1,200</td><td class="small dim">머리·유니폼·소품</td></tr>
+        <tr><td>리그 테마</td><td class="num">2,000</td><td class="small dim">앱 액센트 색 변경</td></tr>
+        <tr><td>시즌 한정 아이템</td><td class="num">1,500 ~ 5,000</td><td class="small dim">시즌 종료 시 판매 중단, 소유는 영구</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h4>팔지 않는 것</h4>
+  <p class="small sub">예측 변경권 · 마감 연장권 · 전문가 분석 열람 · 지수 하락 방어권 · 확신도 상향권 · 스트릭 복구권. 전부 &ldquo;돈으로 실력을 사는&rdquo; 상품이며 하나라도 열면 나머지를 막을 명분이 사라진다.</p>
+
+  <h3>4.6 인플레이션 관리</h3>
+  <ul>
+    <li><b>포인트는 현금으로 구매할 수 없다.</b> 유일한 공급원은 플레이다. (수익화가 필요해지면 광고 제거·시즌 패스로 풀되, 시즌 패스 보상도 코스메틱으로 제한한다.)</li>
+    <li>시즌이 끝나도 보유 포인트는 <b>전액 이월</b>한다. 대신 매 시즌 새 한정 상품을 내서 잉여를 흡수한다.</li>
+    <li>감시 지표: <code>유저당 보유 포인트 중앙값 ÷ 현재 시즌 상품 총가격</code>. 이 값이 <b>1.5를 넘으면 공급 과잉</b> — 신규 상품을 추가하거나 미션 보상을 낮춘다.</li>
+  </ul>
+  <div class="note">
+    <p><b>조절은 미션 보상값으로만 한다.</b> 공급이 과해도 정산 공식의 <code>K</code>나 <code>c</code>는 건드리지 않는다. 그건 경제 파라미터가 아니라 실력 측정 단위이고, 바꾸는 순간 과거 지수와 비교가 불가능해진다.</p>
+  </div>
+
+  <h3>4.7 원장</h3>
+  <p>포인트의 모든 증감은 원장을 통과한다. 잔액은 원장 합계와 항상 일치해야 하고, 어긋나면 알람을 띄운다.</p>
+  <pre><span class="c">// point_ledger — append only</span>
+{
+  <span class="k">"id"</span>, <span class="k">"userId"</span>,
+  <span class="k">"source"</span>: <span class="k">"settlement" | "streak" | "mission" | "onboarding"
+           | "referral" | "season_bonus" | "purchase"</span>,
+  <span class="k">"amount"</span>: 82,              <span class="c">// 소비는 음수</span>
+  <span class="k">"refType"</span>: <span class="k">"prediction"</span>, <span class="k">"refId"</span>: 1183042,
+  <span class="k">"balanceAfter"</span>: 1322,
+  <span class="k">"idempotencyKey"</span>: <span class="k">"settle:1183042"</span>,
+  <span class="k">"createdAt"</span>
+}</pre>
+  <p class="small sub">구매와 정산 모두 멱등키를 요구한다. 정산 잡 재실행이나 결제 중복 탭으로 포인트가 두 번 들어가는 사고가 이 재화에서 가장 흔한 장애다.</p>
+
+  <h3>4.8 어뷰징</h3>
+  <div class="scroller">
+    <table>
+      <thead><tr><th>수법</th><th>대응</th></tr></thead>
+      <tbody>
+        <tr><td>다계정 초대 파밍</td><td class="small">초대 보상은 피초대자가 <b>배치 20경기</b>를 마쳐야 지급</td></tr>
+        <tr><td>미션 채우기용 막픽</td><td class="small">미션 카운트는 <b>마감 10분 전까지</b> 제출된 예측만 인정</td></tr>
+        <tr><td>채팅 미션 도배</td><td class="small">5자 이상 + 도배 감지 메시지 제외</td></tr>
+        <tr><td>원장 조작·중복 지급</td><td class="small">멱등키 유니크 제약, 잔액-원장 합계 정합성 배치 검증</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="s5">
+  <div class="sec-head"><span class="sec-num">05</span><h2>최애 팀과 리그</h2></div>
+
+  <h3>5.1 가입 흐름</h3>
+  <ol>
+    <li><b>리그 선택</b> — 4개 중 1개 이상. <b>선택한 순서가 곧 탭 순서</b>가 된다.</li>
+    <li><b>최애 팀 1개</b> — 선택한 리그의 팀 목록에서. 건너뛸 수 있지만, 개인화의 대부분이 여기서 나온다.</li>
+    <li><b>관심 팀 최대 5개</b> — 리그 무관.</li>
+    <li><b>알림</b> — 최애 팀 경기 예고, 정산 결과, 랭킹 변동.</li>
+  </ol>
+  <pre><span class="c">// user_preferences</span>
+{
+  <span class="k">"leagueOrder"</span>: [39, 140, 78, 135],   <span class="c">// EPL, 라리가, 분데스, 세리에A</span>
+  <span class="k">"favoriteTeamId"</span>: 42,              <span class="c">// 아스날</span>
+  <span class="k">"followedTeamIds"</span>: [50, 541],
+  <span class="k">"notify"</span>: { <span class="k">"kickoff"</span>: true, <span class="k">"settlement"</span>: true, <span class="k">"rank"</span>: false }
+}</pre>
+
+  <h3>5.2 리그 순서 변경</h3>
+  <p>설정에서 드래그로 정렬하고 서버에 저장한다. 세 클라이언트가 같은 배열을 받아 같은 순서로 탭을 그린다. 선택하지 않은 리그는 배열 뒤쪽에 회색으로 붙어 언제든 켤 수 있다.</p>
+
+  <h3>5.3 내 팀 경기는 다르게 보인다</h3>
+  <div class="scroller">
+    <table>
+      <thead><tr><th>위치</th><th>차이</th></tr></thead>
+      <tbody>
+        <tr><td>홈 피드</td><td>날짜 섹션보다 위에 <b>&ldquo;내 팀 경기&rdquo;</b> 섹션 고정</td></tr>
+        <tr><td>경기 카드</td><td>상단에 팀 컬러 4px 밴드, 엠블럼 확대, <code>내 팀</code> 칩</td></tr>
+        <tr><td>알림</td><td>킥오프 24시간 전 / 2시간 전 (미예측 상태일 때만)</td></tr>
+        <tr><td>경기 채팅</td><td>닉네임 옆에 팀 컬러 점 — 어느 편 팬인지 보인다</td></tr>
+        <tr><td>정산</td><td>결과 알림 문구가 팀 이름을 부른다</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="decision">
+    <span class="lbl">결정</span>
+    <p><b>최애 팀 경기라고 해서 점수 규칙을 바꾸지 않는다.</b> 보너스를 주면 랭킹의 공정성이 무너지고, 페널티를 주면 팬을 벌주는 게임이 된다. 차이는 노출과 통계에서만 만든다.</p>
+  </div>
+
+  <h3>5.4 팬심 편향 지수</h3>
+  <p>대신 훨씬 재미있는 걸 준다. 팬은 자기 팀을 과대평가한다 — 이건 측정 가능한 사실이고, 측정하면 콘텐츠가 된다.</p>
+  <div class="formula">
+    <span class="eq">팬심 편향 = 최애팀 경기 평균 Δ지수 − 전체 평균 Δ지수</span>
+    <div class="cap">최애 팀 경기 10건 이상 쌓였을 때만 프로필에 노출한다.</div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <p class="small" style="margin:0 0 6px;color:var(--loss);font-weight:600">음수일 때</p>
+      <p class="small sub" style="margin:0">&ldquo;아스날 경기에서 평균 <b>12점</b>을 손해 보고 있어요. 다른 경기에서는 잘 보시는데요.&rdquo;</p>
+    </div>
+    <div class="card">
+      <p class="small" style="margin:0 0 6px;color:var(--gain);font-weight:600">양수일 때</p>
+      <p class="small sub" style="margin:0">&ldquo;내 팀 경기에서 더 잘 맞히는 드문 유형. <b>냉정한 팬</b> 뱃지를 받았어요.&rdquo;</p>
+    </div>
+  </div>
+  <p class="small sub">확신도별 실제 적중률(캘리브레이션 곡선)도 같은 화면에 둔다. 확신3의 실제 적중률이 60%라면 &ldquo;당신은 확신을 20%p 부풀리고 있습니다&rdquo;라고 말해줄 수 있다. 이 피드백이 유저를 실제로 더 나은 예측가로 만든다 — 그게 이 앱의 리텐션 논리다.</p>
+</section>
+
+<section id="s6">
+  <div class="sec-head"><span class="sec-num">06</span><h2>뱃지</h2></div>
+
+  <h3>6.1 규칙 엔진</h3>
+  <p>뱃지는 코드에 하드코딩하지 않는다. <code>badge_definitions</code> 테이블에 조건을 JSON DSL로 저장하고, 정산 직후 해당 유저의 뱃지만 평가한다. 새 뱃지 추가에 앱 배포가 필요 없어야 한다.</p>
+  <pre><span class="c">// 언더독 헌터 — 기준선 20% 미만 결과를 5회 적중</span>
+{
+  <span class="k">"id"</span>: <span class="k">"underdog_hunter"</span>, <span class="k">"tier"</span>: <span class="k">"silver"</span>,
+  <span class="k">"rule"</span>: {
+    <span class="k">"type"</span>: <span class="k">"conditional_count"</span>,
+    <span class="k">"when"</span>: { <span class="k">"q_pick"</span>: { <span class="k">"lt"</span>: 0.20 }, <span class="k">"correct"</span>: true },
+    <span class="k">"gte"</span>: 5, <span class="k">"window"</span>: <span class="k">"season"</span>
+  }
+}</pre>
+  <p class="small sub">지원 타입: <code>count</code> · <code>streak</code> · <code>aggregate</code> · <code>conditional_count</code> · <code>ratio</code> · <code>percentile</code> · <code>calibration</code>. 모든 뱃지는 <code>progress / target</code>을 반환해 진행률 바를 그릴 수 있어야 한다 — 잠긴 뱃지가 보이는 것 자체가 동기다.</p>
+
+  <h3>6.2 카탈로그</h3>
+
+  <div class="badge-group">
+    <h4>정확도</h4>
+    <div class="badge"><span class="nm">첫 적중</span><span class="chip b">브론즈</span><span class="cond">첫 예측 적중</span></div>
+    <div class="badge"><span class="nm">백발백중</span><span class="chip g">골드</span><span class="cond">10경기 연속 적중</span></div>
+    <div class="badge"><span class="nm">명중률 70</span><span class="chip s">실버</span><span class="cond">50경기 이상, 적중률 70% 이상</span></div>
+    <div class="badge"><span class="nm">무결점 라운드</span><span class="chip s">실버</span><span class="cond">한 라운드(4경기 이상) 전 경기 적중</span></div>
+  </div>
+
+  <div class="badge-group">
+    <h4>난이도 · 역발상</h4>
+    <div class="badge"><span class="nm">언더독 헌터</span><span class="chip s">실버</span><span class="cond">기준선 20% 미만 결과를 5회 적중</span></div>
+    <div class="badge"><span class="nm">폭탄 해체</span><span class="chip g">골드</span><span class="cond">기준선 12% 미만 결과를 확신3으로 적중</span></div>
+    <div class="badge"><span class="nm">무승부 감별사</span><span class="chip s">실버</span><span class="cond">무승부 10회 적중 — 가장 맞히기 어려운 결과</span></div>
+    <div class="badge"><span class="nm">역류</span><span class="chip b">브론즈</span><span class="cond">크라우드 70% 이상의 반대편을 3회 적중</span></div>
+  </div>
+
+  <div class="badge-group">
+    <h4>캘리브레이션 — 진짜 축잘알의 증명</h4>
+    <div class="badge"><span class="nm">정직한 예언자</span><span class="chip g">골드</span><span class="cond">확신3 예측 20건 이상, 실제 적중률 78~92% 구간 — 확신을 정확한 만큼만 쓴다</span></div>
+    <div class="badge"><span class="nm">자기 객관화</span><span class="chip g">골드</span><span class="cond">확신 1·2·3 각 15건 이상, 세 구간 모두 기대 적중률 ±8%p 이내</span></div>
+    <div class="badge"><span class="nm">신중함의 미덕</span><span class="chip s">실버</span><span class="cond">확신3 사용률 15% 이하이면서 지수 상위 10%</span></div>
+  </div>
+
+  <div class="badge-group">
+    <h4>꾸준함</h4>
+    <div class="badge"><span class="nm">개근 7 / 30 / 100</span><span class="chip b">3단계</span><span class="cond">연속 예측 일수 7 · 30 · 100일</span></div>
+    <div class="badge"><span class="nm">시즌 완주</span><span class="chip s">실버</span><span class="cond">시즌 전체 경기의 80% 이상 예측</span></div>
+    <div class="badge"><span class="nm">새벽반</span><span class="chip b">브론즈</span><span class="cond">KST 01:00~06:00 킥오프 경기 30건 예측</span></div>
+  </div>
+
+  <div class="badge-group">
+    <h4>리그</h4>
+    <div class="badge"><span class="nm">리그 마스터 ×4</span><span class="chip g">골드</span><span class="cond">해당 리그 30경기 이상, 그 리그 적중률 상위 10%</span></div>
+    <div class="badge"><span class="nm">사대천왕</span><span class="chip g">골드</span><span class="cond">4개 리그 모두 적중률 60% 이상 (각 20경기 이상)</span></div>
+  </div>
+
+  <div class="badge-group">
+    <h4>팬심</h4>
+    <div class="badge"><span class="nm">냉정한 팬</span><span class="chip g">골드</span><span class="cond">최애 팀 경기 10건 이상, 팬심 편향 지수 ≥ 0</span></div>
+    <div class="badge"><span class="nm">적장에게 경의를</span><span class="chip s">실버</span><span class="cond">최애 팀의 패배를 정확히 예측</span></div>
+    <div class="badge"><span class="nm">콩깍지</span><span class="chip b">브론즈</span><span class="cond">최애 팀 승리 예측 10연속 실패 — 자학도 수집이다</span></div>
+  </div>
+
+  <div class="badge-group">
+    <h4>커뮤니티 · 시즌</h4>
+    <div class="badge"><span class="nm">논객</span><span class="chip b">브론즈</span><span class="cond">예측 근거 20회 작성</span></div>
+    <div class="badge"><span class="nm">인정받는 눈</span><span class="chip s">실버</span><span class="cond">채팅 메시지 누적 좋아요 100</span></div>
+    <div class="badge"><span class="nm">시즌 TOP 1 / 5 / 10%</span><span class="chip g">3단계</span><span class="cond">시즌 종료 시점 지수 백분위</span></div>
+    <div class="badge"><span class="nm">승격</span><span class="chip s">실버</span><span class="cond">한 시즌 안에 티어 2단계 상승</span></div>
+  </div>
+</section>
+
+<section id="s7">
+  <div class="sec-head"><span class="sec-num">07</span><h2>데이터 모델</h2></div>
+  <p class="small sub">PostgreSQL 기준. 정산에 관여하는 테이블만 정리한다.</p>
+  <div class="scroller">
+    <table>
+      <thead><tr><th>테이블</th><th>핵심 컬럼</th><th>비고</th></tr></thead>
+      <tbody>
+        <tr><td><code>users</code></td><td class="small">id, handle, email, created_at, status</td><td class="small dim">핸들 유니크</td></tr>
+        <tr><td><code>user_preferences</code></td><td class="small">user_id, league_order[], favorite_team_id, followed_team_ids[], notify jsonb</td><td class="small dim">5.1</td></tr>
+        <tr><td><code>fixtures</code></td><td class="small">id, league_id, season, round, home_team_id, away_team_id, kickoff_at, lock_at, state, result</td><td class="small dim">외부 ID 매핑 보관</td></tr>
+        <tr><td><code>fixture_baselines</code></td><td class="small">fixture_id, q_home, q_draw, q_away, n_participants, frozen_at, source</td><td class="small dim"><b>동결된 q</b></td></tr>
+        <tr><td><code>predictions</code></td><td class="small">id, user_id, fixture_id, pick, confidence, created_at, updated_at</td><td class="small dim">unique(user_id, fixture_id)</td></tr>
+        <tr><td><code>settlements</code></td><td class="small">prediction_id, q_snapshot jsonb, p_user jsonb, actual, delta_rating, points, settled_at</td><td class="small dim">감사 추적용, 불변</td></tr>
+        <tr><td><code>ratings</code></td><td class="small">user_id, season, rating, percentile, tier, matches_settled, updated_at</td><td class="small dim">배치 판정 포함</td></tr>
+        <tr><td><code>rating_history</code></td><td class="small">user_id, season, day, rating, rank</td><td class="small dim">추이 그래프</td></tr>
+        <tr><td><code>badge_definitions</code></td><td class="small">id, name, tier, rule jsonb, active</td><td class="small dim">6.1</td></tr>
+        <tr><td><code>user_badges</code></td><td class="small">user_id, badge_id, progress, target, earned_at</td><td class="small dim">미획득도 행 존재</td></tr>
+        <tr><td><code>point_ledger</code></td><td class="small">id, user_id, source, amount, ref_type, ref_id, balance_after, idempotency_key, created_at</td><td class="small dim">4.7 · append only</td></tr>
+        <tr><td><code>chat_messages</code></td><td class="small">id, channel, user_id, body, created_at, deleted_at</td><td class="small dim">채널별 TTL</td></tr>
+        <tr><td><code>devices</code></td><td class="small">user_id, platform, push_token, app_version, last_seen_at</td><td class="small dim">FCM / APNs</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">
+    <p><b><code>settlements</code>는 절대 갱신하지 않는다.</b> 정산 시점의 q와 p를 통째로 저장해 두면, 나중에 공식을 바꿔도 과거 점수를 재현하거나 재계산할 수 있다. 점수 시스템은 언젠가 반드시 튜닝된다.</p>
+  </div>
+</section>
+
+<section id="s8">
+  <div class="sec-head"><span class="sec-num">08</span><h2>API</h2></div>
+  <p class="small sub">REST <code>/v1</code> + 단일 WebSocket. 세 클라이언트가 동일한 계약을 쓴다. 인증은 Bearer 액세스 토큰(15분) + 리프레시 토큰(60일).</p>
+
+  <h4>피드와 경기</h4>
+  <div class="card" style="padding:6px 18px">
+    <div class="ep"><span class="m get">GET</span><span class="path">/v1/feed?date=2026-09-02</span><span class="desc">내 리그 순서대로 정렬된 경기 목록</span></div>
+    <div class="ep"><span class="m get">GET</span><span class="path">/v1/fixtures/{id}</span><span class="desc">라인업, 분포, 내 예측</span></div>
+    <div class="ep"><span class="m get">GET</span><span class="path">/v1/fixtures/{id}/distribution</span><span class="desc">현재 크라우드 분포</span></div>
+  </div>
+
+  <h4>예측</h4>
+  <div class="card" style="padding:6px 18px">
+    <div class="ep"><span class="m put">PUT</span><span class="path">/v1/predictions/{fixtureId}</span><span class="desc">생성·수정 (멱등)</span></div>
+    <div class="ep"><span class="m get">GET</span><span class="path">/v1/me/predictions?season=2025</span><span class="desc">내 예측 이력</span></div>
+  </div>
+  <pre><span class="c">// PUT /v1/predictions/1183042</span>
+{ <span class="k">"pick"</span>: <span class="k">"AWAY"</span>, <span class="k">"confidence"</span>: 3 }
+
+<span class="c">// 200 OK — 마감 전이므로 잠재 점수를 함께 돌려준다</span>
+{
+  <span class="k">"pick"</span>: <span class="k">"AWAY"</span>, <span class="k">"confidence"</span>: 3,
+  <span class="k">"lockAt"</span>: <span class="k">"2026-09-02T03:55:00Z"</span>,
+  <span class="k">"preview"</span>: { <span class="k">"ifCorrect"</span>: 79, <span class="k">"ifWrong"</span>: -53, <span class="k">"basedOn"</span>: <span class="k">"live"</span> }
+}
+
+<span class="c">// 409 PREDICTION_LOCKED — 마감 이후</span></pre>
+  <p class="small sub"><code>preview.basedOn: "live"</code>는 아직 동결 전 값이라는 뜻이다. 클라이언트는 이 값을 &ldquo;예상&rdquo;으로 표기하고, 마감 후에는 동결된 값으로 갱신한다.</p>
+
+  <h4>나 · 랭킹 · 뱃지</h4>
+  <div class="card" style="padding:6px 18px">
+    <div class="ep"><span class="m get">GET</span><span class="path">/v1/me</span><span class="desc">프로필, 지수, 레벨, 티어</span></div>
+    <div class="ep"><span class="m get">GET</span><span class="path">/v1/me/stats</span><span class="desc">리그별 적중률, 캘리브레이션, 팬심 편향</span></div>
+    <div class="ep"><span class="m get">GET</span><span class="path">/v1/me/badges</span><span class="desc">획득 + 진행률</span></div>
+    <div class="ep"><span class="m put">PUT</span><span class="path">/v1/me/preferences</span><span class="desc">리그 순서, 최애 팀</span></div>
+    <div class="ep"><span class="m get">GET</span><span class="path">/v1/leaderboard?scope=global|league|friends</span><span class="desc">커서 페이지네이션</span></div>
+  </div>
+
+  <h4>실시간</h4>
+  <div class="card" style="padding:6px 18px">
+    <div class="ep"><span class="m ws">WS</span><span class="path">/v1/ws</span><span class="desc">단일 소켓, 채널 구독 방식</span></div>
+  </div>
+  <pre><span class="c">// 구독</span>
+{ <span class="k">"op"</span>: <span class="k">"subscribe"</span>, <span class="k">"channels"</span>: [<span class="k">"match:1183042"</span>, <span class="k">"league:39"</span>] }
+
+<span class="c">// 서버 → 클라이언트 이벤트</span>
+<b>chat.message</b>             <span class="c">{ channel, id, user{handle,tier,percentile}, body, at }</span>
+<b>distribution.updated</b>     <span class="c">{ fixtureId, home, draw, away, n }  // 최대 5초 스로틀</span>
+<b>fixture.state</b>            <span class="c">{ fixtureId, state, minute, score }</span>
+<b>settlement.completed</b>     <span class="c">{ fixtureId, deltaRating, points, newRating, badges[] }</span></pre>
+  <p class="small sub">에러는 <code>{ code, message, retryable }</code> 형태로 통일한다. 클라이언트는 <code>code</code>로 분기하고 <code>message</code>는 그대로 노출하지 않는다 — 문구는 클라이언트가 소유한다.</p>
+</section>
+
+<section id="s9">
+  <div class="sec-head"><span class="sec-num">09</span><h2>정산 파이프라인</h2></div>
+  <p>모든 점수는 서버에서만 계산한다. 클라이언트의 계산은 미리보기 용도이며 신뢰하지 않는다.</p>
+  <div class="scroller">
+    <table>
+      <thead><tr><th class="num">단계</th><th>시점</th><th>작업</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td class="small">킥오프 − 5분</td><td>예측 마감. q 계산 후 <code>fixture_baselines</code>에 동결.</td></tr>
+        <tr><td class="num">2</td><td class="small">경기 중</td><td>10분마다 결과 확인. <b>열려 있고 아직 안 끝난 경기가 없으면 외부 API를 호출하지 않는다.</b></td></tr>
+        <tr><td class="num">3</td><td class="small">종료 후 ~5분</td><td>결과 확정 대기 후 수집. <b>정규 90분 결과 기준</b>(연장·승부차기 제외).</td></tr>
+        <tr><td class="num">4</td><td class="small">정산 잡</td><td>예측별 p 계산 → Δ지수 → 포인트 → <code>settlements</code> 기록.</td></tr>
+        <tr><td class="num">5</td><td class="small">정산 직후</td><td>지수·레벨 갱신, 뱃지 규칙 평가, 스트릭 갱신.</td></tr>
+        <tr><td class="num">6</td><td class="small">+1분</td><td>푸시 발송, WS <code>settlement.completed</code>.</td></tr>
+        <tr><td class="num">7</td><td class="small">매일 04:00 KST</td><td>전체 백분위·티어 재계산, <code>rating_history</code> 스냅샷.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="decision">
+    <span class="lbl">결정</span>
+    <p><b>정산은 멱등해야 한다.</b> <code>(prediction_id)</code>에 유니크 제약을 걸고, 재실행 시 기존 행이 있으면 건너뛴다. 경기 결과 정정(오심 번복, 몰수 등)은 정산 취소 후 재정산하는 별도 관리자 작업으로 처리한다.</p>
+  </div>
+</section>
+
+<section id="s10">
+  <div class="sec-head"><span class="sec-num">10</span><h2>실시간 채팅</h2></div>
+  <div class="scroller">
+    <table>
+      <thead><tr><th>채널</th><th>수명</th><th>보존</th></tr></thead>
+      <tbody>
+        <tr><td><code>league:{id}</code></td><td class="small">상시</td><td class="small">7일</td></tr>
+        <tr><td><code>match:{id}</code></td><td class="small">킥오프 −6시간 ~ 종료 +2시간</td><td class="small">24시간</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ul>
+    <li>WebSocket + Redis Pub/Sub. 경기 채널은 <code>fixture_id</code> 해시로 샤딩한다.</li>
+    <li>메시지에 <b>발화자의 티어와 상위 %</b>를 함께 실어 보낸다 — 채팅에서 누구 말을 믿을지 판단하는 근거가 되고, 이게 이 앱 채팅의 차별점이다.</li>
+    <li>레이트 리밋 5초당 3건. 가입 24시간 미만 계정은 슬로우 모드(30초당 1건).</li>
+    <li>신고·차단·금칙어 필터. 신고 3건 누적 시 자동 숨김 후 검토 큐.</li>
+    <li>메시지 본문 최대 300자, 링크 자동 차단(초기), 이미지 없음.</li>
+  </ul>
+  <div class="note">
+    <p><b>경기 중 스코어 언급은 필터링하지 않는다.</b> 라이브 채팅이 존재 이유이므로 스포일러 보호는 의도적으로 포기한다. 대신 &ldquo;아직 안 본 경기&rdquo; 채널에는 들어가지 않도록 진입 시 한 번 안내한다.</p>
+  </div>
+</section>
+
+<section id="s11">
+  <div class="sec-head"><span class="sec-num">11</span><h2>클라이언트</h2></div>
+
+  <h3>11.1 세 플랫폼 공통 규약</h3>
+  <ul>
+    <li><b>서버가 계산하고 클라이언트는 표시한다.</b> 지수·포인트·티어·뱃지는 전부 서버 값. 클라이언트가 만드는 유일한 숫자는 예측 화면의 잠재 점수 미리보기다.</li>
+    <li><b>마감 판정은 서버 시각.</b> 응답 헤더의 서버 시각과 단말 시각의 오프셋을 저장하고 카운트다운을 보정한다.</li>
+    <li><b>예측 전송은 오프라인 큐.</b> 네트워크가 없으면 로컬에 쌓고 복구 시 재전송, 이미 마감됐으면 조용히 폐기하고 알린다.</li>
+    <li><b>낙관적 UI.</b> 예측 선택은 즉시 반영, 실패 시 롤백 + 토스트.</li>
+    <li><b>디자인 토큰 단일 소스.</b> <code>tokens.json</code>에서 CSS 변수 / Compose Theme / SwiftUI Color를 생성한다. 색·간격·타입 스케일을 세 번 손으로 옮기지 않는다.</li>
+  </ul>
+
+  <h3>11.2 플랫폼별</h3>
+  <div class="grid3">
+    <div class="card">
+      <p style="margin:0 0 8px"><span class="chip g">웹</span></p>
+      <p class="small sub" style="margin:0">React + TypeScript, Vite (SSR 금지 → CSR)<br>TanStack Query (서버 상태)<br>Zustand (UI 상태)<br>네이티브 WebSocket<br>PWA — 설치·푸시 지원<br>최신 2개 버전 브라우저</p>
+    </div>
+    <div class="card">
+      <p style="margin:0 0 8px"><span class="chip g">Android</span></p>
+      <p class="small sub" style="margin:0">Kotlin, Jetpack Compose<br>Hilt, Retrofit + OkHttp WS<br>Room (오프라인 캐시)<br>DataStore (환경설정)<br>FCM<br>최소 API 28 (Android 9)</p>
+    </div>
+    <div class="card">
+      <p style="margin:0 0 8px"><span class="chip g">iOS</span></p>
+      <p class="small sub" style="margin:0">Swift 6, SwiftUI<br>Swift Concurrency<br>URLSessionWebSocketTask<br>SwiftData (오프라인 캐시)<br>APNs<br>최소 iOS 16</p>
+    </div>
+  </div>
+
+  <h3>11.3 화면 목록</h3>
+  <p class="small sub">디자인 캔버스의 4개 화면이 1차 범위다. 괄호는 후속.</p>
+  <div class="scroller">
+    <table>
+      <thead><tr><th>화면</th><th>핵심 요소</th></tr></thead>
+      <tbody>
+        <tr><td>예측 피드</td><td class="small">리그 탭(사용자 순서), 내 팀 섹션, 경기 카드, 보기 3개 + 확신도, 잠재 점수</td></tr>
+        <tr><td>경기 상세</td><td class="small">크라우드 분포, 내 예측, 실시간 채팅, 라인업</td></tr>
+        <tr><td>내 기록</td><td class="small">상위 %, 레벨 게이지, 리그별 적중률, 캘리브레이션, 팬심 편향, 뱃지</td></tr>
+        <tr><td>랭킹</td><td class="small">전체 / 리그별 / 친구, 포디움, 내 순위 고정 바</td></tr>
+        <tr><td class="dim">온보딩</td><td class="small dim">리그 선택 → 최애 팀 → 알림</td></tr>
+        <tr><td class="dim">정산 결과</td><td class="small dim">Δ지수 연출, 레벨업, 신규 뱃지</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="s12">
+  <div class="sec-head"><span class="sec-num">12</span><h2>운영과 어뷰징</h2></div>
+
+  <h3>12.1 외부 데이터</h3>
+  <ul>
+    <li><b>API-Football (api-sports.io)</b>을 쓴다. 결정적인 이유는 <code>score.fulltime</code>을 따로 준다는 점 — 우리는 정규 90분 결과만 쓰므로 연장·승부차기를 걷어낸 값이 그대로 필요하다. 리그 id도 우리 스키마와 같다(39 · 140 · 78 · 135).</li>
+    <li><b>football-data.org 무료 티어는 쓸 수 없다.</b> 4대 리그를 무료로 커버하지만 결과와 일정이 지연 제공이라 마감·정산 시각을 맞출 수 없다.</li>
+    <li>외부 ID는 <code>fixtures.id</code>에 그대로 쓴다. 제공사를 바꾸게 되면 매핑 테이블을 그때 만든다 — 지금 추상화하는 것은 이르다.</li>
+    <li><b>엠블럼 라이선스는 별도 확인이 필요하다.</b> 확인 전까지는 현재 목업처럼 팀 컬러 + 약어 모노그램을 쓴다.</li>
+  </ul>
+
+  <h4>호출 예산 — 적게 쓰는 것이 설계 목표다</h4>
+  <p>수집기는 <b>필요한 경기만 id로 지목해서</b> 조회한다. 리그 전체나 날짜 전체를 훑지 않는다.</p>
+  <div class="scroller">
+    <table>
+      <thead><tr><th>작업</th><th>주기</th><th class="num">호출</th><th>비고</th></tr></thead>
+      <tbody>
+        <tr><td>일정 동기화</td><td class="small">주 1회</td><td class="num">4</td><td class="small dim">향후 1개월치, 리그당 1회</td></tr>
+        <tr><td>팀 카탈로그</td><td class="small">월 1회</td><td class="num">4</td><td class="small dim">시즌 중 거의 안 변한다</td></tr>
+        <tr><td>결과 수집</td><td class="small">10분마다</td><td class="num">0~2</td><td class="small dim"><b>열린 경기가 없으면 0회</b> — id 지정 조회, 20개씩</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="decision">
+    <span class="lbl">결과</span>
+    <p>유럽 주말 기준 주당 약 <b>225회</b>, 하루 평균 <b>32회</b>다. API-Football <b>무료 플랜(100회/일)으로도 운영이 가능</b>하고, 유료 $19 플랜(7,500회/일)으로 올리면 사실상 한도를 신경 쓸 일이 없다. 대신 라이브 스코어의 실시간 갱신은 포기한다 — 점수에 쓰이는 값은 최종 결과 하나뿐이므로, 정산이 최대 10분 늦어지는 것으로 호출량을 10분의 1로 줄이는 편이 낫다.</p>
+  </div>
+
+  <h3>12.2 어뷰징</h3>
+  <div class="scroller">
+    <table>
+      <thead><tr><th>벡터</th><th>대응</th></tr></thead>
+      <tbody>
+        <tr><td>마감 후 예측</td><td class="small">서버 시각 기준 거부, q 동결로 사후 조작 불가</td></tr>
+        <tr><td>다계정으로 크라우드 조작</td><td class="small">본인 예측 제외(leave-one-out) + 모델 혼합 <code>w</code>로 희석</td></tr>
+        <tr><td>다계정 상위권 노리기</td><td class="small">이메일 인증 + 디바이스 지문, 배치 20경기, 시즌 단위 랭킹</td></tr>
+        <tr><td>봇 대량 예측</td><td class="small">예측 시각 분포·간격 이상 탐지, 계정 플래그</td></tr>
+        <tr><td>채팅 스팸</td><td class="small">레이트 리밋, 슬로우 모드, 신고 임계</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">
+    <p><b>모니터링해야 할 지표.</b> 확신도별 실제 적중률(전체 캘리브레이션), Δ지수 분포의 평균과 분산, 상위 1% 지수의 시즌 내 추이. 평균 Δ지수가 0에서 크게 벗어나면 <code>K</code>나 <code>c</code> 상수를 조정한다 — 그래서 <code>settlements</code>에 원본을 남긴다.</p>
+  </div>
+</section>
+
+<section id="s13">
+  <div class="sec-head"><span class="sec-num">13</span><h2>앱인토스 제약</h2></div>
+  <p>웹 클라이언트는 앱인토스 미니앱으로 배포한다. 플랫폼 정책이 아키텍처를 직접 바꾸는 지점들이라 별도로 정리한다. <b>대부분은 이미 만든 설계와 충돌하지 않지만, 아래 굵게 표시한 세 가지는 설계를 바꿨다.</b></p>
+
+  <h3>13.1 기술 제약</h3>
+  <div class="scroller">
+    <table>
+      <thead><tr><th>제약</th><th>대응</th></tr></thead>
+      <tbody>
+        <tr><td><b>SSR 금지</b> — CSR/SSG만 허용</td><td class="small">Next.js 대신 <b>Vite + React SPA</b>로 확정. 서버 렌더링 경로를 만들지 않는다.</td></tr>
+        <tr><td><b>다크모드 미지원</b></td><td class="small">라이트 단일 팔레트로 고정(<code>color-scheme: light</code>). 다행히 현재 디자인이 이미 밝은 톤이다.</td></tr>
+        <tr><td>Safe Area 미적용 시 <b>심사 반려</b></td><td class="small"><code>viewport-fit=cover</code> + <code>env(safe-area-inset-*)</code>를 토큰화해 상·하단에 적용.</td></tr>
+        <tr><td>첫 화면 10초 이내 진입</td><td class="small">초기 번들 gzip 58KB, 외부 런타임 의존성 0. 폰트는 <code>display=swap</code>.</td></tr>
+        <tr><td>번들 100MB 이하 (압축 해제 기준)</td><td class="small">현재 190KB. 여유가 크므로 이미지·폰트 인라인을 서두를 필요 없다.</td></tr>
+        <tr><td>HTTPS 전용, <code>wss://</code> 전용</td><td class="small">채팅 소켓은 <code>wss</code>로만 연결. 로컬 개발용 <code>ws</code> 경로를 프로덕션 번들에 남기지 않는다.</td></tr>
+        <tr><td><b>API 3,000 req/min</b> (미니앱 단위)</td><td class="small">경기 중 분포 갱신을 폴링으로 하면 한도를 넘긴다 → <b>WebSocket 구독으로만 처리</b>. 명세 8장의 30초 폴링은 서버↔데이터 제공사 구간에만 해당한다.</td></tr>
+        <tr><td>서드파티 쿠키 차단 (iOS)</td><td class="small">쿠키 세션 불가 → 토큰 기반 인증(명세 8장)이 강제된다.</td></tr>
+        <tr><td>LocalStorage는 미니앱 삭제 시 소실</td><td class="small">클라이언트 저장소는 캐시로만 쓰고, 예측·지수·포인트는 전부 서버가 보유.</td></tr>
+        <tr><td>Android 7+ / iOS 16+</td><td class="small">네이티브 앱의 최소 지원 사양과 정렬(명세 11.2).</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>13.2 정책 제약</h3>
+  <div class="scroller">
+    <table>
+      <thead><tr><th>정책</th><th>영향</th></tr></thead>
+      <tbody>
+        <tr><td><b>토스 로그인만 허용</b> (소셜·자체 로그인 금지)</td><td class="small">온보딩에서 계정 생성 단계를 없앤다. 리그·최애 팀 선택부터 시작.</td></tr>
+        <tr><td>외부 광고 네트워크 금지</td><td class="small">광고 기반 수익화 불가 → 코스메틱 상점(명세 4.5)이 사실상 유일한 경로.</td></tr>
+        <tr><td>외부 링크 금지 (법정 고지·공공기관 제외)</td><td class="small">외부 커뮤니티·SNS 연동 링크를 넣지 않는다.</td></tr>
+        <tr><td>디지털 상품은 인앱결제만</td><td class="small">포인트를 현금 판매하지 않기로 한 결정(4.6)이 정책과도 맞는다.</td></tr>
+        <tr><td>만 19세 이상</td><td class="small">플랫폼 자체 제약. 별도 연령 게이트를 구현할 필요는 없다.</td></tr>
+        <tr><td>채팅 서비스 요건</td><td class="small">신고·차단·제재 정책·운영자 검토를 <b>UI에 실제로 노출</b>해야 한다(명세 10장). 정책 문서만으로는 부족하다.</td></tr>
+        <tr><td>생성형 AI 콘텐츠 고지 의무</td><td class="small">현재 해당 없음. 나중에 AI 경기 분석을 넣는다면 배지·고지가 필수다.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>13.3 사행성 심사 대응</h3>
+  <p>앱인토스에 &lsquo;스포츠 승부예측&rsquo; 전용 항목은 없다. 다만 웹보드게임 기준(현금 거래 금지, 사행성 유발 구조 금지, 등급분류)이 유추 적용될 가능성이 높고, 오픈 정책은 <b>불법 도박</b>을 명시적으로 금지한다. 심사에서 이 지점이 최대 리스크다.</p>
+  <div class="decision">
+    <span class="lbl">대응</span>
+    <p>1장에서 &ldquo;도박이 아니다&rdquo;를 원칙으로 세운 것이 그대로 심사 방어 논리가 된다. <b>배당률 없음 · 현금 거래 없음 · 포인트 현금 판매 없음 · 마감 초읽기 연출 없음 · 상점은 코스메틱 전용.</b> 예측 UI를 베팅 슬립이 아니라 투표형 보기 목록으로 만든 것도 여기에 포함된다. 심사 제출 전에 <b>게임물관리위원회(GRAC) 등급분류 대상 여부를 법무 검토</b>로 확정해야 한다 — 이 문서에서 유일하게 외부 확인이 필요한 항목이다.</p>
+  </div>
+</section>
+
+<section id="s14">
+  <div class="sec-head"><span class="sec-num">14</span><h2>백엔드 아키텍처</h2></div>
+  <p>Supabase를 백엔드로 쓴다. 데이터 모델이 관계형이고 정산이 순수 함수라 궁합이 좋다. <b>다만 세 가지는 직접 만들어야 하고, 그중 실시간 설계는 잘못 고르면 가장 중요한 순간에 무너진다.</b></p>
+
+  <h3>14.1 구성 매핑</h3>
+  <div class="scroller">
+    <table>
+      <thead><tr><th>필요한 것</th><th>Supabase 구성요소</th><th>비고</th></tr></thead>
+      <tbody>
+        <tr><td>데이터 모델 (7장)</td><td>Postgres</td><td class="small dim">그대로 매핑</td></tr>
+        <tr><td>권한 (예측은 본인만, 마감 전에만)</td><td>RLS + 트리거</td><td class="small dim">14.2</td></tr>
+        <tr><td>정산 엔진 (9장)</td><td>plpgsql 함수 + pg_cron</td><td class="small dim">14.3</td></tr>
+        <tr><td>랭킹·백분위 (3.3)</td><td><code>percent_rank()</code> + materialized view</td><td class="small dim">일 1회 갱신</td></tr>
+        <tr><td>실시간 채팅·분포 (10장)</td><td>Realtime <b>Broadcast</b></td><td class="small dim">14.4 — Postgres Changes 아님</td></tr>
+        <tr><td>토스 로그인 (13.2)</td><td>Edge Function 토큰 교환</td><td class="small dim">14.5</td></tr>
+        <tr><td>외부 데이터 수집 (12.1)</td><td>Edge Function + pg_cron</td><td class="small dim">1분 주기</td></tr>
+        <tr><td>푸시 알림</td><td class="dim">해당 없음</td><td class="small dim">14.6 — Supabase 밖</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>14.2 RLS — 점수는 클라이언트가 만질 수 없다</h3>
+  <p>클라이언트가 Postgres에 직접 붙는 구조이므로, 12.2의 어뷰징 대응 대부분이 RLS 정책 문제로 바뀐다. 원칙은 하나다 — <b>점수가 붙는 테이블은 클라이언트에게 쓰기 정책을 아예 만들어 주지 않는다.</b></p>
+  <pre><span class="c">-- 예측: 본인 것만, 그리고 마감 전에만</span>
+<span class="k">create policy</span> "insert before lock" <span class="k">on</span> predictions
+  <span class="k">for insert with check</span> (
+    auth.uid() = user_id
+    <span class="k">and exists</span> (<span class="k">select</span> 1 <span class="k">from</span> fixtures f
+                 <span class="k">where</span> f.id = fixture_id <span class="k">and</span> now() &lt; f.lock_at)
+  );
+
+<span class="c">-- 수정도 같은 조건. 마감 판정은 서버(DB) 시각이 유일한 기준이다.</span>
+<span class="k">create policy</span> "update before lock" <span class="k">on</span> predictions
+  <span class="k">for update using</span> (auth.uid() = user_id)
+  <span class="k">with check</span> (<span class="k">exists</span> (<span class="k">select</span> 1 <span class="k">from</span> fixtures f
+                       <span class="k">where</span> f.id = fixture_id <span class="k">and</span> now() &lt; f.lock_at));
+
+<span class="c">-- settlements · ratings · point_ledger : RLS만 켜고 쓰기 정책을 만들지 않는다.</span>
+<span class="c">-- 정책이 없으면 기본 거부이고, 정산 함수는 service_role로 RLS를 우회한다.</span>
+<span class="k">alter table</span> settlements  <span class="k">enable row level security</span>;
+<span class="k">alter table</span> point_ledger <span class="k">enable row level security</span>;
+<span class="k">create policy</span> "read own ledger" <span class="k">on</span> point_ledger
+  <span class="k">for select using</span> (auth.uid() = user_id);</pre>
+  <div class="note">
+    <p><b>예측 테이블에 점수 컬럼을 두지 않는다.</b> <code>delta_rating</code>, <code>points</code>는 전부 <code>settlements</code>에만 존재한다. 클라이언트가 쓸 수 있는 테이블에 점수 컬럼이 하나라도 있으면 RLS를 아무리 조여도 언젠가 새어 나간다.</p>
+  </div>
+
+  <h3>14.3 정산은 Postgres 함수로 쓴다</h3>
+  <p>Edge Function(TypeScript)이 아니라 DB 함수로 쓰는 이유는 명세 9장이 요구한 두 가지 때문이다 — <b>멱등성</b>과 <b>원장 정합성</b>. 한 트랜잭션 안에서 처리하면 둘 다 공짜로 따라온다. TypeScript로 짜면 부분 실패를 직접 다뤄야 한다.</p>
+  <pre><span class="c">-- 핵심 한 줄: 로그 스코어가 SQL에 그대로 있다</span>
+greatest(-60, least(90, round(40 * log(2, p_user[actual] / q[actual]))))::int
+
+<span class="c">-- 한 트랜잭션: settlements → ratings → point_ledger</span>
+<span class="k">with</span> delta <span class="k">as</span> (...),
+ins <span class="k">as</span> (
+  <span class="k">insert into</span> settlements (prediction_id, q_snapshot, p_user, actual, delta_rating, points)
+  <span class="k">select</span> id, to_jsonb(q), to_jsonb(p_user), actual, d,
+         greatest(0, d) + 3 + streak_bonus(user_id)
+    <span class="k">from</span> delta
+  <span class="k">on conflict</span> (prediction_id) <span class="k">do nothing</span>      <span class="c">-- 재실행해도 안전</span>
+  <span class="k">returning</span> *
+)
+<span class="k">insert into</span> point_ledger (user_id, source, amount, ref_type, ref_id, idempotency_key)
+<span class="k">select</span> user_id, 'settlement', points, 'prediction', prediction_id,
+       'settle:' || prediction_id
+  <span class="k">from</span> ins
+<span class="k">on conflict</span> (idempotency_key) <span class="k">do nothing</span>;</pre>
+  <h4>스케줄</h4>
+  <pre><span class="c">-- pg_cron은 UTC로 돈다. 04:00 KST = 19:00 UTC</span>
+<span class="k">select</span> cron.schedule('lock',   '* * * * *',  $$ <span class="k">select</span> lock_due_fixtures(); $$);
+<span class="k">select</span> cron.schedule('settle', '* * * * *',  $$ <span class="k">select</span> settle_finished_fixtures(); $$);
+<span class="k">select</span> cron.schedule('tiers',  '0 19 * * *', $$ <span class="k">refresh materialized view concurrently</span> leaderboard; $$);</pre>
+  <div class="decision">
+    <span class="lbl">결정</span>
+    <p><b>DB 안에서 도는 작업(마감·정산·랭킹)은 API 비용이 없으므로 1분마다 돌린다. 외부 API를 쓰는 수집만 주기를 크게 벌린다</b> — 일정은 주 1회, 결과는 10분마다, 그나마도 열려 있는 경기가 없으면 호출하지 않는다(12.1). pg_cron이 Edge Function을 부를 때는 pg_net을 쓰고, 키는 Vault에 넣는다.</p>
+  </div>
+
+  <h3>14.4 실시간은 Broadcast로 — Postgres Changes를 쓰면 안 된다</h3>
+  <p>이 절이 이 장에서 제일 중요하다. Postgres Changes는 <b>구독자 한 명마다 권한 검사를 반복하고, 순서 보존을 위해 단일 스레드로 처리</b>한다. 처리량이 쓰기 속도가 아니라 <b>구독자 수</b>에 따라 떨어지고, 컴퓨트를 키워도 나아지지 않는다. 공식 문서도 같은 변경에 구독자가 3,000명을 넘으면 Broadcast를 쓰라고 안내한다.</p>
+  <div class="note">
+    <p>우리는 인기 경기 하나에 <b>1,800명 이상</b>이 같은 채널을 본다. Postgres Changes로 짜면 평소에는 멀쩡하다가 <b>가장 중요한 경기에서만</b> 채팅이 밀린다 — 최악의 실패 방식이다.</p>
+  </div>
+  <div class="scroller">
+    <table>
+      <thead><tr><th>채널</th><th>이벤트</th><th>발행 주체</th></tr></thead>
+      <tbody>
+        <tr><td><code>match:{id}</code></td><td class="small">chat.message · distribution.updated · fixture.state</td><td class="small dim">DB 트리거 <code>realtime.send()</code></td></tr>
+        <tr><td><code>league:{id}</code></td><td class="small">chat.message</td><td class="small dim">DB 트리거</td></tr>
+        <tr><td><code>user:{id}</code></td><td class="small">settlement.completed</td><td class="small dim">정산 함수</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h4>채팅 저장과 전송을 한 번에</h4>
+  <p>메시지를 Broadcast로만 흘리면 가볍지만, 13.2의 <b>신고·운영자 검토 요건</b>과 10장의 24시간 보존을 못 맞춘다. 그래서 <code>insert</code> 후 트리거에서 <code>realtime.send()</code>로 팬아웃한다 — 저장과 전송이 한 경로에서 끝나고, 팬아웃은 구독자 수와 무관하게 한 번만 일어난다.</p>
+  <pre><span class="k">create trigger</span> broadcast_message <span class="k">after insert on</span> chat_messages
+  <span class="k">for each row execute function</span> realtime.send(
+    to_jsonb(new), 'chat.message', 'match:' || new.fixture_id, <span class="k">false</span>
+  );</pre>
+  <p class="small sub">레이트 리밋(5초 3건, 신규 계정 슬로우 모드)은 <code>insert</code> 앞단의 <code>before</code> 트리거에서 막는다. 클라이언트 검증에 의존하지 않는다.</p>
+
+  <h3>14.5 인증 — 토스 로그인 브리지</h3>
+  <p>Supabase의 서드파티 인증은 <b>비대칭 서명(RS256)과 OIDC 디스커버리 URL</b>을 요구하고 HS256 대칭키는 지원하지 않는다. 토스가 그 형태로 토큰을 주면 브리지 없이 바로 연결되지만, 아니라면 토큰 교환 레이어가 필요하다.</p>
+  <pre><span class="c">// Edge Function: POST /auth/toss</span>
+토스 앱 → 미니앱에 토스 토큰 전달
+  → 1. 토스 API로 토큰 검증, 사용자 식별자 획득
+    2. users upsert (service_role)
+    3. Supabase JWT 발급 (프로젝트 시크릿 서명, sub = user_id)
+  → 클라이언트: createClient(url, anonKey, { accessToken: () =&gt; jwt })</pre>
+  <div class="note">
+    <p><b>JWT 서명 시크릿과 service_role 키는 Edge Function 안에서만 존재해야 한다.</b> 미니앱 번들에 들어가는 순간 누구나 임의의 유저로 서명할 수 있고, 그러면 랭킹 전체가 무의미해진다. 리프레시 토큰 회전도 직접 구현해야 한다.</p>
+  </div>
+
+  <h3>14.6 Supabase가 해주지 않는 것</h3>
+  <ul>
+    <li><b>푸시 알림</b> — FCM / APNs, 앱인토스에서는 토스 알림 API. 정산 후 발송은 Edge Function에서 호출한다.</li>
+    <li><b>30초 미만 스케줄</b> — pg_cron 최소 1분 (14.3에서 완화 결정).</li>
+    <li><b>무료 플랜은 1주 미사용 시 일시정지</b> — 시즌 오프 기간이 존재하는 서비스라 <b>Pro 플랜이 전제</b>다.</li>
+  </ul>
+
+  <h3>14.7 한도와 감시 지표</h3>
+  <div class="scroller">
+    <table>
+      <thead><tr><th>항목</th><th>한도</th><th>우리 예상</th><th>대응</th></tr></thead>
+      <tbody>
+        <tr><td>Realtime 동시접속</td><td class="small">Pro 500 (상향 가능)</td><td class="small">인기 경기 1,800+</td><td class="small">캡 상향 — 기술이 아니라 비용 문제</td></tr>
+        <tr><td>Postgres Changes 구독자</td><td class="small">~3,000 권장 상한</td><td class="dim small">—</td><td class="small">사용하지 않음</td></tr>
+        <tr><td>DB 용량</td><td class="small">Pro 8GB 포함</td><td class="small">예측 ~300만 행/시즌</td><td class="small">여유 있음</td></tr>
+        <tr><td>채팅 테이블</td><td class="dim small">—</td><td class="small">큰 경기 수만 건</td><td class="small">월 파티셔닝 + TTL 삭제 잡</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small sub">예측 행 수 추정: 4개 리그 × 시즌 380경기 ≈ 1,520경기, 유저 1만 명, 경기당 참여율 20% → 시즌 약 300만 행. 행이 작아 Postgres에 부담이 되지 않는다. 리전은 서울(ap-northeast-2)로 둔다.</p>
+
+  <h3>14.8 확인이 필요한 것</h3>
+  <ol>
+    <li><b>앱인토스의 3,000 req/min이 미니앱 → 외부 API(Supabase) 호출에도 적용되는가.</b> 적용된다면 화면마다 PostgREST를 여러 번 부르는 구조가 위험하다 — 피드는 RPC 한 번으로 묶고 나머지는 Realtime으로 받는다. 어느 쪽이든 이 설계가 안전하므로 <b>확인 전에도 그렇게 만든다.</b></li>
+    <li><b>토스 로그인 토큰이 RS256 + OIDC 디스커버리를 제공하는가.</b> 제공되면 14.5의 브리지가 통째로 사라진다.</li>
+  </ol>
+</section>
+
+<section id="s15">
+  <div class="sec-head"><span class="sec-num">15</span><h2>마일스톤</h2></div>
+  <div class="scroller">
+    <table>
+      <thead><tr><th class="num">M</th><th>범위</th><th>완료 기준</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td>백엔드 코어 — 데이터 수집, q 산출, 정산 엔진 (14장)</td><td class="small">한 시즌 과거 데이터로 정산 리플레이 통과, 정산 로직 단위 테스트</td></tr>
+        <tr><td class="num">2</td><td>웹 앱 — 4개 화면 + 온보딩</td><td class="small">실제 경기로 예측→정산 사이클 완주</td></tr>
+        <tr><td class="num">3</td><td>iOS · Android — 동일 범위</td><td class="small">세 플랫폼 점수·랭킹 완전 일치</td></tr>
+        <tr><td class="num">4</td><td>실시간 채팅</td><td class="small">동시 접속 1,000명 부하 테스트</td></tr>
+        <tr><td class="num">5</td><td>뱃지·시즌·캘리브레이션 리포트</td><td class="small">뱃지 추가에 앱 배포 불필요</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="decision">
+    <span class="lbl">권고</span>
+    <p><b>M1을 절대 서두르지 말 것.</b> 이 제품의 유일한 해자는 점수 공식의 설득력이다. 과거 시즌 데이터로 리플레이를 돌려서 상수 <code>K</code>, <code>c</code>, 클램프 범위를 먼저 확정한 뒤에 화면을 만들어야 한다. 출시 후 점수 체계를 바꾸면 지수의 의미가 무너진다.</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="wide">
+  <span>축잘알 기술 명세 v0.1 · 이 문서의 계산기는 서버 정산 로직과 동일한 공식을 사용한다</span>
+  <span>미확정: 데이터 제공사 계약, 엠블럼 라이선스, 시즌 경계 정의</span>
+</footer>
+
+<script>
+(function () {
+  var K = 40, CLAMP = [-60, 90];
+  var C = { 1: 0.15, 2: 0.35, 3: 0.60 };
+  var state = { q: [0.62, 0.21, 0.17], pick: 2, conf: 3 };
+
+  var qh = document.getElementById('qh'), qd = document.getElementById('qd');
+  var qhv = document.getElementById('qhv'), qdv = document.getElementById('qdv'), qav = document.getElementById('qav');
+  var segH = document.getElementById('segH'), segD = document.getElementById('segD'), segA = document.getElementById('segA');
+
+  function userDist(q, pick, conf) {
+    var p = [0, 0, 0];
+    p[pick] = q[pick] + C[conf] * (1 - q[pick]);
+    var rest = 1 - p[pick], sum = 0, i;
+    for (i = 0; i < 3; i++) { if (i !== pick) sum += q[i]; }
+    for (i = 0; i < 3; i++) { if (i !== pick) p[i] = rest * q[i] / sum; }
+    return p;
+  }
+  function delta(q, p, actual) {
+    var raw = K * Math.log2(p[actual] / q[actual]);
+    return Math.max(CLAMP[0], Math.min(CLAMP[1], Math.round(raw)));
+  }
+  function fmt(n) { return (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n); }
+
+  function readSliders() {
+    var h = parseInt(qh.value, 10), d = parseInt(qd.value, 10);
+    var a = 100 - h - d;
+    if (a < 4) { d = 100 - h - 4; if (d < 5) { d = 5; h = 91 - 4 - 5 + 0; h = Math.min(h, 91); } a = 100 - h - d; qd.value = d; qh.value = h; }
+    state.q = [h / 100, d / 100, a / 100];
+    qhv.textContent = h + '%'; qdv.textContent = d + '%'; qav.textContent = a + '%';
+    segH.style.flexGrow = h; segD.style.flexGrow = d; segA.style.flexGrow = a;
+  }
+
+  function render() {
+    var q = state.q, pick = state.pick, conf = state.conf;
+    var p = userDist(q, pick, conf);
+    var win = delta(q, p, pick);
+    var wrongIdx = pick === 0 ? 1 : 0;
+    var lose = delta(q, p, wrongIdx);
+
+    document.getElementById('outP').textContent = p[pick].toFixed(3).replace(/^0/, '');
+    document.getElementById('outQ').textContent = Math.round(q[pick] * 100) + '%';
+    document.getElementById('outWin').textContent = fmt(win);
+    document.getElementById('outLose').textContent = fmt(lose);
+    document.getElementById('outPts').textContent = '+' + (Math.max(0, win) + 3);
+    document.getElementById('outLosePts').textContent = '+3';
+
+    var ratio = win / Math.max(1, Math.abs(lose));
+    var msg;
+    if (q[pick] <= 0.22 && conf === 3) {
+      msg = '<b>이게 축잘알의 자리다.</b> 남들이 ' + Math.round(q[pick] * 100) + '%밖에 안 보는 결과에 최고 확신을 걸었다. 맞히면 ' + fmt(win) + ', 틀리면 ' + fmt(lose) + ' — 한 경기로 랭킹이 바뀐다.';
+    } else if (q[pick] >= 0.55 && conf === 3) {
+      msg = '<b>보상 대비 위험이 나쁘다.</b> 이미 ' + Math.round(q[pick] * 100) + '%가 예상하는 결과라 맞혀도 ' + fmt(win) + '뿐인데, 틀리면 ' + fmt(lose) + '을 잃는다. 확신3은 아껴 쓰는 게 이득이다.';
+    } else if (conf === 1) {
+      msg = '가볍게 거는 선택. 얻는 것도 잃는 것도 작다 (' + fmt(win) + ' / ' + fmt(lose) + '). 확신이 없을 때의 정직한 답이며, 공식상 이게 손해가 아니다.';
+    } else {
+      msg = '맞히면 ' + fmt(win) + ', 틀리면 ' + fmt(lose) + '. 보상/위험 비율 ' + ratio.toFixed(2) + '배 — 속으로 ' + (conf === 2 ? '75~85%' : '80% 이상') + ' 확신할 때 이득인 선택이다.';
+    }
+    document.getElementById('verdict').innerHTML = msg;
+  }
+
+  function bindSet(id, key, attr) {
+    var wrap = document.getElementById(id);
+    wrap.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      Array.prototype.forEach.call(wrap.querySelectorAll('button'), function (x) { x.setAttribute('aria-pressed', 'false'); });
+      b.setAttribute('aria-pressed', 'true');
+      state[key] = parseInt(b.getAttribute(attr), 10);
+      render();
+    });
+  }
+  bindSet('pickSet', 'pick', 'data-pick');
+  bindSet('confSet', 'conf', 'data-conf');
+  qh.addEventListener('input', function () { readSliders(); render(); });
+  qd.addEventListener('input', function () { readSliders(); render(); });
+
+  readSliders(); render();
+
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  if (links.length && 'IntersectionObserver' in window) {
+    var map = {};
+    links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) {
+          links.forEach(function (a) { a.classList.remove('active'); });
+          if (map[en.target.id]) map[en.target.id].classList.add('active');
+        }
+      });
+    }, { rootMargin: '-10% 0px -75% 0px' });
+    Array.prototype.forEach.call(document.querySelectorAll('section[id]'), function (s) { io.observe(s); });
+  }
+})();
+</script>

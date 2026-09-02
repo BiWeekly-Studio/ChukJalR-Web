@@ -3,3 +3,6 @@ node_modules
 dist
 tsconfig.tsbuildinfo
 .DS_Store
+
+# 캔버스 시드 결과물 — 2.5MB 생성물이라 넣지 않는다 (design/README.md 참고)
+design/canvas/chukjalal-prediction-game.html
