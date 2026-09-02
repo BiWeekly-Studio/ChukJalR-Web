@@ -968,16 +968,22 @@
       <thead><tr><th>채널</th><th>수명</th><th>보존</th></tr></thead>
       <tbody>
         <tr><td><code>league:{id}</code></td><td class="small">상시</td><td class="small">7일</td></tr>
-        <tr><td><code>match:{id}</code></td><td class="small">킥오프 −6시간 ~ 종료 +2시간</td><td class="small">24시간</td></tr>
+        <tr><td><code>match:{id}</code></td><td class="small">킥오프 −1시간 ~ +4시간</td><td class="small">24시간</td></tr>
       </tbody>
     </table>
   </div>
+  <div class="decision">
+    <span class="lbl">결정</span>
+    <p><b>채팅은 별도 탭이 아니라 경기 안에만 있고, 킥오프 1시간 전에 열린다.</b> 상시 열어두면 대부분의 방이 비어 있어 &ldquo;지금 누가 보고 있다&rdquo;는 느낌이 살지 않는다. 경기 직전으로 창을 좁히면 같은 시간에 사람이 모인다 — 이 앱에서 채팅의 가치는 정보가 아니라 <b>동시성</b>이다. 닫는 시각은 킥오프 +4시간(경기 2시간 + 여유 2시간)으로, 종료 직후의 대화까지 담고 잠근다.</p>
+  </div>
+  <p class="small sub">창 판정은 <b>RLS 정책이 강제한다</b>(14.2와 같은 원칙). 클라이언트에서만 막으면 API를 직접 호출해 뚫을 수 있고, 그러면 아무도 없는 시간대에 스팸이 쌓인다.</p>
   <ul>
     <li>WebSocket + Redis Pub/Sub. 경기 채널은 <code>fixture_id</code> 해시로 샤딩한다.</li>
     <li>메시지에 <b>발화자의 티어와 상위 %</b>를 함께 실어 보낸다 — 채팅에서 누구 말을 믿을지 판단하는 근거가 되고, 이게 이 앱 채팅의 차별점이다.</li>
     <li>레이트 리밋 5초당 3건. 가입 24시간 미만 계정은 슬로우 모드(30초당 1건).</li>
     <li>신고·차단·금칙어 필터. 신고 3건 누적 시 자동 숨김 후 검토 큐.</li>
     <li>메시지 본문 최대 300자, 링크 자동 차단(초기), 이미지 없음.</li>
+    <li>리그 채널(<code>league:{id}</code>)은 상시 열려 있다. 특정 시각에 모일 이유가 없는, 잡담과 정보 공유용 공간이다.</li>
   </ul>
   <div class="note">
     <p><b>경기 중 스코어 언급은 필터링하지 않는다.</b> 라이브 채팅이 존재 이유이므로 스포일러 보호는 의도적으로 포기한다. 대신 &ldquo;아직 안 본 경기&rdquo; 채널에는 들어가지 않도록 진입 시 한 번 안내한다.</p>
@@ -1013,13 +1019,14 @@
   </div>
 
   <h3>11.3 화면 목록</h3>
+  <p class="small sub">하단 탭은 <b>예측 · 랭킹 · 나</b> 세 개다. 채팅은 탭이 아니라 경기 안에 있다.</p>
   <p class="small sub">디자인 캔버스의 4개 화면이 1차 범위다. 괄호는 후속.</p>
   <div class="scroller">
     <table>
       <thead><tr><th>화면</th><th>핵심 요소</th></tr></thead>
       <tbody>
         <tr><td>예측 피드</td><td class="small">리그 탭(사용자 순서), 내 팀 섹션, 경기 카드, 보기 3개 + 확신도, 잠재 점수</td></tr>
-        <tr><td>경기 상세</td><td class="small">크라우드 분포, 내 예측, 실시간 채팅, 라인업</td></tr>
+        <tr><td>경기 상세</td><td class="small">크라우드 분포, 내 예측, 실시간 채팅(킥오프 1시간 전부터), 라인업</td></tr>
         <tr><td>내 기록</td><td class="small">상위 %, 레벨 게이지, 리그별 적중률, 캘리브레이션, 팬심 편향, 뱃지</td></tr>
         <tr><td>랭킹</td><td class="small">전체 / 리그별 / 친구, 포디움, 내 순위 고정 바</td></tr>
         <tr><td class="dim">온보딩</td><td class="small dim">리그 선택 → 최애 팀 → 알림</td></tr>
