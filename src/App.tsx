@@ -1,18 +1,16 @@
 import { useState } from 'react';
-import { IconChat, IconMe, IconPredict, IconRank } from './components/icons';
+import { IconMe, IconPredict, IconRank } from './components/icons';
 import { MatchDetail } from './screens/MatchDetail';
 import { Onboarding } from './screens/Onboarding';
 import { Predict } from './screens/Predict';
 import { Profile } from './screens/Profile';
 import { Ranking } from './screens/Ranking';
-import { fixtures as allFixtures } from './data/catalog';
 import { useApp } from './store';
 
-type Tab = 'predict' | 'chat' | 'rank' | 'me';
+type Tab = 'predict' | 'rank' | 'me';
 
 const TABS: { id: Tab; label: string; Icon: typeof IconPredict }[] = [
   { id: 'predict', label: '예측', Icon: IconPredict },
-  { id: 'chat', label: '채팅', Icon: IconChat },
   { id: 'rank', label: '랭킹', Icon: IconRank },
   { id: 'me', label: '나', Icon: IconMe },
 ];
@@ -35,34 +33,16 @@ export function App() {
 
   if (!state.onboarded) return <Onboarding />;
 
-  // '채팅' 탭은 가장 임박한 경기의 채팅방으로 바로 들어간다.
-  function goChat() {
-    const next = allFixtures()[0];
-    if (!next) return;
-    setOpenMatch(next.id);
-    setTab('chat');
-  }
-
+  // 채팅은 별도 탭이 아니다. 경기에 들어가야 나온다.
   return (
     <div className="app">
       {tab === 'predict' && <Predict onOpenMatch={setOpenMatch} />}
       {tab === 'rank' && <Ranking />}
       {tab === 'me' && <Profile />}
-      {tab === 'chat' && openMatch == null && (
-        <div className="scroll pad">
-          <p className="small muted" style={{ textAlign: 'center', padding: '80px 20px' }}>
-            열려 있는 경기 채팅이 없어요.
-          </p>
-        </div>
-      )}
-
       {openMatch != null && (
         <MatchDetail
           fixtureId={openMatch}
-          onBack={() => {
-            setOpenMatch(null);
-            if (tab === 'chat') setTab('predict');
-          }}
+          onBack={() => setOpenMatch(null)}
         />
       )}
 
@@ -78,7 +58,10 @@ export function App() {
             key={id}
             className="navitem"
             aria-current={tab === id ? 'page' : undefined}
-            onClick={() => (id === 'chat' ? goChat() : (setOpenMatch(null), setTab(id)))}
+            onClick={() => {
+              setOpenMatch(null);
+              setTab(id);
+            }}
           >
             <Icon color="currentColor" />
             {label}

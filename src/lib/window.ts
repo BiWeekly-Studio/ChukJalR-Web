@@ -26,3 +26,25 @@ export function opensLabel(iso: string, now = new Date()): string {
   if (d.toDateString() === tomorrow.toDateString()) return `내일 ${hhmm}에 열려요`;
   return `${d.getMonth() + 1}월 ${d.getDate()}일(${WEEKDAY[d.getDay()]}) ${hhmm}에 열려요`;
 }
+
+export type ChatState = 'BEFORE' | 'OPEN' | 'CLOSED';
+
+/** 채팅은 킥오프 1시간 전에 열리고, 경기가 끝나고 얼마 뒤 닫힌다. */
+export function chatState(f: Fixture, now = Date.now()): ChatState {
+  const kickoff = +new Date(f.kickoffAt);
+  if (now < kickoff - 3600_000) return 'BEFORE';
+  if (now > kickoff + 4 * 3600_000) return 'CLOSED';
+  return 'OPEN';
+}
+
+/** "오늘 03:00에 열려요" — 채팅이 열리는 시각 */
+export function chatOpensLabel(f: Fixture, now = new Date()): string {
+  const at = new Date(+new Date(f.kickoffAt) - 3600_000);
+  const hhmm = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
+  const sameDay = at.toDateString() === now.toDateString();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  if (sameDay) return `오늘 ${hhmm}`;
+  if (at.toDateString() === tomorrow.toDateString()) return `내일 ${hhmm}`;
+  return `${at.getMonth() + 1}월 ${at.getDate()}일 ${hhmm}`;
+}

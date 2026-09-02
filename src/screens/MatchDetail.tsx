@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Crest } from '../components/Crest';
+import { LeagueMark } from '../components/LeagueMark';
 import { IconBack, IconCheck, IconSend, IconX } from '../components/icons';
 import { fixture, league, team } from '../data/catalog';
 import { repository } from '../data';
 import type { ChatMessage } from '../data/types';
 import { comma, kickoffLabel, pct, signed } from '../lib/format';
+import { chatOpensLabel, chatState } from '../lib/window';
 import { CONFIDENCE_LABEL, OUTCOMES, previewScore } from '../lib/scoring';
 import { useApp } from '../store';
 
@@ -52,6 +54,7 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
   const home = team(f.homeTeamId);
   const away = team(f.awayTeamId);
   const saved = state.predictions[fixtureId];
+  const chat = chatState(f);
 
   function send() {
     const body = draft.trim();
@@ -96,8 +99,11 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
         <div className="pad" style={{ paddingTop: 10 }}>
           <div className="card" style={{ borderRadius: 22, padding: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span className="tiny" style={{ color: 'var(--accent)', fontWeight: 700 }}>
-                {league(f.leagueId).name} {f.round}R
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <LeagueMark leagueId={f.leagueId} size={16} />
+                <span className="tiny" style={{ color: 'var(--accent)', fontWeight: 700 }}>
+                  {league(f.leagueId).name} {f.round}R
+                </span>
               </span>
               <span className="tiny muted">{f.venue}</span>
             </div>
@@ -110,14 +116,10 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
                 <div className="num" style={{ fontSize: 26, lineHeight: 1 }}>
                   {f.state === 'FINISHED' && f.result
                     ? `${f.homeGoals} : ${f.awayGoals}`
-                    : kickoffLabel(f.kickoffAt).replace(/^(오늘|내일) /, '')}
+                    : kickoffLabel(f.kickoffAt)}
                 </div>
                 <div className="tiny muted" style={{ marginTop: 3 }}>
-                  {f.state === 'FINISHED' && f.result
-                    ? '경기 종료'
-                    : kickoffLabel(f.kickoffAt).startsWith('내일')
-                      ? '내일 킥오프'
-                      : '오늘 킥오프'}
+                  {f.state === 'FINISHED' && f.result ? '경기 종료' : '킥오프'}
                 </div>
               </div>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
@@ -187,12 +189,39 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
         </div>
 
         <div className="pad" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '18px 20px 12px' }}>
-          <span style={{ width: 7, height: 7, borderRadius: 999, background: 'var(--accent)' }} />
+          <span
+            className={chat === 'OPEN' ? 'live-dot' : undefined}
+            style={{
+              width: 7, height: 7, borderRadius: 999,
+              background: chat === 'OPEN' ? 'var(--accent)' : 'var(--line-strong)',
+            }}
+          />
           <span className="h3">경기 채팅</span>
           <span className="tiny muted">
-            {viewers > 1 ? `${viewers}명이 함께 보고 있어요` : '지금은 혼자 보고 있어요'}
+            {chat === 'BEFORE'
+              ? `${chatOpensLabel(f)}에 열려요`
+              : chat === 'CLOSED'
+                ? '채팅이 끝났어요'
+                : viewers > 1
+                  ? `${viewers}명이 함께 보고 있어요`
+                  : '지금은 혼자 보고 있어요'}
           </span>
         </div>
+
+        {chat === 'BEFORE' ? (
+          <p
+            className="small muted"
+            style={{ textAlign: 'center', padding: '28px 32px 20px', lineHeight: 1.6 }}
+          >
+            경기 시작 1시간 전에 채팅이 열려요.
+            <br />
+            그때 같이 보면서 이야기해요.
+          </p>
+        ) : messages.length === 0 ? (
+          <p className="small muted" style={{ textAlign: 'center', padding: '28px 32px 20px' }}>
+            {chat === 'CLOSED' ? '오간 이야기가 없어요.' : '아직 아무도 말이 없어요. 먼저 열어보세요.'}
+          </p>
+        ) : null}
 
         <div className="msgs">
           {messages.map((m) => (
@@ -222,19 +251,21 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
         </div>
       </div>
 
-      <div className="composer">
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && send()}
-          placeholder="이 경기 어떻게 보세요?"
-          maxLength={300}
-          aria-label="메시지 입력"
-        />
-        <button className="send" onClick={send} disabled={!draft.trim()} aria-label="보내기">
-          <IconSend />
-        </button>
-      </div>
+      {chat === 'OPEN' && (
+        <div className="composer">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && send()}
+            placeholder="이 경기 어떻게 보세요?"
+            maxLength={300}
+            aria-label="메시지 입력"
+          />
+          <button className="send" onClick={send} disabled={!draft.trim()} aria-label="보내기">
+            <IconSend />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

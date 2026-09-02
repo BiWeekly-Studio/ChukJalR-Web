@@ -5,6 +5,8 @@ export interface League {
   name: string;
   short: string;
   country: string;
+  logoUrl?: string | null;
+  flagUrl?: string | null;
 }
 
 export interface Team {

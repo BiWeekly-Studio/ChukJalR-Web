@@ -49,7 +49,7 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
     async loadCatalog(): Promise<Catalog> {
       const horizon = new Date(Date.now() + 14 * 864e5).toISOString();
       const [leagues, teams, fixtures] = await Promise.all([
-        sb.from('leagues').select('id, name, short_name, country'),
+        sb.from('leagues').select('id, name, short_name, country, logo_url, flag_url'),
         sb.from('teams').select('id, league_id, name, name_ko, abbr, color, tint, logo_url'),
         sb
           .from('fixtures')
@@ -78,6 +78,7 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
       return {
         leagues: leagues.data.map((l) => ({
           id: l.id, name: l.name, short: l.short_name, country: l.country,
+          logoUrl: l.logo_url, flagUrl: l.flag_url,
         })),
         teams: teams.data.map((t) => ({
           id: t.id, leagueId: t.league_id, name: t.name_ko ?? t.name, nameEn: t.name,

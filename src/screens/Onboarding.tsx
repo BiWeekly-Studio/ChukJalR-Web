@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Crest } from '../components/Crest';
+import { LeagueMark } from '../components/LeagueMark';
 import { IconCheck, IconX } from '../components/icons';
 import { leagues as allLeagues, league, teams as allTeams } from '../data/catalog';
 import type { Team } from '../data/types';
@@ -111,6 +112,7 @@ function LeagueStep({
               >
                 {on ? idx + 1 : ''}
               </span>
+              <LeagueMark leagueId={l.id} size={26} />
               <span style={{ textAlign: 'left' }}>
                 <span className="h3" style={{ display: 'block', fontSize: 15 }}>{l.name}</span>
                 <span className="tiny muted">{l.country}</span>
