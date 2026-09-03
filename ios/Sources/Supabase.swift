@@ -1,5 +1,8 @@
 import Foundation
 
+/// 중복 삽입은 실패가 아니라 '이미 처리됨'이다. 호출부가 이 표식을 보고 조용히 넘긴다.
+let DuplicateMarker = "__duplicate__"
+
 /// Supabase 클라이언트 (GoTrue + PostgREST).
 ///
 /// 공식 Swift SDK 를 쓰지 않는다. 우리가 필요한 건 인증과 몇 개의 테이블 조회뿐인데,
@@ -155,6 +158,45 @@ actor Supabase {
             let code = (response as? HTTPURLResponse)?.statusCode ?? 0
             throw Failure.http(code, code == 403 ? "예측이 마감된 경기예요." : Self.message(from: data))
         }
+    }
+
+    /// 로그인한 사용자로 한 행을 넣는다.
+    ///
+    /// 서버 트리거가 막는 경우(레이트 리밋, 링크·금칙어 필터)가 정상 동작이므로,
+    /// 실패 메시지를 그대로 흘리지 않고 사람이 읽을 말로 바꿔서 던진다.
+    func insert(_ table: String, _ row: [String: Any]) async throws {
+        guard let token = session?.access_token else {
+            throw Failure.http(401, "로그인이 필요해요.")
+        }
+        var req = URLRequest(url: URL(string: url + "/rest/v1/" + table)!)
+        req.httpMethod = "POST"
+        req.setValue(anonKey, forHTTPHeaderField: "apikey")
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("return=minimal", forHTTPHeaderField: "Prefer")
+        req.httpBody = try JSONSerialization.data(withJSONObject: row)
+
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(code) else {
+            throw Failure.http(code, Self.tableMessage(from: data))
+        }
+    }
+
+    /// Realtime 이 로그인한 사용자로 붙으려면 액세스 토큰이 필요하다
+    var accessToken: String? { session?.access_token }
+
+    /// PostgREST 오류를 우리말로. 나머지는 원문을 남긴다 — 감추면 진단이 어려워진다.
+    private static func tableMessage(from data: Data) -> String {
+        let raw = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        let text = (raw?["message"] ?? raw?["hint"] ?? raw?["details"]) as? String
+            ?? String(data: data, encoding: .utf8) ?? ""
+        if text.contains("RATE_LIMIT") { return "너무 빠르게 보내고 있어요. 잠시 후 다시 시도해 주세요." }
+        if text.contains("LINK_NOT_ALLOWED") { return "링크는 보낼 수 없어요." }
+        if text.contains("BANNED_WORD") { return "보낼 수 없는 표현이 들어 있어요." }
+        // 23505 = unique_violation. 같은 걸 두 번 신고·차단한 것이므로 실패가 아니다.
+        if (raw?["code"] as? String) == "23505" { return DuplicateMarker }
+        return text.isEmpty ? "요청을 처리하지 못했어요." : text
     }
 
     /// GoTrue 는 영어로만 답한다. 유저가 실제로 마주치는 것만 우리말로 바꾼다.

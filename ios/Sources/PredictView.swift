@@ -4,6 +4,8 @@ import SwiftUI
 struct PredictView: View {
     @EnvironmentObject var store: Store
     @State private var tab: Int?
+    /// 경기 상세는 별도 탭이 아니라 이 화면 위에 덮인다 — 채팅이 경기에 속하기 때문이다
+    @State private var opened: Fixture?
 
     private var activeLeague: Int { tab ?? store.orderedLeagues.first?.id ?? 0 }
 
@@ -30,25 +32,30 @@ struct PredictView: View {
                     if !favMatches.isEmpty {
                         SectionLabel(text: "내 팀 경기", accent: true)
                         ForEach(Array(favMatches.enumerated()), id: \.element.id) { i, f in
-                            MatchCardView(fixture: f, index: i)
+                            MatchCardView(fixture: f, index: i) { opened = f }
                         }
                         SectionLabel(text: "\(store.league(activeLeague).name)의 남은 경기")
                     }
                     ForEach(Array(rest.enumerated()), id: \.element.id) { i, f in
-                        MatchCardView(fixture: f, index: favMatches.count + i)
+                        MatchCardView(fixture: f, index: favMatches.count + i) { opened = f }
                     }
 
                     if today.isEmpty { emptyToday }
 
                     if !upcoming.isEmpty {
                         SectionLabel(text: "다가오는 경기").padding(.top, 6)
-                        ForEach(upcoming.prefix(6)) { UpcomingRow(fixture: $0) }
+                        ForEach(upcoming.prefix(6)) { f in
+                            UpcomingRow(fixture: f) { opened = f }
+                        }
                     }
                 }
                 .padding(.horizontal, 20).padding(.top, 10).padding(.bottom, 28)
             }
         }
         .background(T.paper)
+        .fullScreenCover(item: $opened) { f in
+            MatchDetailView(fixture: f).environmentObject(store)
+        }
     }
 
     private var header: some View {
@@ -178,8 +185,10 @@ struct PredictView: View {
 struct UpcomingRow: View {
     @EnvironmentObject var store: Store
     let fixture: Fixture
+    var onOpen: () -> Void = {}
 
     var body: some View {
+        Button(action: { Haptics.tap(); onOpen() }) {
         HStack(spacing: 11) {
             CrestPair(home: store.team(fixture.homeTeamId),
                       away: store.team(fixture.awayTeamId), size: 26)
@@ -194,5 +203,7 @@ struct UpcomingRow: View {
         .padding(.horizontal, 14).frame(height: 62)
         .overlay(RoundedRectangle(cornerRadius: 16)
             .strokeBorder(T.lineStrong, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])))
+        }
+        .buttonStyle(.plain)
     }
 }

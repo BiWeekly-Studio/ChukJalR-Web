@@ -89,43 +89,6 @@ struct GoogleMark: View {
         }
     }
 }
-
-/// 워드마크 — '알'의 ㅇ 자리에 공. 웹과 같은 구성이다.
-///
-/// 자모를 따로 그리면 글꼴마다 어긋난다. '축잘알'을 통째로 그린 뒤,
-/// UIFont 로 '축잘' 과 '축잘알' 의 폭을 재서 '알' 이 놓인 칸을 구하고
-/// 그 칸 안의 비율로 공을 얹는다 — 글꼴이 바뀌어도 자리가 따라간다.
-struct Wordmark: View {
-    var size: CGFloat = 28
-    var tone: Color = T.accent
-
-    /// '알' 칸 기준 비율. 시뮬레이터에서 눈으로 맞춘 값이다.
-    private static let ballX = 0.045
-    private static let ballY = 0.255
-    private static let ballScale = 0.56
-
-    var body: some View {
-        let pt = size * 1.18
-        let uiFont = UIFont.systemFont(ofSize: pt, weight: .black)
-        let attrs: [NSAttributedString.Key: Any] = [.font: uiFont]
-        let full = ("축잘알" as NSString).size(withAttributes: attrs).width
-        let head = ("축잘" as NSString).size(withAttributes: attrs).width
-        let block = full - head
-        let height = uiFont.lineHeight
-
-        ZStack(alignment: .topLeading) {
-            Text("축잘알")
-                .font(.system(size: pt, weight: .black))
-                .foregroundStyle(tone)
-            Ball(diameter: block * Self.ballScale, ink: tone)
-                .offset(x: head + block * Self.ballX, y: height * Self.ballY)
-        }
-        .frame(width: full, height: height, alignment: .topLeading)
-        .accessibilityElement()
-        .accessibilityLabel("축잘알")
-    }
-}
-
 /// 축구공 — 원 + 오각형 + 다섯 이음선. 작아지면 이음선을 뺀다.
 struct Ball: View {
     var diameter: CGFloat

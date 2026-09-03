@@ -149,4 +149,34 @@ extension Decode {
     static func rowsPublic(_ data: Data) -> [[String: Any]] {
         (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] ?? []
     }
+
+
+    // MARK: 경기 상세
+
+    /// PostgREST 의 임베드는 profiles 를 객체로 준다 (`profiles(handle)`).
+    /// 프로필이 지워진 사람의 옛 메시지도 남을 수 있어 닉네임이 없을 수 있다.
+    static func chat(_ data: Data, me: String?) -> [ChatMessage] {
+        rows(data).compactMap { r in
+            guard let id = r["id"] as? Int,
+                  let userId = r["user_id"] as? String,
+                  let body = r["body"] as? String else { return nil }
+            let handle = ((r["profiles"] as? [String: Any])?["handle"] as? String)?
+                .trimmingCharacters(in: .whitespaces)
+            return ChatMessage(
+                id: id,
+                userId: userId,
+                handle: handle?.isEmpty == false ? handle! : "알 수 없음",
+                body: body,
+                at: date(r["created_at"] as? String) ?? Date(),
+                mine: me != nil && userId == me)
+        }
+    }
+
+    static func settlement(_ data: Data) -> Settlement? {
+        guard let r = rows(data).first,
+              let fixtureId = r["fixture_id"] as? Int,
+              let delta = r["delta_rating"] as? Int,
+              let points = r["points"] as? Int else { return nil }
+        return Settlement(fixtureId: fixtureId, deltaRating: delta, points: points)
+    }
 }

@@ -5,6 +5,8 @@ struct MatchCardView: View {
     @EnvironmentObject var store: Store
     let fixture: Fixture
     var index: Int = 0
+    /// 대진 머리를 누르면 경기 상세로. 보기 버튼은 그대로 예측에 쓰인다.
+    var onOpen: () -> Void = {}
 
     @State private var appeared = false
 
@@ -61,6 +63,7 @@ struct MatchCardView: View {
     // MARK: 머리
 
     private var header: some View {
+        Button(action: { Haptics.tap(); onOpen() }) {
         HStack(spacing: 10) {
             CrestPair(home: home, away: away)
             VStack(alignment: .leading, spacing: 2) {
@@ -75,7 +78,11 @@ struct MatchCardView: View {
             }
             Spacer(minLength: 4)
             statusChip
+            Image(systemName: "chevron.right")
+                .font(.system(size: 11, weight: .bold)).foregroundStyle(T.ink4)
         }
+        }
+        .buttonStyle(.plain)
     }
 
     private var subtitle: String {

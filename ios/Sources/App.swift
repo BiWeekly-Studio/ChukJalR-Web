@@ -106,19 +106,3 @@ struct RootView: View {
         }
     }
 }
-
-/// 화면들은 이 다음 단계에서 옮긴다. 지금은 로그인이 통했는지만 확인한다.
-struct HomePlaceholder: View {
-    @EnvironmentObject var auth: Auth
-    var body: some View {
-        VStack(spacing: 14) {
-            Wordmark(size: 24)
-            Text("로그인됨").font(T.display(15, .heavy)).foregroundStyle(T.ink2)
-            Button("로그아웃", action: auth.signOut)
-                .font(T.body(13, .semibold))
-                .foregroundStyle(T.accent)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(T.paper)
-    }
-}

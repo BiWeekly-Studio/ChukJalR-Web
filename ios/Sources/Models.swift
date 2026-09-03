@@ -69,6 +69,52 @@ struct Fixture: Identifiable, Codable {
     }
 }
 
+// MARK: - 채팅
+
+enum ChatState { case before, open, closed }
+
+extension Fixture {
+    /// 채팅은 킥오프 1시간 전에 열리고, 경기가 끝나고 얼마 뒤 닫힌다.
+    func chat(now: Date = .now) -> ChatState {
+        if now < kickoffAt.addingTimeInterval(-3600) { return .before }
+        if now > kickoffAt.addingTimeInterval(4 * 3600) { return .closed }
+        return .open
+    }
+    /// 채팅이 열리는 시각
+    var chatOpensAt: Date { kickoffAt.addingTimeInterval(-3600) }
+}
+
+struct ChatMessage: Identifiable, Equatable {
+    let id: Int
+    /// 브로드캐스트에도 실려 오지만, 차단은 보낸 사람 id 로 건다
+    let userId: String
+    let handle: String
+    let body: String
+    let at: Date
+    let mine: Bool
+    var initial: String { String(handle.prefix(1)) }
+}
+
+enum ReportReason: String, CaseIterable {
+    case abuse, spam, ad, other
+    var label: String {
+        switch self {
+        case .abuse: return "욕설·비하"
+        case .spam:  return "도배"
+        case .ad:    return "홍보·광고"
+        case .other: return "기타"
+        }
+    }
+}
+
+/// 정산이 끝난 내 예측의 결과. 서버 기록이 유일한 진실이다 (명세 11.1).
+struct Settlement {
+    let fixtureId: Int
+    let deltaRating: Int
+    let points: Int
+    var won: Bool { deltaRating > 0 }
+}
+
 struct Prediction: Codable {
     let fixtureId: Int
     let pick: Outcome

@@ -3,7 +3,7 @@ import type { Auth, AuthUser, Catalog, MeSnapshot, OAuthProvider, Repository } f
 import type {
   BadgeDef, ChatMessage, Fixture, MyStats, Prediction, RankRow, SettlementResult,
 } from './types';
-import type { Confidence, Outcome, Tier } from '../lib/scoring';
+import type { Confidence, Outcome } from '../lib/scoring';
 
 /**
  * 실제 백엔드 구현. 명세 14장의 스키마를 그대로 읽는다.
@@ -365,17 +365,21 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
         .channel(`match:${fixtureId}`, { config: { private: false, presence: { key: '' } } })
         .on('broadcast', { event: 'chat.message' }, (payload) => {
           const p = payload.payload as {
-            id: number; userId: string; handle: string;
-            topPercent: number | null; tier: string; body: string; at: string;
+            id: number; userId: string; handle?: string; body: string; at: string;
           };
+          // 트리거가 보내주는 것만 믿는다. 없는 필드를 그럴듯하게 채우지 않고,
+          // 닉네임이 비어도 콜백이 죽지 않게 한다 — 죽으면 이후 메시지가 전부 안 붙는다.
+          const handle = p.handle?.trim() || '알 수 없음';
           onMessage({
             id: String(p.id),
             fixtureId,
             userId: p.userId,
-            handle: p.handle,
-            initial: p.handle.slice(0, 1),
-            topPercent: p.topPercent ?? null,
-            tier: p.tier as Tier,
+            handle,
+            initial: handle.slice(0, 1),
+            // 등급은 과거 메시지 경로도 채우지 않는다. 실시간에만 뱃지가 붙으면
+            // 같은 사람의 말이 경로에 따라 다르게 보인다.
+            topPercent: null,
+            tier: null,
             body: p.body,
             at: new Date(p.at).toTimeString().slice(0, 5),
             mine: me != null && p.userId === me,

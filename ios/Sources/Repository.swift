@@ -16,6 +16,15 @@ protocol Repository {
     func loadMyStats() async throws -> MyStats
     func loadBadges() async throws -> [BadgeDef]
     func saveOnboarding(leagueOrder: [Int], favoriteTeamIds: [Int]) async throws
+
+    // 경기 상세
+    func loadChat(fixtureId: Int) async throws -> [ChatMessage]
+    func sendChat(fixtureId: Int, body: String) async throws
+    /// 신고 3건이 쌓이면 서버가 자동으로 가리고 검토 큐로 넘긴다 (명세 10장)
+    func reportMessage(id: Int, reason: ReportReason) async throws
+    func blockUser(id: String) async throws
+    /// 정산이 끝난 내 예측의 결과. 아직 정산 전이면 nil
+    func loadSettlement(fixtureId: Int) async throws -> Settlement?
 }
 
 /// 실제 백엔드. 스키마와 RLS 는 웹과 완전히 같다.
@@ -76,6 +85,65 @@ struct SupabaseRepository: Repository {
     func saveOnboarding(leagueOrder: [Int], favoriteTeamIds: [Int]) async throws {
         try await Supabase.shared.saveOnboarding(leagueOrder: leagueOrder,
                                                  favoriteTeamIds: favoriteTeamIds)
+    }
+
+    // MARK: 경기 상세
+
+    func loadChat(fixtureId: Int) async throws -> [ChatMessage] {
+        let me = await Supabase.shared.currentUser?.id
+        // 최근 50건을 역순으로 받아 뒤집는다 — 오래된 것부터 위로 쌓아야 읽힌다.
+        let data = try await Supabase.shared.get(
+            "chat_messages?select=id,body,created_at,user_id,profiles(handle)"
+            + "&channel=eq.match:\(fixtureId)&deleted_at=is.null"
+            + "&order=created_at.desc&limit=50")
+        return Decode.chat(data, me: me).reversed()
+    }
+
+    func sendChat(fixtureId: Int, body: String) async throws {
+        guard let uid = await Supabase.shared.currentUser?.id else {
+            throw Supabase.Failure.http(401, "로그인이 필요해요.")
+        }
+        try await Supabase.shared.insert("chat_messages", [
+            "channel": "match:\(fixtureId)",
+            "fixture_id": fixtureId,
+            "user_id": uid,
+            "body": body,
+        ])
+    }
+
+    func reportMessage(id: Int, reason: ReportReason) async throws {
+        guard let uid = await Supabase.shared.currentUser?.id else {
+            throw Supabase.Failure.http(401, "로그인이 필요해요.")
+        }
+        do {
+            try await Supabase.shared.insert("message_reports", [
+                "message_id": id, "reporter_id": uid, "reason": reason.rawValue,
+            ])
+        } catch let e as Supabase.Failure {
+            // 같은 메시지를 두 번 신고한 것뿐이다. 사용자에게는 접수된 것으로 보이면 된다.
+            if case .http(_, DuplicateMarker) = e { return }
+            throw e
+        }
+    }
+
+    func blockUser(id: String) async throws {
+        guard let uid = await Supabase.shared.currentUser?.id else {
+            throw Supabase.Failure.http(401, "로그인이 필요해요.")
+        }
+        do {
+            try await Supabase.shared.insert("user_blocks", ["blocker_id": uid, "blocked_id": id])
+        } catch let e as Supabase.Failure {
+            if case .http(_, DuplicateMarker) = e { return }
+            throw e
+        }
+    }
+
+    func loadSettlement(fixtureId: Int) async throws -> Settlement? {
+        guard let uid = await Supabase.shared.currentUser?.id else { return nil }
+        let data = try await Supabase.shared.get(
+            "settlements?select=fixture_id,delta_rating,points"
+            + "&user_id=eq.\(uid)&fixture_id=eq.\(fixtureId)&limit=1")
+        return Decode.settlement(data)
     }
 
     func loadBadges() async throws -> [BadgeDef] {
