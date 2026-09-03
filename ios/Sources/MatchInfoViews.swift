@@ -10,16 +10,27 @@ import SwiftUI
 struct InfoCard<Content: View>: View {
     let title: String
     var trailing: String?
+    /// 넘기면 제목줄이 버튼이 되고 오른쪽에 화살표가 붙는다
+    var collapsed: Binding<Bool>?
     @ViewBuilder var content: Content
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text(title).font(T.display(14, .heavy))
-                Spacer(minLength: 6)
-                if let trailing {
-                    Text(trailing).font(T.body(11)).foregroundStyle(T.ink3)
+            if let collapsed {
+                Button {
+                    Haptics.tap()
+                    withAnimation(T.ease) { collapsed.wrappedValue.toggle() }
+                } label: {
+                    head.overlay(alignment: .trailing) {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(T.ink3)
+                            .rotationEffect(.degrees(collapsed.wrappedValue ? 0 : 180))
+                    }
                 }
+                .buttonStyle(.plain)
+            } else {
+                head
             }
             content
         }
@@ -27,6 +38,19 @@ struct InfoCard<Content: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(T.card, in: RoundedRectangle(cornerRadius: 20))
         .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
+    }
+
+    private var head: some View {
+        HStack {
+            Text(title).font(T.display(14, .heavy))
+            Spacer(minLength: 6)
+            if let trailing {
+                Text(trailing).font(T.body(11)).foregroundStyle(T.ink3)
+                    // 화살표 자리를 비워둔다. 겹치면 경기 수가 가려진다.
+                    .padding(.trailing, collapsed == nil ? 0 : 20)
+            }
+        }
+        .contentShape(Rectangle())
     }
 }
 
@@ -142,9 +166,14 @@ struct HeadToHeadView: View {
     let homeTeamId: Int
     let awayTeamId: Int
 
+    /// 접힘 상태는 사람마다 취향이 갈린다. 한 번 접은 사람은 다음 경기에서도 접힌 걸
+    /// 보고 싶어 하므로 기기에 남긴다 — 경기별이 아니라 이 섹션 하나에 대한 취향이다.
+    @AppStorage("chukjalal.h2h.collapsed") private var collapsed = false
+
     var body: some View {
         if h2h.played > 0 {
-            InfoCard(title: "최근 맞대결", trailing: "\(h2h.played)경기") {
+            InfoCard(title: "최근 맞대결", trailing: "\(h2h.played)경기",
+                     collapsed: $collapsed) {
                 VStack(spacing: 0) {
                     bar.padding(.top, 12)
                     HStack {
@@ -157,12 +186,15 @@ struct HeadToHeadView: View {
                     .font(T.body(11)).foregroundStyle(T.ink3)
                     .lineLimit(1).padding(.top, 10)
 
-                    if !h2h.recent.isEmpty {
+                    // 접어도 요약 막대는 남긴다. 카드의 값은 거기 있고,
+                    // 길이를 만드는 건 아래 목록이다.
+                    if !h2h.recent.isEmpty, !collapsed {
                         Divider().overlay(T.line2).padding(.top, 12)
                         VStack(spacing: 7) {
                             ForEach(h2h.recent) { m in recentRow(m) }
                         }
                         .padding(.top, 10)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                     }
                 }
             }

@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { team } from '../data/catalog';
+import { haptic } from '../lib/anim';
 import type { HeadToHead, Lineup, MatchEvent, TeamStats } from '../data/types';
 
 /**
@@ -105,20 +107,54 @@ export function Lineups({
 
 /* ------------------------------------------------------------------ 상대 전적 */
 
+/**
+ * 접힘 상태는 사람마다 취향이 갈린다. 한 번 접은 사람은 다음 경기에서도 접힌 걸
+ * 보고 싶어 하므로 기기에 남긴다 — 경기별이 아니라 이 섹션 하나에 대한 취향이다.
+ */
+const H2H_OPEN_KEY = 'chukjalal.h2h.open';
+
+function readOpen(): boolean {
+  try {
+    return localStorage.getItem(H2H_OPEN_KEY) !== '0';
+  } catch {
+    return true;   // 저장소를 막아둔 브라우저에서는 펼친 채로 둔다
+  }
+}
+
 export function HeadToHeadCard({
   h2h, homeTeamId, awayTeamId,
 }: { h2h: HeadToHead; homeTeamId: number; awayTeamId: number }) {
+  const [open, setOpen] = useState(readOpen);
   if (h2h.played === 0) return null;
   const home = team(homeTeamId);
   const away = team(awayTeamId);
   const pct = (n: number) => (n / h2h.played) * 100;
 
+  function toggle() {
+    haptic(9);
+    setOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(H2H_OPEN_KEY, next ? '1' : '0');
+      } catch {
+        /* 저장 실패는 무시한다 */
+      }
+      return next;
+    });
+  }
+
   return (
     <section className="card in" style={{ marginTop: 12, borderRadius: 20, padding: '14px 16px 16px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}
+      >
         <h2 className="h3">최근 맞대결</h2>
-        <span className="tiny muted">{h2h.played}경기</span>
-      </div>
+        <span className="tiny muted" style={{ marginLeft: 'auto' }}>{h2h.played}경기</span>
+        <Chevron open={open} />
+      </button>
 
       <div className="distbar" style={{ marginTop: 12 }}>
         <i style={{ flex: Math.max(pct(h2h.homeWins), 0.001), background: 'var(--grad-accent)' }} />
@@ -132,21 +168,43 @@ export function HeadToHeadCard({
         <span className="tiny muted">{away.name} {h2h.awayWins}승</span>
       </div>
 
+      {/* 접어도 요약 막대는 남긴다. 카드의 값은 거기 있고, 길이를 만드는 건 아래 목록이다. */}
       {h2h.recent.length > 0 && (
-        <ul className="h2h-list">
-          {h2h.recent.map((m, i) => (
-            <li key={i}>
-              <span className="tiny muted">{m.date.slice(0, 10)}</span>
-              <span className="tiny" style={{ flex: 1, minWidth: 0, textAlign: 'right' }}>
-                {team(m.homeId).abbr}
-              </span>
-              <span className="num" style={{ fontSize: 12 }}>{m.hg ?? '-'} : {m.ag ?? '-'}</span>
-              <span className="tiny" style={{ flex: 1, minWidth: 0 }}>{team(m.awayId).abbr}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="collapse" data-open={open || undefined}>
+          <div>
+            <ul className="h2h-list">
+              {h2h.recent.map((m, i) => (
+                <li key={i}>
+                  <span className="tiny muted">{m.date.slice(0, 10)}</span>
+                  <span className="tiny" style={{ flex: 1, minWidth: 0, textAlign: 'right' }}>
+                    {team(m.homeId).abbr}
+                  </span>
+                  <span className="num" style={{ fontSize: 12 }}>{m.hg ?? '-'} : {m.ag ?? '-'}</span>
+                  <span className="tiny" style={{ flex: 1, minWidth: 0 }}>{team(m.awayId).abbr}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
       )}
     </section>
+  );
+}
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke="var(--ink-3)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+      style={{
+        flexShrink: 0,
+        transform: `rotate(${open ? 180 : 0}deg)`,
+        transition: 'transform 0.28s var(--ease)',
+      }}
+      aria-hidden
+    >
+      <path d="M6 9l6 6 6-6" />
+    </svg>
   );
 }
 
