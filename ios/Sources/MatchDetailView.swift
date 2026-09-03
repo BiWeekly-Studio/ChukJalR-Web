@@ -12,11 +12,19 @@ struct MatchDetailView: View {
     @State private var draft = ""
     @State private var settlement: Settlement?
     @State private var reporting: ChatMessage?
+    /// 채팅이 열려 있으면 채팅부터 보여준다.
+    ///
+    /// 경기 기록·팀 기록·선발 명단·맞대결이 붙으면서 한 줄로 쌓으면 채팅에 닿는 데
+    /// 카드 네 장을 지나쳐야 한다. 라이브에서 채팅은 곁들이가 아니라 본 화면이다.
+    @State private var tab: Tab
     @FocusState private var composing: Bool
+
+    enum Tab { case chat, info }
 
     init(fixture: Fixture) {
         self.fixture = fixture
         _chat = StateObject(wrappedValue: MatchChat(fixtureId: fixture.id))
+        _tab = State(initialValue: fixture.chat() == .open ? .chat : .info)
     }
 
     private var home: Team { store.team(fixture.homeTeamId) }
@@ -44,24 +52,40 @@ struct MatchDetailView: View {
     var body: some View {
         VStack(spacing: 0) {
             appbar
-            ScrollViewReader { proxy in
+            // 위쪽은 고정 — 어느 탭에서도 점수와 내 예측은 보여야 한다
+            VStack(spacing: 0) {
+                versus
+                myPick
+            }
+            .padding(.horizontal, 20).padding(.top, 10)
+
+            tabs.padding(.horizontal, 20).padding(.vertical, 10)
+
+            if tab == .chat {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 0) {
+                            chatHead.padding(.horizontal, 20).padding(.top, 4)
+                            chatBody.padding(.top, 4)
+                            Color.clear.frame(height: 8).id(bottomAnchor)
+                        }
+                        .padding(.bottom, 12)
+                    }
+                    .onChange(of: chat.visible.count) { _ in
+                        withAnimation(T.ease) { proxy.scrollTo(bottomAnchor, anchor: .bottom) }
+                    }
+                    .onAppear { proxy.scrollTo(bottomAnchor, anchor: .bottom) }
+                }
+                if chatState == .open { composer }
+            } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        versus.padding(.horizontal, 20).padding(.top, 10)
-                        distribution.padding(.horizontal, 20).padding(.top, 12)
-                        myPick.padding(.horizontal, 20)
-                        info.padding(.horizontal, 20)
-                        chatHead.padding(.horizontal, 20).padding(.top, 20)
-                        chatBody.padding(.top, 4)
-                        Color.clear.frame(height: 8).id(bottomAnchor)
+                        distribution.padding(.top, 8)
+                        info
                     }
-                    .padding(.bottom, 12)
-                }
-                .onChange(of: chat.visible.count) { _ in
-                    withAnimation(T.ease) { proxy.scrollTo(bottomAnchor, anchor: .bottom) }
+                    .padding(.horizontal, 20).padding(.top, 4).padding(.bottom, 20)
                 }
             }
-            if chatState == .open { composer }
         }
         .background(T.paper)
         .overlay(alignment: .bottom) { toast }
@@ -117,6 +141,36 @@ struct MatchDetailView: View {
                                        minute: elapsed, status: status, myPickLeading: leading)
             }
         }
+    }
+
+    private var tabs: some View {
+        HStack(spacing: 4) {
+            tabButton(.chat, "채팅")
+            tabButton(.info, "정보")
+        }
+    }
+
+    private func tabButton(_ value: Tab, _ label: String) -> some View {
+        let on = tab == value
+        return Button {
+            Haptics.tap()
+            withAnimation(T.ease) { tab = value }
+        } label: {
+            HStack(spacing: 6) {
+                Text(label).font(T.display(13, .semibold))
+                // 채팅이 열려 있다는 표시. 탭을 안 열어도 지금 붐빈다는 걸 알린다.
+                if value == .chat, chatState == .open {
+                    Circle().fill(on ? Color.white : T.accent)
+                        .frame(width: 6, height: 6)
+                }
+            }
+            .foregroundStyle(on ? .white : T.ink3)
+            .frame(maxWidth: .infinity, minHeight: 38)
+            .background(on ? AnyShapeStyle(T.gradAccent) : AnyShapeStyle(T.card2),
+                        in: RoundedRectangle(cornerRadius: 12))
+            .shadow(color: on ? T.accent.opacity(0.35) : .clear, radius: 10, y: 4)
+        }
+        .buttonStyle(.plain)
     }
 
     private let bottomAnchor = "chat-bottom"

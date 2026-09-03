@@ -76,10 +76,13 @@ struct EventTimeline: View {
     /// 홈은 왼쪽, 원정은 오른쪽으로 붙여 어느 팀 일인지 한눈에 보인다
     private func row(_ e: MatchEvent) -> some View {
         let home = e.teamId == homeTeamId
+        // 홈은 [분][표시][이름], 원정은 그 거울인 [이름][표시][분]
         return HStack(spacing: 8) {
             if !home { Spacer(minLength: 20) }
-            if home { minute(e) }
-            Text(e.mark ?? "").font(.system(size: 13)).frame(width: 18)
+            if home {
+                minute(e)
+                mark(e)
+            }
             VStack(alignment: home ? .leading : .trailing, spacing: 2) {
                 Text(e.player ?? "—")
                     .font(T.body(13, .semibold)).foregroundStyle(tone(e))
@@ -89,9 +92,16 @@ struct EventTimeline: View {
                 }
             }
             .lineLimit(1)
-            if !home { minute(e) }
+            if !home {
+                mark(e)
+                minute(e)
+            }
             if home { Spacer(minLength: 20) }
         }
+    }
+
+    private func mark(_ e: MatchEvent) -> some View {
+        Text(e.mark ?? "").font(.system(size: 13)).frame(width: 18)
     }
 
     private func minute(_ e: MatchEvent) -> some View {

@@ -38,6 +38,15 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
   // 진행 중 점수는 브로드캐스트로 들어온다. 카탈로그의 값보다 이쪽이 최신이다.
   const [live, setLive] = useState<{ home: number | null; away: number | null; elapsed: number | null } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  /**
+   * 채팅이 열려 있으면 채팅부터 보여준다.
+   *
+   * 경기 기록·팀 기록·선발 명단·맞대결이 붙으면서 한 줄로 쌓으면 채팅에 닿는 데
+   * 카드 네 장을 지나쳐야 한다. 라이브에서 채팅은 곁들이가 아니라 본 화면이다.
+   */
+  const [tab, setTab] = useState<'chat' | 'info'>('info');
+  // 채팅 창 상태는 화면이 뜬 뒤에 정해지므로(경기 정보가 와야 안다) 한 번만 맞춰준다
+  const tabDecided = useRef(false);
 
   // 기존 메시지를 불러오고 Realtime Broadcast 를 구독한다 (명세 14.4).
   // 목업 구현에서는 가짜 메시지가 주기적으로 들어온다.
@@ -81,8 +90,9 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
   }, [fixtureId]);
 
   useEffect(() => {
+    if (tab !== 'chat') return;
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages.length]);
+  }, [messages.length, tab]);
 
   const f = fixture(fixtureId);
   if (!f) return null;
@@ -125,6 +135,11 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
     });
   }
 
+  if (!tabDecided.current) {
+    tabDecided.current = true;
+    if (chat === 'OPEN') setTab('chat');
+  }
+
   const preview =
     saved && f.baseline ? previewScore(f.baseline, saved.pick, saved.confidence, state.streak) : null;
 
@@ -148,8 +163,8 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
         <span style={{ width: 40 }} />
       </div>
 
-      <div ref={listRef} className="scroll" style={{ paddingTop: 0 }}>
-        <div className="pad" style={{ paddingTop: 10 }}>
+      {/* 위쪽은 고정 — 어느 탭에서도 점수와 내 예측은 보여야 한다 */}
+      <div className="pad" style={{ paddingTop: 10, paddingBottom: 0 }}>
           {/* 대진 배너 — 경기 상세의 얼굴 */}
           <div className="versus in">
             <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
@@ -185,60 +200,6 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
               <Side teamId={f.awayTeamId} name={away.name} />
             </div>
           </div>
-
-          {showCrowd && f.baseline ? (
-            <div className="card in" style={{ marginTop: 12, borderRadius: 20, padding: '14px 16px 16px', ['--i' as string]: 1 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="h3">
-                  {crowd === 'solid' ? '다른 사람들은 이렇게 봤어요' : '지금까지의 예상 확률'}
-                </span>
-                {f.participants != null && (
-                  <span className="chip plain" style={{ fontSize: 10.5 }}>
-                    <IconUsers size={11} color="currentColor" />
-                    {comma(f.participants)}명
-                  </span>
-                )}
-              </div>
-              <div className="distbar" style={{ marginTop: 12 }}>
-                {f.baseline.map((v, i) => (
-                  <i key={i} style={{ flex: v, background: SEG_COLOR[i], ['--i' as string]: i }} />
-                ))}
-              </div>
-              {crowd === 'thin' && (
-                <p className="tiny muted" style={{ margin: '10px 0 0', lineHeight: 1.55 }}>
-                  아직 예측이 {f.participants}명뿐이라, 이 확률은 대부분 기본 예상치예요.
-                  사람이 모일수록 실제 판단 쪽으로 옮겨갑니다.
-                </p>
-              )}
-              <div style={{ display: 'flex', marginTop: 11 }}>
-                {OUTCOMES.map((o, i) => (
-                  <div
-                    key={o}
-                    style={{
-                      flex: i === 1 ? '0 0 auto' : 1, display: 'flex', alignItems: 'center', gap: 6,
-                      justifyContent: i === 2 ? 'flex-end' : 'flex-start',
-                    }}
-                  >
-                    <span style={{ width: 8, height: 8, borderRadius: 3, background: DOT_COLOR[i] }} />
-                    <span className="tiny muted">{o === 'HOME' ? home.name : o === 'AWAY' ? away.name : '무'}</span>
-                    <span className="num" style={{ fontSize: 14 }}>{pct(f.baseline![i])}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            /* 여론이 없으면 분포를 그리지 않는다 — 빈 자리를 그럴듯한 숫자로 채우면 그게 가짜다 */
-            <div
-              className="card in"
-              style={{ marginTop: 12, borderRadius: 20, padding: '18px 16px', textAlign: 'center', ['--i' as string]: 1 }}
-            >
-              <p className="h3" style={{ fontSize: 13, marginBottom: 6 }}>아직 아무도 예측하지 않았어요</p>
-              <p className="tiny muted" style={{ margin: 0, lineHeight: 1.6 }}>
-                예측이 모이면 사람들이 어느 쪽을 봤는지 여기에 나와요.
-              </p>
-            </div>
-          )}
-
           {saved && finished && state.settlements[fixtureId] && (
             <ResultBanner
               label={pickLabel ?? ''}
@@ -264,19 +225,28 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
               </span>
             </div>
           )}
-        </div>
+      </div>
 
-        <div className="pad" style={{ paddingTop: 0 }}>
-          <EventTimeline events={info.events} homeTeamId={f.homeTeamId} />
-          {info.stats.length > 0 && (
-            <MatchStatsCard stats={info.stats} homeTeamId={f.homeTeamId} />
-          )}
-          <Lineups lineups={info.lineups} homeTeamId={f.homeTeamId} />
-          {info.h2h && (
-            <HeadToHeadCard h2h={info.h2h} homeTeamId={f.homeTeamId} awayTeamId={f.awayTeamId} />
-          )}
-        </div>
+      <div className="tabs" role="tablist">
+        {(['chat', 'info'] as const).map((key) => (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={tab === key}
+            className={tab === key ? 'on' : undefined}
+            onClick={() => {
+              haptic(9);
+              setTab(key);
+            }}
+          >
+            {key === 'chat' ? '채팅' : '정보'}
+            {key === 'chat' && chat === 'OPEN' && <i className="tabdot" />}
+          </button>
+        ))}
+      </div>
 
+      {tab === 'chat' ? (
+        <div ref={listRef} className="scroll" style={{ paddingTop: 0 }}>
         <div className="pad" style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '20px 20px 12px' }}>
           <span
             className={chat === 'OPEN' ? 'live-dot' : undefined}
@@ -358,7 +328,73 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
             </div>
           ))}
         </div>
-      </div>
+        </div>
+      ) : (
+        <div className="scroll" style={{ paddingTop: 0 }}>
+          <div className="pad" style={{ paddingTop: 12 }}>
+          {showCrowd && f.baseline ? (
+            <div className="card in" style={{ marginTop: 12, borderRadius: 20, padding: '14px 16px 16px', ['--i' as string]: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="h3">
+                  {crowd === 'solid' ? '다른 사람들은 이렇게 봤어요' : '지금까지의 예상 확률'}
+                </span>
+                {f.participants != null && (
+                  <span className="chip plain" style={{ fontSize: 10.5 }}>
+                    <IconUsers size={11} color="currentColor" />
+                    {comma(f.participants)}명
+                  </span>
+                )}
+              </div>
+              <div className="distbar" style={{ marginTop: 12 }}>
+                {f.baseline.map((v, i) => (
+                  <i key={i} style={{ flex: v, background: SEG_COLOR[i], ['--i' as string]: i }} />
+                ))}
+              </div>
+              {crowd === 'thin' && (
+                <p className="tiny muted" style={{ margin: '10px 0 0', lineHeight: 1.55 }}>
+                  아직 예측이 {f.participants}명뿐이라, 이 확률은 대부분 기본 예상치예요.
+                  사람이 모일수록 실제 판단 쪽으로 옮겨갑니다.
+                </p>
+              )}
+              <div style={{ display: 'flex', marginTop: 11 }}>
+                {OUTCOMES.map((o, i) => (
+                  <div
+                    key={o}
+                    style={{
+                      flex: i === 1 ? '0 0 auto' : 1, display: 'flex', alignItems: 'center', gap: 6,
+                      justifyContent: i === 2 ? 'flex-end' : 'flex-start',
+                    }}
+                  >
+                    <span style={{ width: 8, height: 8, borderRadius: 3, background: DOT_COLOR[i] }} />
+                    <span className="tiny muted">{o === 'HOME' ? home.name : o === 'AWAY' ? away.name : '무'}</span>
+                    <span className="num" style={{ fontSize: 14 }}>{pct(f.baseline![i])}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            /* 여론이 없으면 분포를 그리지 않는다 — 빈 자리를 그럴듯한 숫자로 채우면 그게 가짜다 */
+            <div
+              className="card in"
+              style={{ marginTop: 12, borderRadius: 20, padding: '18px 16px', textAlign: 'center', ['--i' as string]: 1 }}
+            >
+              <p className="h3" style={{ fontSize: 13, marginBottom: 6 }}>아직 아무도 예측하지 않았어요</p>
+              <p className="tiny muted" style={{ margin: 0, lineHeight: 1.6 }}>
+                예측이 모이면 사람들이 어느 쪽을 봤는지 여기에 나와요.
+              </p>
+            </div>
+          )}
+          <EventTimeline events={info.events} homeTeamId={f.homeTeamId} />
+          {info.stats.length > 0 && (
+            <MatchStatsCard stats={info.stats} homeTeamId={f.homeTeamId} />
+          )}
+          <Lineups lineups={info.lineups} homeTeamId={f.homeTeamId} />
+          {info.h2h && (
+            <HeadToHeadCard h2h={info.h2h} homeTeamId={f.homeTeamId} awayTeamId={f.awayTeamId} />
+          )}
+          </div>
+        </div>
+      )}
 
       {notice && (
         <div className="toast" role="status" onClick={() => setNotice(null)}>

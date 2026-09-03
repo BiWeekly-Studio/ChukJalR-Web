@@ -42,6 +42,7 @@ export function EventTimeline({
   return (
     <section className="card in" style={{ marginTop: 12, borderRadius: 20, padding: '14px 16px 16px' }}>
       <h2 className="h3">경기 기록</h2>
+      {/* 홈은 [분][표시][이름], 원정은 그 거울 — .timeline li.away 의 row-reverse 가 뒤집는다 */}
       <ol className="timeline">
         {shown.map((e) => {
           const mark = eventMark(e)!;

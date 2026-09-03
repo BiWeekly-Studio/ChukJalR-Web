@@ -31,6 +31,9 @@ const API_BASE = 'https://v3.football.api-sports.io';
 const LEAGUES = [39, 140, 78, 135]; // EPL, 라리가, 분데스리가, 세리에A
 const SCHEDULE_DAYS = 30;
 const IDS_PER_CALL = 20; // API-Football 의 ?ids= 상한
+// 이 값 이상은 우리가 만든 테스트 경기다 (scripts/test-match.sh). API 에는 없으므로
+// 물어보면 빈 응답만 돌아오고 호출만 낭비된다.
+const TEST_FIXTURE_FLOOR = 9_000_000;
 
 type State = 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'VOID';
 
@@ -367,7 +370,7 @@ async function syncLive(sb: Db, a: Api) {
   const live = await sb.select<{ id: number; home_goals_live: number | null; away_goals_live: number | null }>(
     'fixtures',
     `select=id,home_goals_live,away_goals_live&state=in.(SCHEDULED,LIVE)` +
-      `&kickoff_at=lte.${now}&kickoff_at=gte.${floor}&order=kickoff_at&limit=40`
+      `&kickoff_at=lte.${now}&kickoff_at=gte.${floor}&id=lt.${TEST_FIXTURE_FLOOR}&order=kickoff_at&limit=40`
   );
   if (live.length === 0) return { live: 0, changed: 0, events: 0, skipped: true };
 
@@ -793,7 +796,7 @@ function db(url: string, serviceKey: string): Db {
       const floor = new Date(Date.now() - 6 * 3600e3).toISOString();
       const q =
         `select=id&state=in.(SCHEDULED,LIVE)&kickoff_at=lte.${now}` +
-        `&kickoff_at=gte.${floor}&order=kickoff_at&limit=60`;
+        `&kickoff_at=gte.${floor}&id=lt.${TEST_FIXTURE_FLOOR}&order=kickoff_at&limit=60`;
       const res = await fetch(`${url}/rest/v1/fixtures?${q}`, { headers });
       if (!res.ok) throw new Error(`pending ${res.status}: ${await res.text()}`);
       return ((await res.json()) as { id: number }[]).map((r) => r.id);
