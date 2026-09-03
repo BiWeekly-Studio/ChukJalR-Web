@@ -51,6 +51,73 @@ export interface Fixture {
   homeGoals: number | null;
   awayGoals: number | null;
   result: Outcome | null;
+  /**
+   * 진행 중 점수. 표시 전용이다 — 정산은 오직 homeGoals/awayGoals(정규 결과)만 본다.
+   * 아직 시작 안 했으면 null.
+   */
+  liveHome: number | null;
+  liveAway: number | null;
+  /** 경과 분. 하프타임에는 45 에서 멈춘다 */
+  elapsed: number | null;
+}
+
+/* ------------------------------------------------------------------ 경기 부가 정보 */
+
+export type MatchEventType = 'Goal' | 'Card' | 'subst' | 'Var';
+
+export interface MatchEvent {
+  seq: number;
+  minute: number | null;
+  extra: number | null;
+  teamId: number | null;
+  type: string;
+  detail: string | null;
+  player: string | null;
+  assist: string | null;
+}
+
+export interface LineupPlayer {
+  name: string | null;
+  number: number | null;
+  pos: string | null;
+}
+
+export interface Lineup {
+  teamId: number;
+  formation: string | null;
+  coach: string | null;
+  starters: LineupPlayer[];
+  bench: LineupPlayer[];
+}
+
+export interface H2HMatch {
+  date: string;
+  homeId: number;
+  awayId: number;
+  hg: number | null;
+  ag: number | null;
+}
+
+export interface HeadToHead {
+  played: number;
+  homeWins: number;
+  draws: number;
+  awayWins: number;
+  recent: H2HMatch[];
+}
+
+/** 종료된 경기의 팀별 기록. API 가 주는 이름을 그대로 쓴다 */
+export interface TeamStats {
+  teamId: number;
+  stats: Record<string, string | number | null>;
+}
+
+/** 경기 상세가 한 번에 받아오는 묶음. 없는 항목은 빈 값이다 */
+export interface MatchDetailData {
+  events: MatchEvent[];
+  lineups: Lineup[];
+  h2h: HeadToHead | null;
+  stats: TeamStats[];
 }
 
 /** 정산된 내 예측의 결과 */

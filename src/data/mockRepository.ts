@@ -73,6 +73,11 @@ export const mockRepository: Repository = {
     };
   },
 
+  // 목업에는 수집한 부가 정보가 없다. 지어내지 않고 빈 값을 준다.
+  async loadMatchDetail() {
+    return { events: [], lineups: [], h2h: null, stats: [] };
+  },
+
   async loadChat(fixtureId: number) {
     return CHAT_SEED.filter((m) => m.fixtureId === fixtureId);
   },

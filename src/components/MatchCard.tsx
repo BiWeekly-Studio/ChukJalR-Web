@@ -90,6 +90,11 @@ export function MatchCard({
               .join(' ')}{' · '}
             {phase === 'FINISHED' ? (
               <b style={{ color: 'var(--ink-2)' }}>종료 {f.homeGoals} : {f.awayGoals}</b>
+            ) : f.liveHome != null && f.liveAway != null ? (
+              // 진행 중이면 경기장·킥오프 대신 지금 점수를 보여준다. 그게 더 궁금하다.
+              <b style={{ color: 'var(--cool)' }}>
+                {f.elapsed != null ? `${f.elapsed}' ` : ''}{f.liveHome} : {f.liveAway}
+              </b>
             ) : (
               [f.venue, kickoffLabel(f.kickoffAt)].filter(Boolean).join(' · ')
             )}

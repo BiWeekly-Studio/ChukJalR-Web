@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { Crest } from '../components/Crest';
 import { LeagueMark } from '../components/LeagueMark';
 import { MessageActions } from '../components/MessageActions';
+import { EventTimeline, HeadToHeadCard, Lineups, MatchStatsCard } from '../components/MatchInfo';
 import { IconBack, IconCheck, IconSend, IconUsers, IconX } from '../components/icons';
 import { fixture, league, team } from '../data/catalog';
 import { repository } from '../data';
-import type { ChatMessage } from '../data/types';
+import type { ChatMessage, MatchDetailData, MatchEvent } from '../data/types';
 import { haptic } from '../lib/anim';
 import { comma, kickoffLabel, pct, signed } from '../lib/format';
 import { crowdLevel } from '../lib/baseline';
@@ -30,6 +31,12 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [blocked, setBlocked] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState<string | null>(null);
+  // 수집한 곁들이 정보. 없으면 그 자리를 아예 그리지 않는다.
+  const [info, setInfo] = useState<MatchDetailData>({
+    events: [], lineups: [], h2h: null, stats: [],
+  });
+  // 진행 중 점수는 브로드캐스트로 들어온다. 카탈로그의 값보다 이쪽이 최신이다.
+  const [live, setLive] = useState<{ home: number | null; away: number | null; elapsed: number | null } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   // 기존 메시지를 불러오고 Realtime Broadcast 를 구독한다 (명세 14.4).
@@ -45,10 +52,26 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
         /* 채팅을 못 불러와도 경기 정보는 보여야 한다 */
       });
 
+    repository
+      .loadMatchDetail(fixtureId)
+      .then((d) => {
+        if (!cancelled) setInfo(d);
+      })
+      .catch(() => {
+        /* 곁들이 정보가 없어도 예측과 채팅은 되어야 한다 */
+      });
+
     const unsubscribe = repository.subscribeChat(
       fixtureId,
       (m) => setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m])),
-      setViewers
+      setViewers,
+      (l) => setLive({ home: l.home, away: l.away, elapsed: l.elapsed }),
+      (e: MatchEvent) =>
+        setInfo((prev) =>
+          prev.events.some((x) => x.seq === e.seq)
+            ? prev
+            : { ...prev, events: [...prev.events, e].sort((x, y) => x.seq - y.seq) }
+        )
     );
 
     return () => {
@@ -69,6 +92,11 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
   const saved = state.predictions[fixtureId];
   const chat = chatState(f);
   const finished = f.state === 'FINISHED' && Boolean(f.result);
+  // 진행 중: 킥오프는 했는데 아직 안 끝난 상태. 브로드캐스트로 받은 값이 있으면 그게 최신이다.
+  const liveHome = live?.home ?? f.liveHome;
+  const liveAway = live?.away ?? f.liveAway;
+  const elapsed = live?.elapsed ?? f.elapsed;
+  const inPlay = !finished && liveHome != null && liveAway != null;
   // 서버는 예측이 없어도 prior 로 기준선을 준다. 그건 여론이 아니므로 따로 가른다.
   const crowd = crowdLevel(f.participants);
   const showCrowd = f.baseline != null && crowd !== 'none';
@@ -138,11 +166,21 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
             <div style={{ display: 'flex', alignItems: 'center', marginTop: 16, position: 'relative' }}>
               <Side teamId={f.homeTeamId} name={home.name} />
               <div style={{ textAlign: 'center', padding: '0 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7 }}>
-                <span className="vs-badge">{finished ? 'FT' : 'VS'}</span>
-                <div className="num" style={{ fontSize: finished ? 28 : 22, lineHeight: 1 }}>
-                  {finished ? `${f.homeGoals} : ${f.awayGoals}` : kickoffLabel(f.kickoffAt)}
+                {inPlay ? (
+                  <span className="livepill"><i />LIVE</span>
+                ) : (
+                  <span className="vs-badge">{finished ? 'FT' : 'VS'}</span>
+                )}
+                <div className="num" style={{ fontSize: finished || inPlay ? 28 : 22, lineHeight: 1 }}>
+                  {finished
+                    ? `${f.homeGoals} : ${f.awayGoals}`
+                    : inPlay
+                      ? `${liveHome} : ${liveAway}`
+                      : kickoffLabel(f.kickoffAt)}
                 </div>
-                <div className="tiny muted">{finished ? '경기 종료' : '킥오프'}</div>
+                <div className="tiny muted">
+                  {finished ? '경기 종료' : inPlay ? (elapsed != null ? `${elapsed}분 진행` : '진행 중') : '킥오프'}
+                </div>
               </div>
               <Side teamId={f.awayTeamId} name={away.name} />
             </div>
@@ -225,6 +263,17 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
                 {CONFIDENCE_LABEL[saved.confidence]} · {signed(preview.ifCorrect)}
               </span>
             </div>
+          )}
+        </div>
+
+        <div className="pad" style={{ paddingTop: 0 }}>
+          <EventTimeline events={info.events} homeTeamId={f.homeTeamId} />
+          {info.stats.length > 0 && (
+            <MatchStatsCard stats={info.stats} homeTeamId={f.homeTeamId} />
+          )}
+          <Lineups lineups={info.lineups} homeTeamId={f.homeTeamId} />
+          {info.h2h && (
+            <HeadToHeadCard h2h={info.h2h} homeTeamId={f.homeTeamId} awayTeamId={f.awayTeamId} />
           )}
         </div>
 

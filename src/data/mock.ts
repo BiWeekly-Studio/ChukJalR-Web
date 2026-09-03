@@ -102,6 +102,9 @@ export const FIXTURES: Fixture[] = SEEDS.map((s) => ({
   homeGoals: null,
   awayGoals: null,
   result: null,
+  liveHome: null,
+  liveAway: null,
+  elapsed: null,
 }));
 
 export function fixture(id: number): Fixture {

@@ -1,6 +1,6 @@
 import type {
-  BadgeDef, ChatMessage, Fixture, League, MyStats, Prediction, RankRow,
-  ReportReason, SettlementResult, Team,
+  BadgeDef, ChatMessage, Fixture, League, MatchDetailData, MatchEvent, MyStats,
+  Prediction, RankRow, ReportReason, SettlementResult, Team,
 } from './types';
 import type { Confidence, Outcome } from '../lib/scoring';
 
@@ -32,6 +32,14 @@ export interface MeSnapshot {
  * 네이버는 Supabase 가 기본 제공하지 않는다 — 넣으려면 커스텀 OIDC 나 Auth Hook 이 필요하다.
  */
 export type OAuthProvider = 'google' | 'apple' | 'kakao';
+
+/** 경기 채널로 들어오는 진행 중 점수 */
+export interface LiveScore {
+  home: number | null;
+  away: number | null;
+  elapsed: number | null;
+  state: Fixture['state'];
+}
 
 /** 지금 앱을 쓰고 있는 사람. 로그인 없이는 앱에 들어올 수 없다. */
 export interface AuthUser {
@@ -94,6 +102,11 @@ export interface Repository {
   loadBadges(): Promise<BadgeDef[]>;
   /** 프로필 화면 집계. 한 번의 호출로 전부 받는다 */
   loadMyStats(): Promise<MyStats>;
+  /**
+   * 경기 상세의 부가 정보. 이벤트·선발명단·상대전적·통계를 한 번에 받는다.
+   * 없는 항목은 빈 값이다 — 아직 안 받은 것과 없는 것을 구분하지 않는다.
+   */
+  loadMatchDetail(fixtureId: number): Promise<MatchDetailData>;
   loadChat(fixtureId: number): Promise<ChatMessage[]>;
   sendChat(fixtureId: number, body: string): Promise<void>;
   /**
@@ -110,6 +123,10 @@ export interface Repository {
   subscribeChat(
     fixtureId: number,
     onMessage: (m: ChatMessage) => void,
-    onPresence?: (count: number) => void
+    onPresence?: (count: number) => void,
+    /** 진행 중 점수가 바뀌면 호출된다 */
+    onLive?: (live: LiveScore) => void,
+    /** 새 이벤트(득점·카드·교체)가 들어오면 호출된다 */
+    onEvent?: (event: MatchEvent) => void
   ): () => void;
 }

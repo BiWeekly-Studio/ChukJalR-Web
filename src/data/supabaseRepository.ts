@@ -1,7 +1,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Auth, AuthUser, Catalog, MeSnapshot, OAuthProvider, Repository } from './repository';
 import type {
-  BadgeDef, ChatMessage, Fixture, MyStats, Prediction, RankRow, SettlementResult,
+  BadgeDef, ChatMessage, Fixture, LineupPlayer, MatchDetailData, MatchEvent, MyStats,
+  Prediction, RankRow, SettlementResult,
 } from './types';
 import type { Confidence, Outcome } from '../lib/scoring';
 
@@ -122,7 +123,7 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
         sb
           .from('fixtures')
           .select(
-            'id, league_id, round, home_team_id, away_team_id, venue, kickoff_at, opens_at, lock_at, state, home_goals_ft, away_goals_ft, result'
+            'id, league_id, round, home_team_id, away_team_id, venue, kickoff_at, opens_at, lock_at, state, home_goals_ft, away_goals_ft, result, home_goals_live, away_goals_live, elapsed'
           )
           .lte('kickoff_at', horizon)
           .gte('kickoff_at', new Date(Date.now() - 3 * 864e5).toISOString())
@@ -305,6 +306,49 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
       return (data as MyStats) ?? EMPTY_STATS;
     },
 
+    async loadMatchDetail(fixtureId): Promise<MatchDetailData> {
+      // 네 개를 병렬로 받는다. 하나가 없어도 나머지는 보여야 하므로 실패를 삼킨다 —
+      // 경기 상세의 핵심은 예측과 채팅이고, 이건 곁들이는 정보다.
+      const [events, lineups, h2h, stats] = await Promise.all([
+        sb.from('fixture_events')
+          .select('seq, minute, extra, team_id, type, detail, player, assist')
+          .eq('fixture_id', fixtureId).order('seq'),
+        sb.from('fixture_lineups')
+          .select('team_id, formation, coach, starters, bench')
+          .eq('fixture_id', fixtureId),
+        sb.from('fixture_h2h')
+          .select('played, home_wins, draws, away_wins, recent')
+          .eq('fixture_id', fixtureId).maybeSingle(),
+        sb.from('fixture_stats').select('team_id, stats').eq('fixture_id', fixtureId),
+      ]);
+
+      return {
+        events: (events.data ?? []).map(toEvent),
+        lineups: (lineups.data ?? []).map((l) => ({
+          teamId: l.team_id,
+          formation: l.formation,
+          coach: l.coach,
+          starters: (l.starters ?? []) as LineupPlayer[],
+          bench: (l.bench ?? []) as LineupPlayer[],
+        })),
+        h2h: h2h.data
+          ? {
+              played: h2h.data.played,
+              homeWins: h2h.data.home_wins,
+              draws: h2h.data.draws,
+              awayWins: h2h.data.away_wins,
+              recent: ((h2h.data.recent ?? []) as RawH2HMatch[]).map((m) => ({
+                date: m.date, homeId: m.home_id, awayId: m.away_id, hg: m.hg, ag: m.ag,
+              })),
+            }
+          : null,
+        stats: (stats.data ?? []).map((r) => ({
+          teamId: r.team_id,
+          stats: (r.stats ?? {}) as Record<string, string | number | null>,
+        })),
+      };
+    },
+
     async loadChat(fixtureId): Promise<ChatMessage[]> {
       const { data, error } = await sb
         .from('chat_messages')
@@ -355,7 +399,7 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
     },
 
     /** Postgres Changes 가 아니라 Broadcast 를 구독한다 (명세 14.4) */
-    subscribeChat(fixtureId, onMessage, onPresence) {
+    subscribeChat(fixtureId, onMessage, onPresence, onLive, onEvent) {
       let me: string | null = null;
       void uid().then((id) => {
         me = id;
@@ -384,6 +428,19 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
             at: new Date(p.at).toTimeString().slice(0, 5),
             mine: me != null && p.userId === me,
           });
+        })
+        .on('broadcast', { event: 'match.live' }, (payload) => {
+          const p = payload.payload as {
+            home: number | null; away: number | null;
+            elapsed: number | null; state: string;
+          };
+          onLive?.({
+            home: p.home, away: p.away, elapsed: p.elapsed,
+            state: (p.state as Fixture['state']) ?? 'LIVE',
+          });
+        })
+        .on('broadcast', { event: 'match.event' }, (payload) => {
+          onEvent?.(toEvent(payload.payload as RawEvent));
         })
         .on('presence', { event: 'sync' }, () => {
           // 지금 이 경기 채팅을 열어둔 사람 수. 숫자를 지어내지 않는다.
@@ -483,6 +540,7 @@ interface FixtureRow {
   home_team_id: number; away_team_id: number; venue: string | null;
   kickoff_at: string; opens_at: string; lock_at: string; state: string;
   home_goals_ft: number | null; away_goals_ft: number | null; result: Outcome | null;
+  home_goals_live: number | null; away_goals_live: number | null; elapsed: number | null;
 }
 
 const EMPTY_STATS: MyStats = {
@@ -536,6 +594,42 @@ function toFixture(f: FixtureRow, b?: BaselineRow): Fixture {
     awayGoals: f.away_goals_ft,
     result: f.result,
     state: (f.state as Fixture['state']) ?? 'SCHEDULED',
+    liveHome: f.home_goals_live,
+    liveAway: f.away_goals_live,
+    elapsed: f.elapsed,
+  };
+}
+
+interface RawEvent {
+  seq: number;
+  minute?: number | null;
+  extra?: number | null;
+  team_id?: number | null;
+  teamId?: number | null;
+  type: string;
+  detail?: string | null;
+  player?: string | null;
+  assist?: string | null;
+}
+
+interface RawH2HMatch {
+  date: string; home_id: number; away_id: number; hg: number | null; ag: number | null;
+}
+
+/**
+ * 이벤트는 두 경로로 들어온다 — REST 는 snake_case, 브로드캐스트는 camelCase.
+ * 한 자리에서 흡수해서 화면이 출처를 신경 쓰지 않게 한다.
+ */
+function toEvent(r: RawEvent): MatchEvent {
+  return {
+    seq: r.seq,
+    minute: r.minute ?? null,
+    extra: r.extra ?? null,
+    teamId: r.team_id ?? r.teamId ?? null,
+    type: r.type,
+    detail: r.detail ?? null,
+    player: r.player ?? null,
+    assist: r.assist ?? null,
   };
 }
 
