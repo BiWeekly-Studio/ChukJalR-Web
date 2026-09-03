@@ -54,7 +54,7 @@ export function Profile({ onReplayTutorial }: { onReplayTutorial?: () => void })
                 style={{
                   width: 54, height: 54, borderRadius: 999, background: 'rgba(255,255,255,.2)',
                   border: '2.5px solid rgba(255,255,255,.55)', display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', fontFamily: 'var(--display)', fontWeight: 900,
+                  justifyContent: 'center', fontFamily: 'var(--display)', fontWeight: 700,
                   fontSize: 21, flexShrink: 0,
                 }}
               >

@@ -53,7 +53,9 @@
   --glow-gold: 0 8px 22px -10px rgba(255, 138, 26, 0.6);
 
   --kr: 'IBM Plex Sans KR', -apple-system, 'Apple SD Gothic Neo', sans-serif;
-  --display: 'Gothic A1', -apple-system, 'Apple SD Gothic Neo', sans-serif;
+  /* 제목·숫자용. 본문과 같은 가족을 쓰고 굵기로만 층을 나눈다 — Plex Sans KR 은
+     700 이 최대라, 그 위를 요구하면 브라우저가 합성 볼드를 만들어 뭉갠다. */
+  --display: 'IBM Plex Sans KR', -apple-system, 'Apple SD Gothic Neo', sans-serif;
 
   /* 게임 UI 는 감속 곡선이 성격을 결정한다. spring 은 '튕김', ease 는 '미끄러짐'. */
   --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -172,10 +174,10 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent
 .in-row { animation: rowin 0.34s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 32ms); }
 
 /* ---------- typography ---------- */
-.h1 { font-family: var(--display); font-weight: 900; font-size: 24px; letter-spacing: -0.04em; margin: 0; }
-.h2 { font-family: var(--display); font-weight: 900; font-size: 19px; letter-spacing: -0.03em; margin: 0; }
-.h3 { font-family: var(--display); font-weight: 800; font-size: 14px; letter-spacing: -0.02em; margin: 0; }
-.num { font-family: var(--display); font-weight: 900; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.h1 { font-family: var(--display); font-weight: 700; font-size: 24px; letter-spacing: -0.04em; margin: 0; }
+.h2 { font-family: var(--display); font-weight: 700; font-size: 19px; letter-spacing: -0.03em; margin: 0; }
+.h3 { font-family: var(--display); font-weight: 600; font-size: 14px; letter-spacing: -0.02em; margin: 0; }
+.num { font-family: var(--display); font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .muted { color: var(--ink-3); }
 .small { font-size: 12px; }
 .tiny { font-size: 11px; }
@@ -230,7 +232,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 30px; height: 30px; padding: 0 8px; border-radius: 10px;
   background: var(--grad-accent); color: #fff;
-  font-family: var(--display); font-weight: 900; font-size: 13px;
+  font-family: var(--display); font-weight: 700; font-size: 13px;
   box-shadow: var(--glow-accent); flex-shrink: 0;
 }
 .lvbadge.up { animation: bounce 0.5s var(--spring); }
@@ -238,7 +240,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent
 /* 티어 칩 */
 .tierchip {
   display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px;
-  border-radius: 999px; font-family: var(--display); font-weight: 800; font-size: 11px;
+  border-radius: 999px; font-family: var(--display); font-weight: 600; font-size: 11px;
   color: #fff; background: var(--grad-accent); white-space: nowrap;
 }
 .tierchip[data-tier='PLACEMENT'] { background: linear-gradient(135deg, #a49a89, #857c6d); }
@@ -257,7 +259,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent
 }
 .tabs::-webkit-scrollbar { display: none; }
 .tab {
-  font-family: var(--display); font-size: 13px; font-weight: 800; color: var(--ink-3);
+  font-family: var(--display); font-size: 13px; font-weight: 600; color: var(--ink-3);
   white-space: nowrap; height: 34px; padding: 0 14px; border-radius: 999px;
   background: var(--card); border: 1px solid var(--line);
   transition: transform 0.14s var(--spring), color 0.16s, background 0.2s, box-shadow 0.2s;
@@ -290,7 +292,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent
 .crest {
   width: 28px; height: 28px; border-radius: 999px; border: 2px solid var(--card);
   display: flex; align-items: center; justify-content: center;
-  font-family: var(--display); font-size: 9px; font-weight: 900;
+  font-family: var(--display); font-size: 9px; font-weight: 700;
   box-shadow: 0 2px 6px -2px rgba(22, 20, 15, 0.3);
 }
 .crest + .crest { margin-left: -9px; }
@@ -332,7 +334,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent
 }
 .option.dim { opacity: 0.45; }
 .option .name { font-size: 13.5px; font-weight: 600; }
-.option .pctv { font-family: var(--display); font-size: 15px; font-weight: 800; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.option .pctv { font-family: var(--display); font-size: 15px; font-weight: 600; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 
 .tick {
   width: 21px; height: 21px; border-radius: 999px; background: var(--grad-accent);
@@ -372,7 +374,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent
 .conf .dot.on { opacity: 1; transform: scale(1.25); }
 
 .stake { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
-.stake .val { font-family: var(--display); font-weight: 900; font-size: 15px; font-variant-numeric: tabular-nums; }
+.stake .val { font-family: var(--display); font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; }
 
 /* ---------- bottom nav ---------- */
 .nav {
@@ -388,7 +390,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent
   transition: color 0.18s, transform 0.16s var(--spring);
 }
 .navitem:active { transform: scale(0.9); }
-.navitem[aria-current='page'] { color: var(--accent); font-weight: 800; }
+.navitem[aria-current='page'] { color: var(--accent); font-weight: 600; }
 .navitem[aria-current='page'] .navicon { animation: bounce 0.44s var(--spring); }
 /* 선택된 탭 아이콘 뒤의 알약 */
 .navitem .navicon { position: relative; display: grid; place-items: center; width: 46px; height: 27px; border-radius: 999px; transition: background 0.22s; }
@@ -402,7 +404,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent
 .avatar {
   width: 28px; height: 28px; border-radius: 999px; background: var(--card-2);
   display: flex; align-items: center; justify-content: center;
-  font-family: var(--display); font-size: 11px; font-weight: 800; color: var(--ink-2); flex-shrink: 0;
+  font-family: var(--display); font-size: 11px; font-weight: 600; color: var(--ink-2); flex-shrink: 0;
 }
 .bubble {
   background: var(--card); border-radius: 4px 16px 16px 16px; padding: 9px 13px;
@@ -465,7 +467,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent
   border-color: var(--accent); background: var(--accent-soft); box-shadow: var(--glow-accent);
 }
 .grouphead {
-  font-size: 11px; font-weight: 800; letter-spacing: 0.05em; color: var(--ink-3);
+  font-size: 11px; font-weight: 600; letter-spacing: 0.05em; color: var(--ink-3);
   padding: 16px 4px 6px;
 }
 
@@ -523,7 +525,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent
 .cta {
   position: relative; overflow: hidden;
   width: 100%; height: 56px; border-radius: 16px; background: var(--grad-accent); color: #fff;
-  font-family: var(--display); font-weight: 800; font-size: 16px;
+  font-family: var(--display); font-weight: 600; font-size: 16px;
   box-shadow: 0 4px 0 0 var(--accent-shadow), var(--glow-accent);
   transition: transform 0.1s var(--ease), box-shadow 0.16s;
 }
@@ -548,7 +550,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent
 }
 .burst .score {
   position: absolute; top: 42%; left: 50%;
-  font-family: var(--display); font-weight: 900; font-size: 26px; white-space: nowrap;
+  font-family: var(--display); font-weight: 700; font-size: 26px; white-space: nowrap;
   background: var(--grad-gold); -webkit-background-clip: text; background-clip: text; color: transparent;
   filter: drop-shadow(0 3px 8px rgba(255, 138, 26, 0.4));
   animation: floatup 1.15s var(--ease) forwards;
@@ -565,7 +567,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent
 .ring .prg { stroke: url(#ringgrad); transition: stroke-dashoffset 0.8s var(--spring); }
 .ring .lbl {
   position: absolute; inset: 0; display: grid; place-items: center;
-  font-family: var(--display); font-weight: 900; font-size: 11px; color: var(--ink-2);
+  font-family: var(--display); font-weight: 700; font-size: 11px; color: var(--ink-2);
 }
 
 /* 레벨업 오버레이 */
@@ -590,7 +592,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent
   background: conic-gradient(from 0deg, transparent, rgba(123, 70, 240, 0.35), transparent 60%);
   animation: spinslow 3.2s linear infinite;
 }
-.celebrate .halo span { position: relative; font-family: var(--display); font-weight: 900; font-size: 30px; color: #fff; }
+.celebrate .halo span { position: relative; font-family: var(--display); font-weight: 700; font-size: 30px; color: #fff; }
 
 /* 뱃지 */
 .badge {
@@ -632,7 +634,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent
   pointer-events: none;
 }
 .vs-badge {
-  font-family: var(--display); font-weight: 900; font-size: 13px; color: #fff;
+  font-family: var(--display); font-weight: 700; font-size: 13px; color: #fff;
   background: var(--grad-accent); border-radius: 999px; padding: 3px 10px;
   box-shadow: var(--glow-accent);
 }
@@ -671,7 +673,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent
 }
 .segmented button {
   flex: 1; height: 40px; border-radius: 11px;
-  font-family: var(--display); font-weight: 800; font-size: 14px; color: var(--ink-3);
+  font-family: var(--display); font-weight: 600; font-size: 14px; color: var(--ink-3);
   transition: background 0.22s var(--ease), color 0.2s, box-shadow 0.22s, transform 0.12s var(--spring);
 }
 .segmented button:active { transform: scale(0.96); }
@@ -711,7 +713,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent
   width: 100%; height: 52px; border-radius: 16px;
   background: var(--card); border: 1.5px solid var(--line); border-bottom-width: 3px;
   border-bottom-color: var(--line-strong);
-  font-family: var(--display); font-weight: 800; font-size: 15px; color: var(--ink-2);
+  font-family: var(--display); font-weight: 600; font-size: 15px; color: var(--ink-2);
   transition: transform 0.1s var(--ease), border-color 0.16s;
 }
 .ghostcta:active:not(:disabled) { transform: translateY(2px); border-bottom-width: 1px; }
@@ -727,7 +729,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent
 .social {
   width: 100%; height: 52px; border-radius: 14px;
   display: flex; align-items: center; justify-content: center; gap: 9px;
-  font-family: var(--display); font-weight: 800; font-size: 14.5px;
+  font-family: var(--display); font-weight: 600; font-size: 14.5px;
   transition: transform 0.1s var(--ease), filter 0.16s;
 }
 .social:active:not(:disabled) { transform: translateY(2px); }
@@ -783,7 +785,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent
   transition: color 0.2s;
 }
 .pwrules li.pass { color: var(--win); font-weight: 600; }
-.pwrules li > span { width: 10px; text-align: center; font-weight: 800; }
+.pwrules li > span { width: 10px; text-align: center; font-weight: 600; }
 
 /* ---------- 채팅 신고·차단 ---------- */
 .chatrule {

@@ -127,7 +127,7 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
             <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <LeagueMark leagueId={f.leagueId} size={16} />
-                <span className="tiny" style={{ color: 'var(--accent-deep)', fontWeight: 800 }}>
+                <span className="tiny" style={{ color: 'var(--accent-deep)', fontWeight: 600 }}>
                   {[league(f.leagueId).name, f.round == null ? null : `${f.round}R`]
                     .filter(Boolean)
                     .join(' ')}

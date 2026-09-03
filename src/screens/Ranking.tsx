@@ -97,7 +97,7 @@ export function Ranking() {
                 </span>
                 <Change value={r.change} />
                 <span className="avatar" style={{ width: 32, height: 32 }}>{r.initial}</span>
-                <span className="small" style={{ flex: 1, minWidth: 0, fontWeight: r.isMe ? 800 : 600 }}>
+                <span className="small" style={{ flex: 1, minWidth: 0, fontWeight: r.isMe ? 700 : 500 }}>
                   {r.handle}
                   {r.isMe && <span className="tiny" style={{ color: 'var(--accent)' }}> · 나</span>}
                 </span>
@@ -182,7 +182,7 @@ function Change({ value, onDark }: { value: number | null; onDark?: boolean }) {
 
   if (value == null) {
     return (
-      <span className="tiny" style={{ color: onDark ? '#fff' : 'var(--accent)', width: 24, fontWeight: 800 }}>
+      <span className="tiny" style={{ color: onDark ? '#fff' : 'var(--accent)', width: 24, fontWeight: 600 }}>
         NEW
       </span>
     );
@@ -251,7 +251,7 @@ function Podium({
       </span>
       <span
         className={top ? 'h3' : 'small'}
-        style={{ fontSize: top ? 14 : 12, fontWeight: top ? 900 : 600, color: top ? 'var(--ink)' : 'var(--ink-2)' }}
+        style={{ fontSize: top ? 14 : 12, fontWeight: top ? 700 : 500, color: top ? 'var(--ink)' : 'var(--ink-2)' }}
       >
         {row.handle}
       </span>

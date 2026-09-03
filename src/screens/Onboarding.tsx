@@ -135,7 +135,7 @@ function LeagueStep({
                   background: on ? 'var(--grad-accent)' : 'var(--card-2)',
                   color: on ? '#fff' : 'var(--ink-3)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontFamily: 'var(--display)', fontWeight: 900, fontSize: 12,
+                  fontFamily: 'var(--display)', fontWeight: 700, fontSize: 12,
                   transition: 'background 0.25s',
                   animation: on ? 'tickpop 0.4s var(--spring)' : undefined,
                 }}

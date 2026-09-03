@@ -138,7 +138,7 @@ export function MatchCard({
                       <IconCheck />
                     </span>
                   )}
-                  <span className="name" style={chosen || isResult ? { fontWeight: 800 } : undefined}>
+                  <span className="name" style={chosen || isResult ? { fontWeight: 700 } : undefined}>
                     {labels[o]}
                   </span>
                   {isResult && !chosen && (

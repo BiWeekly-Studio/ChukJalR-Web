@@ -47,18 +47,30 @@ enum T {
         colors: [Color(hex: 0x22C97E), Color(hex: 0x0B8F57)],
         startPoint: .topLeading, endPoint: .bottomTrailing)
 
-    /// 웹은 Gothic A1 900 을 쓴다. iOS 에는 그 폰트가 없어 시스템 폰트의 가장 굵은 단계를
-    /// 쓴다 — 한글은 Apple SD Gothic Neo 로 떨어지고, 이 굵기에서 인상이 가장 가깝다.
-    /// 완전히 맞추려면 Gothic A1 을 번들해야 한다.
-    static func display(_ size: CGFloat, _ weight: Font.Weight = .black) -> Font {
-        .system(size: size, weight: weight)
+    /// 웹과 같은 가족을 쓴다. iOS 에는 이 폰트가 없어 Resources/Fonts 에 번들한다 —
+    /// 안 하면 한글이 Apple SD Gothic Neo 로 떨어져 두 앱의 인상이 갈린다.
+    ///
+    /// Plex Sans KR 은 Bold(700) 이 최대라 .black/.heavy 도 Bold 로 떨어진다.
+    /// 시스템 폰트처럼 900 을 기대하고 부르면 굵기 층이 뭉개지므로,
+    /// 웹과 같이 700/600/500/400 네 단으로만 나눈다.
+    private static func face(_ weight: Font.Weight) -> String {
+        switch weight {
+        case .black, .heavy, .bold: return "IBMPlexSansKR-Bold"
+        case .semibold:             return "IBMPlexSansKR-SemiBold"
+        case .medium:               return "IBMPlexSansKR-Medium"
+        default:                    return "IBMPlexSansKR-Regular"
+        }
+    }
+
+    static func display(_ size: CGFloat, _ weight: Font.Weight = .bold) -> Font {
+        .custom(face(weight), size: size)
     }
     static func body(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
-        .system(size: size, weight: weight)
+        .custom(face(weight), size: size)
     }
     /// 숫자가 흔들리지 않게 고정폭으로 (웹의 font-variant-numeric: tabular-nums)
-    static func num(_ size: CGFloat, _ weight: Font.Weight = .black) -> Font {
-        .system(size: size, weight: weight).monospacedDigit()
+    static func num(_ size: CGFloat, _ weight: Font.Weight = .bold) -> Font {
+        .custom(face(weight), size: size).monospacedDigit()
     }
 
     /// 웹의 --spring. 게임 UI 는 감속 곡선이 성격을 결정한다.

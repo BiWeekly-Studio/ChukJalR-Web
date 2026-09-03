@@ -117,7 +117,7 @@ function SectionLabel({ children, accent }: { children: React.ReactNode; accent?
       className="tiny"
       style={{
         display: 'flex', alignItems: 'center', gap: 7, marginTop: 6,
-        fontWeight: 800, letterSpacing: '0.04em',
+        fontWeight: 600, letterSpacing: '0.04em',
         color: accent ? 'var(--accent)' : 'var(--ink-3)',
       }}
     >
