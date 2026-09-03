@@ -42,9 +42,12 @@ struct MatchCardView: View {
             }
 
             header
-            options.padding(.top, 14)
+            // 코치마크는 첫 카드만 가리킨다 — 같은 키가 여러 개면 어디를 뚫을지 알 수 없다
+            options.padding(.top, 14).tour("options", when: index == 0)
 
-            if let active { confidence(active).padding(.top, 14) }
+            if let active {
+                confidence(active).padding(.top, 14).tour("confidence", when: index == 0)
+            }
             else { footline.padding(.top, 12) }
         }
         .padding(store.isFavorite(fixture)
@@ -52,6 +55,7 @@ struct MatchCardView: View {
                  : EdgeInsets(top: 15, leading: 15, bottom: 15, trailing: 15))
         .background(T.card, in: RoundedRectangle(cornerRadius: 22))
         .shadow(color: .black.opacity(0.10), radius: 14, y: 6)
+        .overlay { Burst(seed: burstSeed, label: burstLabel) }
         .animation(T.spring, value: draft)
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 16)
@@ -81,6 +85,7 @@ struct MatchCardView: View {
             Image(systemName: "chevron.right")
                 .font(.system(size: 11, weight: .bold)).foregroundStyle(T.ink4)
         }
+        .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -153,6 +158,9 @@ struct MatchCardView: View {
             }
             .padding(.horizontal, 14)
             .frame(maxWidth: .infinity, minHeight: 50)
+            // 배경(T.card)은 Button 바깥에 있어서 눌리는 범위를 넓혀주지 않는다.
+            // 이게 없으면 글자와 화살표만 눌리고 줄 가운데는 죽은 공간이 된다.
+            .contentShape(Rectangle())
             // 채움 막대는 배경으로 깐다. GeometryReader 를 본문에 두면
             // 자식이 위쪽에 붙어서, 막대가 없을 때 글자가 위로 쏠린다.
             .background(alignment: .leading) {
@@ -258,6 +266,15 @@ struct MatchCardView: View {
         Haptics.success()
         store.predict(fixture, pick, c)
         draft = nil
+    }
+
+    /// 방금 이 경기를 확정했을 때만 값이 생긴다 — 다른 카드에서는 터지지 않는다
+    private var burstSeed: Int? {
+        store.celebrated?.fixtureId == fixture.id ? store.celebrated?.stamp : nil
+    }
+    /// 기준선이 없으면 얻을 점수를 계산할 근거가 없다. 숫자를 지어내지 않는다.
+    private var burstLabel: String {
+        store.celebrated?.points.map { "+\($0)점 예약" } ?? "예측 완료"
     }
 
     // MARK: 아래 한 줄

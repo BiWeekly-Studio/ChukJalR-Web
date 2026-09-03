@@ -24,7 +24,7 @@ struct PredictView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 header.padding(.horizontal, 20).padding(.top, 8)
-                hud.padding(.horizontal, 20).padding(.top, 12)
+                hud.padding(.horizontal, 20).padding(.top, 12).tour("hud")
                 leagueTabs.padding(.top, 14)
                 sectionHead.padding(.horizontal, 20).padding(.top, 16)
 
@@ -201,6 +201,7 @@ struct UpcomingRow: View {
             Chip(text: Fmt.opens(fixture.opensAt), icon: "lock.fill", style: .plain)
         }
         .padding(.horizontal, 14).frame(height: 62)
+        .contentShape(Rectangle())
         .overlay(RoundedRectangle(cornerRadius: 16)
             .strokeBorder(T.lineStrong, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])))
         }

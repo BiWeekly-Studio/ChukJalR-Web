@@ -35,6 +35,7 @@ struct SignedInView: View {
 struct HomeView: View {
     @EnvironmentObject var store: Store
     @State private var tab = 0
+    @State private var showTour = !Tour.seen
 
     var body: some View {
         VStack(spacing: 0) {
@@ -51,10 +52,22 @@ struct HomeView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity).background(T.paper)
                 }
             }
-            TabBar(selection: $tab)
+            TabBar(selection: $tab).tour("nav")
         }
         .background(T.paper)
         .ignoresSafeArea(.keyboard)
+        .overlayPreferenceValue(TourAnchorKey.self) { anchors in
+            // 안전영역까지 덮어야 대상 좌표와 그리는 좌표가 같은 공간이 된다
+            GeometryReader { space in
+                // 코치마크는 첫 실행에, 예측 탭에서만. 화면 전체를 덮으므로
+                // 온보딩이 끝나고 데이터가 다 온 뒤에 띄운다.
+                if showTour, tab == 0, store.ready {
+                    Coachmarks(anchors: anchors, space: space) { showTour = false }
+                }
+            }
+            .ignoresSafeArea()
+        }
+        .overlay { LevelUpOverlay() }
     }
 }
 

@@ -155,7 +155,7 @@ struct ProfileView: View {
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {
-                        Text(Fmt.comma(store.me.rating)).font(T.num(26))
+                        CountUpInt(target: store.me.rating, font: T.num(26), duration: 1.2)
                         Text("축잘알 지수").font(T.body(11)).opacity(0.8)
                     }
                 }
@@ -199,14 +199,15 @@ struct ProfileView: View {
 
     private var statRow: some View {
         HStack(spacing: 9) {
-            statTile(stats.accuracy.map { "\(Int(($0 * 100).rounded()))%" } ?? "—", "적중률",
-                     icon: "target", accent: true)
-            statTile("\(stats.settled)", "누적 예측")
-            statTile("\(store.me.streak)", "연속 적중", icon: "flame.fill", gold: true)
+            // 적중률은 아직 정산된 경기가 없으면 값 자체가 없다. 0% 로 굴리면 없는 성적이 생긴다.
+            statTile(stats.accuracy.map { Int(($0 * 100).rounded()) }, "적중률",
+                     suffix: "%", icon: "target", accent: true)
+            statTile(stats.settled, "누적 예측")
+            statTile(store.me.streak, "연속 적중", icon: "flame.fill", gold: true)
         }
     }
 
-    private func statTile(_ value: String, _ label: String,
+    private func statTile(_ value: Int?, _ label: String, suffix: String = "",
                           icon: String? = nil, accent: Bool = false, gold: Bool = false) -> some View {
         VStack(spacing: 4) {
             HStack(spacing: 3) {
@@ -214,8 +215,14 @@ struct ProfileView: View {
                     Image(systemName: icon).font(.system(size: 14))
                         .foregroundStyle(gold ? T.goldInk : T.accent)
                 }
-                Text(value).font(T.num(25))
-                    .foregroundStyle(gold ? T.gold : accent ? T.accent : T.ink)
+                Group {
+                    if let value {
+                        CountUpInt(target: value, font: T.num(25), duration: 1.0) { "\($0)\(suffix)" }
+                    } else {
+                        Text("—").font(T.num(25))
+                    }
+                }
+                .foregroundStyle(gold ? T.gold : accent ? T.accent : T.ink)
             }
             Text(label).font(T.body(11)).foregroundStyle(gold ? T.gold : T.ink3)
         }

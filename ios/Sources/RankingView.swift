@@ -173,7 +173,7 @@ struct RankingView: View {
                 }
                 Spacer()
                 ChangeMark(value: mine.change, onDark: true)
-                Text(Fmt.comma(mine.rating)).font(T.num(16))
+                CountUpInt(target: mine.rating, font: T.num(16), duration: 1.1)
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 15).frame(height: 68)

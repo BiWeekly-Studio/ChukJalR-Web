@@ -13,8 +13,14 @@ final class Store: ObservableObject {
     @Published private(set) var stats = MyStats()
     @Published private(set) var badges: [BadgeDef] = []
     @Published var error: String?
-    /// 예측 확정 순간의 연출을 띄우기 위한 방아쇠
-    @Published var celebrated: (fixtureId: Int, points: Int?)?
+    /// 예측 확정 순간의 연출을 띄우기 위한 방아쇠.
+    /// stamp 는 같은 경기를 다시 확정했을 때도 연출이 한 번 더 재생되게 하는 도장이다.
+    struct Celebration {
+        let fixtureId: Int
+        let points: Int?
+        let stamp: Int
+    }
+    @Published var celebrated: Celebration?
 
     @Published private(set) var teams: [Team] = []
     private var teamsById: [Int: Team] = [:]
@@ -92,7 +98,8 @@ final class Store: ObservableObject {
         let points = f.baseline.map {
             Scoring.preview($0, pick, confidence, streak: me.streak).pointsIfCorrect
         }
-        celebrated = (f.id, points)
+        celebrated = Celebration(fixtureId: f.id, points: points,
+                                 stamp: Int(Date().timeIntervalSince1970 * 1000))
 
         Task {
             do {
