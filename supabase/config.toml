@@ -412,3 +412,16 @@ enabled = true
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# ------------------------------------------------------------------ Edge Functions
+
+# 크론이 pg_net 으로 부르는 내부 엔드포인트다. Authorization 헤더를 실을 수 없으므로
+# JWT 검증을 끄고, 대신 x-sync-token 으로 막는다 (SYNC_TOKEN 시크릿).
+# 여기에 적어두지 않으면 배포할 때마다 verify_jwt 가 기본값(true)으로 되돌아가
+# 크론이 401 을 받는다.
+[functions.sync-fixtures]
+verify_jwt = false
+
+# 토스 로그인 브리지. 로그인 전에 부르는 것이라 세션이 없다.
+[functions.toss-login]
+verify_jwt = false

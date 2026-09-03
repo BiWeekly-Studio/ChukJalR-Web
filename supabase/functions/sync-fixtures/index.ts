@@ -242,14 +242,19 @@ function db(url: string, serviceKey: string): Db {
     },
 
     /**
-     * 폴링 대상: 예측 창이 열렸고(= 오늘의 매치데이), 아직 FINISHED/VOID 가 아닌 경기.
+     * 폴링 대상: 이미 시작했고 아직 FINISHED/VOID 가 아닌 경기.
+     *
+     * 기준은 킥오프다. 예측 창이 열린 시각(opens_at, 매치데이 06:00)을 기준으로 잡으면
+     * 새벽 경기를 22시간 전부터 10분마다 조회하게 된다 — 결과가 나올 리 없는 시간에
+     * 하루 140회 넘게 API 를 태우고, 주당 예산(약 225회)을 하루 만에 넘긴다.
+     *
      * 킥오프 6시간이 지나도 안 끝난 것은 API 문제일 가능성이 높으므로 대상에서 뺀다.
      */
     async pendingFixtureIds() {
       const now = new Date().toISOString();
       const floor = new Date(Date.now() - 6 * 3600e3).toISOString();
       const q =
-        `select=id&state=in.(SCHEDULED,LIVE)&opens_at=lte.${now}` +
+        `select=id&state=in.(SCHEDULED,LIVE)&kickoff_at=lte.${now}` +
         `&kickoff_at=gte.${floor}&order=kickoff_at&limit=60`;
       const res = await fetch(`${url}/rest/v1/fixtures?${q}`, { headers });
       if (!res.ok) throw new Error(`pending ${res.status}: ${await res.text()}`);
