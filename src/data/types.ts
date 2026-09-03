@@ -26,17 +26,26 @@ export interface Team {
 export interface Fixture {
   id: number;
   leagueId: number;
-  round: number;
+  /** 라운드. 원본에 없으면 null — 0R 같은 지어낸 값을 만들지 않는다 */
+  round: number | null;
   homeTeamId: number;
   awayTeamId: number;
-  venue: string;
+  /** 경기장. 원본에 없으면 null */
+  venue: string | null;
   kickoffAt: string;
   /** 예측 창이 열리는 시각 = 킥오프가 속한 매치데이의 시작 (KST 06:00) */
   opensAt: string;
   lockAt: string;
-  /** 마감 시점에 동결되는 기준선. 마감 전에는 잠정값이다. (명세 2.2) */
-  baseline: Distribution;
-  participants: number;
+  /**
+   * 마감 시점에 동결되는 기준선. 마감 전에는 잠정값이다. (명세 2.2)
+   *
+   * 지금까지 모인 사람들의 확률 분포.
+   * 아직 아무도 예측하지 않았거나 집계를 못 받으면 null 이다 —
+   * 이 자리에 기본값을 채워 넣으면 없는 여론을 지어내는 게 된다.
+   */
+  baseline: Distribution | null;
+  /** 예측에 참여한 사람 수. 집계를 못 받았으면 null (0 과 다르다) */
+  participants: number | null;
   state: 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'VOID';
   /** 정규 90분 결과. 아직 안 끝났으면 null (명세 9장) */
   homeGoals: number | null;
@@ -58,14 +67,21 @@ export interface Prediction {
   createdAt: string;
 }
 
+/** 신고 사유. 서버 check 제약과 같은 값이어야 한다 */
+export type ReportReason = 'SPAM' | 'ABUSE' | 'SEXUAL' | 'ADVERT' | 'OTHER';
+
 export interface ChatMessage {
   id: string;
   fixtureId: number;
+  /** 발화자. 차단하려면 필요하다 */
+  userId: string | null;
   handle: string;
   initial: string;
   /** 발화자의 상위 % — 채팅에서 누구 말을 믿을지 판단하는 근거 (명세 10.2) */
-  topPercent: number;
-  tier: Tier;
+  /** 상위 몇 %. 아직 순위에 오르지 않았으면 null */
+  topPercent: number | null;
+  /** 티어. 순위가 없으면 null */
+  tier: Tier | null;
   body: string;
   at: string;
   mine?: boolean;
@@ -96,7 +112,11 @@ export interface BadgeDef {
   tier: 'bronze' | 'silver' | 'gold';
   condition: string;
   progress: number;
-  target: number;
+  /**
+   * 목표치는 user_badges 행에만 있다. 아직 시작하지 않은 뱃지는 그 행이 없어서
+   * 알 수 없다 — 1 같은 그럴듯한 값을 넣으면 '0/1' 이라는 없는 진행도가 생긴다.
+   */
+  target: number | null;
 }
 
 /** 내 기록 화면이 쓰는 집계값. 서버 my_stats() 의 응답 형태다. */

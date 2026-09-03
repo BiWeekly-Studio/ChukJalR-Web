@@ -175,9 +175,18 @@ export const TIER_LABEL: Record<Tier, string> = {
 
 export const PLACEMENT_MATCHES = 20;
 
-/** 백분위(상위 %)로 티어를 정한다. 유저가 늘어도 자동으로 균형이 맞는다. (명세 3.3) */
-export function tierFromPercentile(topPercent: number, settledMatches: number): Tier {
+/**
+ * 백분위(상위 %)로 티어를 정한다. 유저가 늘어도 자동으로 균형이 맞는다. (명세 3.3)
+ *
+ * 배치를 마쳤는데 아직 순위표에 오르지 않았으면(= 다음 발표 전) 티어는 '없음'이다.
+ * 이때 브론즈로 떨어뜨리면 실제로 받은 적 없는 등급을 보여주게 된다.
+ */
+export function tierFromPercentile(
+  topPercent: number | null,
+  settledMatches: number
+): Tier | null {
   if (settledMatches < PLACEMENT_MATCHES) return 'PLACEMENT';
+  if (topPercent == null) return null;
   if (topPercent <= 1) return 'GRANDMASTER';
   if (topPercent <= 5) return 'MASTER';
   if (topPercent <= 15) return 'DIAMOND';

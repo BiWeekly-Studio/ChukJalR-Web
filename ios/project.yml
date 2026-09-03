@@ -1,0 +1,83 @@
+name: Chukjalal
+options:
+  bundleIdPrefix: com.jalr
+  deploymentTarget:
+    iOS: "16.2"          # Live Activity 는 16.1+, 다이나믹 아일랜드도 16.1+
+  createIntermediateGroups: true
+
+settings:
+  base:
+    # 번들 ID 는 여기 한 곳에서만 정한다. 나머지는 전부 이 값을 참조한다.
+    # JalR Company 네임스페이스 — 야잘알은 com.jalr.yajalal 로 간다.
+    APP_BUNDLE_ID: com.jalr.chukjalal
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.9"
+    # 팀 ID 는 ios/.env.local 에서 온다 (저장소에 없음). 시뮬레이터 빌드에는 없어도 된다.
+    DEVELOPMENT_TEAM: ${DEVELOPMENT_TEAM}
+    CODE_SIGN_STYLE: Automatic
+    # 애드혹 서명으로는 applesignin entitlement 가 통하지 않는다.
+    # (붙이면 실행 거부, 떼면 로그인 시 ASAuthorizationError 1000)
+    # 개발 인증서 + 프로비저닝 프로파일로 정식 서명해야 둘 다 된다.
+    CODE_SIGNING_ALLOWED: "YES"
+
+targets:
+  Chukjalal:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+      - path: Shared
+    info:
+      path: Resources/Info.generated.plist
+      properties:
+        CFBundleName: 축잘알
+        CFBundleDisplayName: 축잘알
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UIUserInterfaceStyle: Light
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        # Live Activity 를 쓰려면 이 키가 있어야 한다
+        NSSupportsLiveActivities: true
+        CFBundleURLTypes:
+          - CFBundleURLName: com.jalr.chukjalal
+            CFBundleURLSchemes: [chukjalal]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID)
+        # Xcode 는 시뮬레이터 빌드를 언제나 애드혹으로 서명하고, 애드혹에는
+        # applesignin 같은 제한 entitlement 를 실을 수 없다.
+        #   붙이면 → 앱이 실행조차 안 됨 (SpringBoard 거부)
+        #   떼면   → 애플 로그인 시 ASAuthorizationError 1000
+        # 그래서 시뮬레이터에서는 애플 로그인을 시험할 수 없다. 실기기에서 확인할 것.
+        # 구글 로그인은 브라우저 방식이라 entitlement 가 필요 없어 시뮬레이터에서도 된다.
+        CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]: ""
+
+    entitlements:
+      path: Resources/Chukjalal.entitlements
+      properties:
+        # 이게 없으면 ASAuthorizationController 가 런타임에 거부한다.
+        # 파일을 직접 두면 xcodegen 이 빈 dict 로 덮어쓴다 → 여기서 관리한다.
+        com.apple.developer.applesignin: [Default]
+    dependencies:
+      - target: ChukjalalWidgets
+        embed: true
+
+  ChukjalalWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widgets
+      - path: Shared
+    info:
+      path: Widgets/Info.generated.plist
+      properties:
+        CFBundleDisplayName: 축잘알 경기
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        # 위젯 번들 ID 는 앱 번들 ID 로 시작해야 한다
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).widgets

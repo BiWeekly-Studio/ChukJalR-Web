@@ -1,0 +1,45 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>앱 로고 내보내기</title>
+<style>body{margin:0;background:#222;display:grid;place-items:center;min-height:100vh}canvas{width:300px;height:300px;image-rendering:auto}</style>
+<canvas id="c" width="600" height="600"></canvas>
+<script>
+// 앱인토스 규격: 정사각형 600x600 PNG, 모서리 둥근 형태 불가 → 꽉 찬 사각형으로 그린다.
+// 좌표는 Logo.tsx 의 공 마크와 같은 24 그리드 기준이다.
+const S = 600, x = document.getElementById('c').getContext('2d');
+
+const g = x.createLinearGradient(0, 0, S, S);
+g.addColorStop(0, '#3a63ff');
+g.addColorStop(1, '#7b46f0');
+x.fillStyle = g;
+x.fillRect(0, 0, S, S);
+
+// 공. 토스가 자체 마스크를 씌울 수 있으므로 가장자리에 여백을 넉넉히 둔다.
+const cx = S / 2, cy = S / 2, R = S * 0.29;
+x.fillStyle = '#fff';
+x.beginPath(); x.arc(cx, cy, R, 0, Math.PI * 2); x.fill();
+
+const ink = '#3a63ff';
+const ANG = [-90, -18, 54, 126, 198];
+const pent = R * 0.44;
+x.fillStyle = ink;
+x.beginPath();
+ANG.forEach((a, i) => {
+  const t = a * Math.PI / 180, px = cx + Math.cos(t) * pent, py = cy + Math.sin(t) * pent;
+  i ? x.lineTo(px, py) : x.moveTo(px, py);
+});
+x.closePath(); x.fill();
+
+x.strokeStyle = ink;
+x.lineWidth = R * 0.155;
+x.lineCap = 'round';
+ANG.forEach((a) => {
+  const t = a * Math.PI / 180;
+  x.beginPath();
+  x.moveTo(cx + Math.cos(t) * pent, cy + Math.sin(t) * pent);
+  x.lineTo(cx + Math.cos(t) * R * 0.93, cy + Math.sin(t) * R * 0.93);
+  x.stroke();
+});
+
+window.__png = () => document.getElementById('c').toDataURL('image/png');
+</script>

@@ -13,6 +13,30 @@ export function windowState(f: Fixture, now = Date.now()): WindowState {
   return 'OPEN';
 }
 
+/**
+ * 지금 매치데이가 시작된 시각 (가장 최근 KST 06:00).
+ *
+ * 매치데이는 자정이 아니라 06:00 에 시작해 22시간 이어진다 — 유럽 경기가 한국 시간
+ * 새벽이라 자정으로 자르면 토요일 밤에 일요일 새벽 경기를 예측할 수 없다.
+ */
+export function matchdayStart(now = new Date()): Date {
+  const kstMs = now.getTime() + 9 * 3600_000;
+  const kst = new Date(kstMs);
+  kst.setUTCHours(6, 0, 0, 0);
+  const startKst = kstMs < kst.getTime() ? kst.getTime() - 864e5 : kst.getTime();
+  return new Date(startKst - 9 * 3600_000);
+}
+
+/**
+ * 지금 매치데이에 속한 경기인지.
+ *
+ * opensAt 이 지났는지만 보면, 결과를 못 받은 지난 경기가 '오늘의 경기'에 영원히 남는다.
+ * 어느 매치데이 것인지까지 봐야 한다.
+ */
+export function isCurrentMatchday(f: Fixture, now = new Date()): boolean {
+  return +new Date(f.opensAt) >= +matchdayStart(now);
+}
+
 const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
 
 /** "오늘 06:00에 열려요" / "9월 5일(금) 06:00에 열려요" */

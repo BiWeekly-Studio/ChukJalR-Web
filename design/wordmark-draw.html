@@ -1,0 +1,113 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>축잘알 레터링</title>
+<style>
+  body{margin:0;background:#f5f2ea;font-family:-apple-system,sans-serif;padding:32px}
+  h2{font-size:15px;margin:0 0 4px}
+  .note{font-size:12px;color:#9c9385;margin:0 0 14px}
+  .row{background:#fff;border-radius:20px;padding:28px;margin-bottom:20px;box-shadow:0 3px 0 #eee7db}
+  .sizes{display:flex;align-items:flex-end;gap:28px;flex-wrap:wrap;margin-top:18px}
+  .cap{font-size:10px;color:#9c9385;margin-top:6px}
+  .dark{background:linear-gradient(135deg,#3a63ff,#7b46f0)}
+</style>
+<div id="out"></div>
+<script>
+/* 축잘알 레터링 — 폰트가 아니라 직접 그린 글자.
+   한 글자를 100x100 상자에 기하학적으로 쌓는다.
+   축 = ㅊ / ㅜ / ㄱ  (세 단)
+   잘 = ㅈ+ㅏ / ㄹ    (두 단)
+   알 = ㅇ+ㅏ / ㄹ    ('알'의 ㅇ 자리가 축구공) */
+
+const W = 15;           // 획 두께 기본값
+
+function rect(x,y,w,h,r=0){ return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}"/>`; }
+function line(x1,y1,x2,y2,w,cap){ return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke-width="${w}" stroke-linecap="${cap}"/>`; }
+
+/* 축 — ㅊ / ㅜ / ㄱ 세 단. ㄱ 은 꺾임이 살아야 'ㄱ' 으로 읽힌다. */
+function chuk(r, cap){
+  return `
+    ${rect(41,0,18,9,r)}
+    ${rect(4,13,92,11,r)}
+    ${line(50,24,17,39,12,cap)}${line(50,24,83,39,12,cap)}
+    ${rect(4,46,92,11,r)}
+    ${rect(44,57,12,12,r)}
+    ${rect(4,74,92,11,r)}
+    ${rect(84,85,12,15,r)}`;   /* ㄱ 세로 꺾임 */
+}
+
+/* ㄹ — 가로 세 줄을 좌우 연결선이 잇는다 */
+function rieul(top, r){
+  const bar=9, gap=8;
+  return `
+    ${rect(4,top,92,bar,r)}
+    ${rect(85,top+bar,11,gap,r)}
+    ${rect(4,top+bar+gap,92,bar,r)}
+    ${rect(4,top+bar*2+gap,11,gap,r)}
+    ${rect(4,top+(bar+gap)*2,92,bar,r)}`;
+}
+
+/* ㅏ */
+function ah(r){
+  return `${rect(72,0,13,48,r)}${rect(85,17,15,11,r)}`;
+}
+
+/* 잘 */
+function jal(r, cap){
+  return `
+    ${rect(2,4,58,11,r)}
+    ${line(31,15,7,42,12,cap)}${line(31,15,55,42,12,cap)}
+    ${ah(r)}
+    ${rieul(54, r)}`;
+}
+
+/* 알 — ㅇ 자리가 축구공 */
+function al(r, ink, ballInk, ballFill){
+  const cx=31, cy=24, rr=24, pent=rr*0.44;
+  const ANG=[-90,-18,54,126,198];
+  const pts=ANG.map(a=>{const t=a*Math.PI/180;return `${(cx+Math.cos(t)*pent).toFixed(1)},${(cy+Math.sin(t)*pent).toFixed(1)}`}).join(' ');
+  const spokes=ANG.map(a=>{const t=a*Math.PI/180;
+    return `<line x1="${(cx+Math.cos(t)*pent).toFixed(1)}" y1="${(cy+Math.sin(t)*pent).toFixed(1)}" x2="${(cx+Math.cos(t)*rr*0.9).toFixed(1)}" y2="${(cy+Math.sin(t)*rr*0.9).toFixed(1)}" stroke="${ballInk}" stroke-width="4.5" stroke-linecap="round"/>`}).join('');
+  return `
+    <circle cx="${cx}" cy="${cy}" r="${rr}" fill="${ballFill}" stroke="${ink}" stroke-width="10"/>
+    <polygon points="${pts}" fill="${ballInk}" stroke="none"/>
+    ${spokes}
+    ${ah(r)}
+    ${rieul(54, r)}`;
+}
+
+function wordmark({size=120, r=0, cap='butt', ink='#2f57f2', ballInk='#2f57f2', ballFill='#fff', shadow=null, skew=0}){
+  const gap = 8, unit = 100;
+  const w = unit*3 + gap*2, h = 111;
+  const g = (dx, content) => `<g transform="translate(${dx},0)" fill="${ink}" stroke="${ink}">${content}</g>`;
+  const body = g(0, chuk(r,cap)) + g(unit+gap, jal(r,cap)) + g((unit+gap)*2, al(r, ink, ballInk, ballFill));
+  const shadowLayer = shadow
+    ? `<g transform="translate(6,7)" fill="${shadow}" stroke="${shadow}">
+         ${chuk(r,cap)}</g>
+       <g transform="translate(${unit+gap+6},7)" fill="${shadow}" stroke="${shadow}">${jal(r,cap)}</g>
+       <g transform="translate(${(unit+gap)*2+6},7)" fill="${shadow}" stroke="${shadow}">${al(r,shadow,shadow,shadow)}</g>`
+    : '';
+  return `<svg width="${size*w/h}" height="${size}" viewBox="-4 -4 ${w+16} ${h+16}"
+    style="transform:skewX(${skew}deg)">${shadowLayer}${body}</svg>`;
+}
+
+const variants = [
+  {name:'A — 각진 블록', note:'획을 각지게. 가장 단단하고 무게감이 있다.', opt:{r:0, cap:'butt'}},
+  {name:'B — 둥근 블록', note:'모서리를 굴려 친근하게. 예능 로고에 흔한 결.', opt:{r:5, cap:'round'}},
+  {name:'C — 그림자', note:'뒤에 색을 한 겹 깔아 두께를 만든다. 떠들썩한 인상.', opt:{r:5, cap:'round', shadow:'#ffc02e'}},
+  {name:'D — 기울기 + 그림자', note:'살짝 기울여 움직임을 준다.', opt:{r:5, cap:'round', shadow:'#ff5f2e', skew:-6}},
+];
+
+document.getElementById('out').innerHTML = variants.map(v=>`
+  <div class="row">
+    <h2>${v.name}</h2><p class="note">${v.note}</p>
+    <div class="sizes">
+      ${[110,60,34,22].map(s=>`<div><div>${wordmark({size:s, ...v.opt})}</div><div class="cap">${s}px</div></div>`).join('')}
+    </div>
+  </div>
+  <div class="row dark">
+    <div class="sizes">
+      ${[110,60,34].map(s=>`<div>${wordmark({size:s, ...v.opt, ink:'#fff', ballInk:'#2f57f2', ballFill:'#fff', shadow:v.opt.shadow?'rgba(0,0,0,.25)':null})}</div>`).join('')}
+    </div>
+  </div>
+`).join('');
+</script>

@@ -1,0 +1,6 @@
+build/
+Sources/Config.swift
+Chukjalal.xcodeproj/
+Resources/Info.generated.plist
+Widgets/Info.generated.plist
+.env.local

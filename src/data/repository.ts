@@ -1,6 +1,6 @@
 import type {
   BadgeDef, ChatMessage, Fixture, League, MyStats, Prediction, RankRow,
-  SettlementResult, Team,
+  ReportReason, SettlementResult, Team,
 } from './types';
 import type { Confidence, Outcome } from '../lib/scoring';
 
@@ -20,10 +20,60 @@ export interface MeSnapshot {
   balance: number;
   streak: number;
   settledMatches: number;
-  topPercent: number;
+  /** 상위 몇 %. 아직 순위표에 오르지 않았으면 null */
+  topPercent: number | null;
   predictions: Prediction[];
   /** 이미 정산된 예측의 결과. 피드에서 결과를 보여주는 데 쓴다 */
   settlements: SettlementResult[];
+}
+
+/**
+ * 소셜 로그인 제공자.
+ * 네이버는 Supabase 가 기본 제공하지 않는다 — 넣으려면 커스텀 OIDC 나 Auth Hook 이 필요하다.
+ */
+export type OAuthProvider = 'google' | 'apple' | 'kakao';
+
+/** 지금 앱을 쓰고 있는 사람. 로그인 없이는 앱에 들어올 수 없다. */
+export interface AuthUser {
+  id: string;
+  /** 토스 로그인 세션처럼 이메일이 없는 경로도 있으므로 null 을 허용한다 */
+  email: string | null;
+}
+
+/**
+ * 계정.
+ *
+ * 프로덕션(앱인토스)에서는 토스 로그인 브리지가 세션을 세워주므로 이 화면들이 뜨지 않는다.
+ * 토스 앱 밖에서 직접 써 보려면 이메일로 가입해야 해서 이 통로를 둔다. (명세 14.5)
+ */
+export interface Auth {
+  /** 지금 로그인된 사람. 세션이 없으면 null */
+  current(): Promise<AuthUser | null>;
+  /**
+   * 이메일 가입. handle 은 raw_user_meta_data 로 넘어가고
+   * on_auth_user_created 트리거가 그대로 프로필 닉네임으로 쓴다.
+   * @returns needsConfirmation — 프로젝트가 이메일 확인을 요구하면 true (아직 세션 없음)
+   */
+  signUp(email: string, password: string, handle: string): Promise<{ needsConfirmation: boolean }>;
+  signIn(email: string, password: string): Promise<void>;
+  /**
+   * 토스 로그인. 앱인토스 웹뷰 안에서만 동작한다.
+   * TossAuth.login() 이 준 인가 코드를 Edge Function 이 세션으로 바꿔준다 (명세 14.5).
+   */
+  signInWithToss(): Promise<void>;
+  /**
+   * 소셜 로그인. 제공자 페이지로 넘어갔다가 redirectTo 로 돌아온다 →
+   * 이 함수는 정상일 때 반환되지 않고 페이지가 떠난다.
+   */
+  signInWithProvider(provider: OAuthProvider): Promise<void>;
+  /**
+   * 이 프로젝트에서 실제로 켜져 있는 소셜 로그인 목록.
+   * 대시보드 설정을 그대로 읽으므로, provider 를 켜면 버튼이 저절로 생긴다.
+   */
+  listProviders(): Promise<OAuthProvider[]>;
+  signOut(): Promise<void>;
+  /** 세션이 바뀔 때마다 호출된다. 반환값은 구독 해제 함수 */
+  onChange(cb: (user: AuthUser | null) => void): () => void;
 }
 
 /**
@@ -32,6 +82,7 @@ export interface MeSnapshot {
  */
 export interface Repository {
   readonly kind: 'mock' | 'supabase';
+  readonly auth: Auth;
   loadCatalog(): Promise<Catalog>;
   loadMe(): Promise<MeSnapshot>;
   /** 최애 팀은 최대 5개 */
@@ -45,6 +96,13 @@ export interface Repository {
   loadMyStats(): Promise<MyStats>;
   loadChat(fixtureId: number): Promise<ChatMessage[]>;
   sendChat(fixtureId: number, body: string): Promise<void>;
+  /**
+   * 메시지 신고. 3건이 쌓이면 서버가 자동으로 가리고 검토 큐로 넘긴다 (명세 10장).
+   * 같은 사람이 같은 메시지를 두 번 신고할 수는 없다.
+   */
+  reportMessage(messageId: string, reason: ReportReason): Promise<void>;
+  /** 사용자 차단. 이후 그 사람의 메시지는 서버가 내려보내지 않는다 */
+  blockUser(userId: string): Promise<void>;
   /**
    * 경기 채팅 구독. 반환값은 구독 해제 함수.
    * onPresence 는 지금 이 채널을 보고 있는 사람 수를 알려준다 (Realtime Presence).

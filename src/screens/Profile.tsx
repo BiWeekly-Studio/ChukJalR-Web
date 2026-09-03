@@ -1,10 +1,14 @@
-import { IconBolt, IconFlame, IconLock, IconShield } from '../components/icons';
+import { TierChip } from '../components/TierChip';
+import { IconBolt, IconFlame, IconLock, IconTarget } from '../components/icons';
 import { leagues as allLeagues, team } from '../data/catalog';
 import { repository } from '../data';
+import { useState } from 'react';
+import { useCountUpInt } from '../lib/anim';
+import { SELF_AUTH } from '../lib/env';
 import { useAsync } from '../lib/useAsync';
 import type { BadgeDef, MyStats } from '../data/types';
 import { comma } from '../lib/format';
-import { CONFIDENCE_LABEL, PLACEMENT_MATCHES, TIER_LABEL } from '../lib/scoring';
+import { CONFIDENCE_LABEL, PLACEMENT_MATCHES } from '../lib/scoring';
 import { useApp } from '../store';
 
 /** 캘리브레이션 표본이 이보다 적으면 숫자를 보여주지 않는다. 오해를 부른다. */
@@ -12,7 +16,7 @@ const MIN_CALIBRATION_N = 5;
 /** 팬심 편향은 최애 팀 경기가 이만큼 쌓여야 의미가 있다 (명세 5.4) */
 const MIN_FAN_BIAS_N = 10;
 
-export function Profile() {
+export function Profile({ onReplayTutorial }: { onReplayTutorial?: () => void }) {
   const { state, level, tier } = useApp();
   const badges = useAsync<BadgeDef[]>(() => repository.loadBadges(), []);
   const stats = useAsync<MyStats | null>(() => repository.loadMyStats(), null);
@@ -22,84 +26,116 @@ export function Profile() {
   const accuracy = hasRecord ? stats!.hits / stats!.settled : null;
   const favTeams = state.favoriteTeamIds.map((id) => team(id));
 
+  const accPct = useCountUpInt(Math.round((accuracy ?? 0) * 100), 1000);
+  const settledN = useCountUpInt(stats?.settled ?? 0, 1000);
+  const rating = useCountUpInt(state.rating, 1200);
+
   return (
-    <div className="scroll">
+    <div className="scroll screen">
       <div className="pad" style={{ paddingTop: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 34 }}>
-          <span className="h2">내 기록</span>
-          <span className="tiny muted">{comma(state.balance)}점 보유</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 36 }}>
+          <span className="h1" style={{ fontSize: 22 }}>내 기록</span>
+          <span className="chip gold" style={{ fontSize: 11 }}>
+            <IconBolt size={12} color="var(--gold-ink)" />
+            {comma(state.balance)}점
+          </span>
         </div>
 
-        <div className="card" style={{ marginTop: 12, borderRadius: 22, padding: 18 }}>
-          <div className="row">
-            <span
-              style={{
-                width: 50, height: 50, borderRadius: 999, background: 'var(--accent-soft)',
-                border: '2.5px solid var(--accent)', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', fontFamily: 'var(--display)', fontWeight: 900,
-                fontSize: 19, color: 'var(--accent-deep)',
-              }}
-            >
-              {state.handle.slice(0, 1)}
-            </span>
-            <div>
-              <div className="h2" style={{ fontSize: 17 }}>{state.handle}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                <IconShield size={14} color="var(--accent)" />
-                <span className="h3" style={{ fontSize: 13, color: 'var(--accent-deep)' }}>
-                  Lv.{level.level} {TIER_LABEL[tier]}
-                </span>
-                <span className="tiny muted">지수 {comma(state.rating)}</span>
+        {/* 프로필 카드 — 앱에서 가장 자랑스러운 화면이어야 한다 */}
+        <div className="card in" style={{ marginTop: 12, borderRadius: 26, padding: 0, overflow: 'hidden' }}>
+          <div
+            style={{
+              background: 'var(--grad-accent)', color: '#fff', padding: '18px 18px 20px',
+              position: 'relative', overflow: 'hidden',
+            }}
+          >
+            <div className="row">
+              <span
+                style={{
+                  width: 54, height: 54, borderRadius: 999, background: 'rgba(255,255,255,.2)',
+                  border: '2.5px solid rgba(255,255,255,.55)', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', fontFamily: 'var(--display)', fontWeight: 900,
+                  fontSize: 21, flexShrink: 0,
+                }}
+              >
+                {state.handle.slice(0, 1)}
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <div className="h2" style={{ fontSize: 18 }}>{state.handle}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5 }}>
+                  <span className="lvbadge" style={{ height: 22, minWidth: 24, fontSize: 11, background: 'rgba(255,255,255,.24)', boxShadow: 'none' }}>
+                    Lv.{level.level}
+                  </span>
+                  <TierChip tier={tier} />
+                </div>
               </div>
+              <span style={{ marginLeft: 'auto', textAlign: 'right' }}>
+                <span className="num" style={{ display: 'block', fontSize: 26, lineHeight: 1 }}>{comma(rating)}</span>
+                <span className="tiny" style={{ opacity: 0.8 }}>축잘알 지수</span>
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginTop: 18 }}>
+              {inPlacement ? (
+                <>
+                  <span className="small" style={{ opacity: 0.85 }}>아직</span>
+                  <span className="num" style={{ fontSize: 32, lineHeight: 0.92 }}>배치 중</span>
+                </>
+              ) : state.topPercent == null ? (
+                /* 배치는 끝났지만 아직 순위 발표 전. 없는 등수를 만들어 보여주지 않는다 */
+                <>
+                  <span className="small" style={{ opacity: 0.85 }}>다음 발표에</span>
+                  <span className="num" style={{ fontSize: 30, lineHeight: 0.92 }}>순위 첫 등록</span>
+                </>
+              ) : (
+                <>
+                  <span className="small" style={{ opacity: 0.85 }}>전체 유저 중</span>
+                  <span className="num" style={{ fontSize: 36, lineHeight: 0.92 }}>
+                    상위 {state.topPercent}%
+                  </span>
+                </>
+              )}
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginTop: 20 }}>
-            {inPlacement ? (
-              <>
-                <span className="small muted">아직</span>
-                <span className="num" style={{ fontSize: 34, color: 'var(--accent)', lineHeight: 0.92 }}>
-                  배치 중
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="small muted">전체 유저 중</span>
-                <span className="num" style={{ fontSize: 38, color: 'var(--accent)', lineHeight: 0.92 }}>
-                  상위 {state.topPercent}%
-                </span>
-              </>
-            )}
-          </div>
-
-          <div className="track" style={{ height: 8, marginTop: 18 }}>
-            <i style={{ width: `${Math.round(level.progress * 100)}%` }} />
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 9 }}>
-            <span className="tiny muted">다음 레벨까지 {Math.max(0, level.need - level.into)}점</span>
-            <span className="tiny" style={{ color: 'var(--ink-2)' }}>
-              {inPlacement
-                ? `순위까지 ${PLACEMENT_MATCHES - state.settledMatches}경기`
-                : `${TIER_LABEL[tier]} 구간`}
-            </span>
+          <div style={{ padding: '14px 18px 16px' }}>
+            <div className="track" style={{ marginTop: 0 }}>
+              <i style={{ width: `${Math.round(level.progress * 100)}%` }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 9 }}>
+              <span className="tiny muted">다음 레벨까지 {Math.max(0, level.need - level.into)}점</span>
+              <span className="tiny" style={{ color: 'var(--ink-2)' }}>
+                {inPlacement
+                  ? `순위까지 ${PLACEMENT_MATCHES - state.settledMatches}경기`
+                  : `Lv.${level.level + 1}까지 ${level.into}/${level.need}`}
+              </span>
+            </div>
           </div>
         </div>
 
         <div style={{ display: 'flex', gap: 9, marginTop: 12 }}>
-          <div className="stat">
-            <span className="num" style={{ fontSize: 25 }}>
-              {accuracy == null ? '—' : `${Math.round(accuracy * 100)}%`}
+          <div className="stat in" style={{ ['--i' as string]: 1 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <IconTarget size={15} color="var(--accent)" />
+              <span className="num grad" style={{ fontSize: 25 }}>
+                {accuracy == null ? '—' : `${accPct}%`}
+              </span>
             </span>
             <span className="tiny muted">적중률</span>
           </div>
-          <div className="stat">
-            <span className="num" style={{ fontSize: 25 }}>{stats?.settled ?? 0}</span>
+          <div className="stat in" style={{ ['--i' as string]: 2 }}>
+            <span className="num" style={{ fontSize: 25 }}>{settledN}</span>
             <span className="tiny muted">누적 예측</span>
           </div>
-          <div className="stat" style={{ background: 'var(--gold-soft)', boxShadow: '0 3px 0 0 var(--gold-shadow)' }}>
+          <div
+            className="stat in"
+            style={{ ['--i' as string]: 3, background: 'var(--gold-soft)', boxShadow: '0 3px 0 0 var(--gold-shadow)' }}
+          >
             <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              <IconFlame size={15} color="var(--gold-ink)" />
-              <span className="num" style={{ fontSize: 25, color: 'var(--gold)' }}>{state.streak}</span>
+              <span className={state.streak >= 3 ? 'flame' : undefined}>
+                <IconFlame size={15} color="var(--gold-ink)" />
+              </span>
+              <span className="num grad gold" style={{ fontSize: 25 }}>{state.streak}</span>
             </span>
             <span className="tiny" style={{ color: 'var(--gold)' }}>연속 적중</span>
           </div>
@@ -110,13 +146,13 @@ export function Profile() {
             <Pending text="경기가 정산되면 리그별로 어디에 강한지 보여드려요." />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {leagues.map((l) => {
+              {leagues.map((l, i) => {
                 const row = stats!.byLeague.find((b) => b.leagueId === l.id);
                 return (
                   <div key={l.id} className="row">
                     <span className="small muted" style={{ width: 60 }}>{l.short}</span>
                     <div className="bar">
-                      <i style={{ width: `${(row?.accuracy ?? 0) * 100}%` }} />
+                      <i style={{ width: `${(row?.accuracy ?? 0) * 100}%`, ['--i' as string]: i }} />
                     </div>
                     <span className="num" style={{ width: 44, textAlign: 'right', fontSize: 14 }}>
                       {row ? `${Math.round(row.accuracy * 100)}%` : '—'}
@@ -141,7 +177,7 @@ export function Profile() {
           ) : (
             <>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                {stats.calibration.map((c) => {
+                {stats.calibration.map((c, i) => {
                   const enough = c.n >= MIN_CALIBRATION_N;
                   const gap = c.actual - c.expected;
                   return (
@@ -153,14 +189,12 @@ export function Profile() {
                         <i
                           style={{
                             width: `${(enough ? c.actual : 0) * 100}%`,
-                            background: gap < -0.08 ? 'var(--ink-4)' : 'var(--accent)',
+                            background: gap < -0.08 ? 'var(--ink-4)' : undefined,
+                            ['--i' as string]: i,
                           }}
                         />
                       </div>
-                      <span
-                        className="num"
-                        style={{ width: 40, textAlign: 'right', fontSize: 14 }}
-                      >
+                      <span className="num" style={{ width: 40, textAlign: 'right', fontSize: 14 }}>
                         {enough ? `${Math.round(c.actual * 100)}%` : '—'}
                       </span>
                       <span className="tiny muted" style={{ width: 62, textAlign: 'right' }}>
@@ -184,12 +218,12 @@ export function Profile() {
             ) : (
               <div
                 className="card"
-                style={{ boxShadow: 'none', border: '1px solid var(--line)', padding: '14px 16px' }}
+                style={{ boxShadow: 'none', border: '1.5px solid var(--line)', padding: '14px 16px' }}
               >
                 <div className="row" style={{ gap: 8 }}>
                   <span
                     className="num"
-                    style={{ fontSize: 24, color: stats.fanBias.bias < 0 ? 'var(--accent)' : 'var(--ink)' }}
+                    style={{ fontSize: 26, color: stats.fanBias.bias < 0 ? 'var(--cool)' : 'var(--win)' }}
                   >
                     {stats.fanBias.bias > 0 ? `+${stats.fanBias.bias}` : `−${Math.abs(stats.fanBias.bias)}`}
                   </span>
@@ -219,10 +253,8 @@ export function Profile() {
                   <div
                     key={i}
                     title={r ? `${r.delta > 0 ? '+' : ''}${r.delta}` : ''}
-                    style={{
-                      flex: 1, height: 28, borderRadius: 8,
-                      background: !r ? 'var(--line-2)' : r.correct ? 'var(--accent)' : 'var(--line)',
-                    }}
+                    className={`form-cell${!r ? '' : r.correct ? ' hit' : ' miss'}`}
+                    style={{ ['--i' as string]: i }}
                   />
                 );
               })}
@@ -230,32 +262,35 @@ export function Profile() {
           )}
         </Section>
 
-        <Section title="모은 뱃지" hint={`${badges.filter((b) => b.progress >= b.target).length}개 획득`}>
+        <Section
+          title="모은 뱃지"
+          hint={badges.length ? `${badges.filter((b) => b.target != null && b.progress >= b.target).length}개 획득` : undefined}
+        >
+          {badges.length === 0 && <Pending text="아직 열린 뱃지가 없어요. 준비되면 여기에 생깁니다." />}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-            {badges.slice(0, 8).map((b) => {
-              const earned = b.progress >= b.target;
+            {badges.slice(0, 8).map((b, i) => {
+              const earned = b.target != null && b.progress >= b.target;
+              const gold = b.tier === 'gold';
               return (
-                <div key={b.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <div key={b.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7 }}>
                   <div
+                    className={`badge${earned ? ` earned${gold ? ' gold' : ''}` : ' locked'}`}
                     style={{
-                      width: 44, height: 44, borderRadius: 999,
-                      background: earned ? (b.tier === 'gold' ? 'var(--gold-soft)' : 'var(--accent-soft)') : 'var(--card-2)',
-                      border: earned ? 'none' : '1.5px dashed var(--line-strong)',
-                      boxShadow: earned ? `0 3px 0 0 ${b.tier === 'gold' ? 'var(--gold-shadow)' : 'var(--accent-line)'}` : 'none',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      ['--i' as string]: i,
+                      background: earned ? (gold ? 'var(--grad-gold)' : 'var(--grad-accent)') : undefined,
                     }}
                   >
-                    {earned ? (
-                      <IconBolt size={20} color={b.tier === 'gold' ? 'var(--gold-ink)' : 'var(--accent)'} />
-                    ) : (
-                      <IconLock color="var(--ink-4)" />
-                    )}
+                    {earned ? <IconBolt size={22} color="#fff" /> : <IconLock color="var(--ink-4)" />}
                   </div>
-                  <span className="tiny" style={{ textAlign: 'center', color: earned ? 'var(--ink-2)' : 'var(--ink-4)', lineHeight: 1.3 }}>
+                  <span
+                    className="tiny"
+                    style={{ textAlign: 'center', color: earned ? 'var(--ink-2)' : 'var(--ink-4)', lineHeight: 1.3, fontWeight: earned ? 700 : 500 }}
+                  >
                     {b.name}
                   </span>
-                  {!earned && (
-                    <span className="tiny" style={{ color: 'var(--ink-4)', fontSize: 10 }}>
+                  {/* 목표치를 모르면 진행도를 지어내지 않는다 */}
+                  {!earned && b.target != null && (
+                    <span className="tiny" style={{ color: 'var(--ink-4)', fontSize: 10, marginTop: -4 }}>
                       {b.progress}/{b.target}
                     </span>
                   )}
@@ -265,7 +300,100 @@ export function Profile() {
           </div>
         </Section>
 
+        <ChatPolicy />
+
+        {onReplayTutorial && (
+          <button
+            className="ghostcta"
+            style={{ marginTop: 24, height: 48 }}
+            onClick={onReplayTutorial}
+          >
+            예측 규칙 다시 보기
+          </button>
+        )}
+
+        <AccountCard />
+
         <div style={{ height: 24 }} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 채팅 운영정책.
+ *
+ * 앱인토스는 "신고·차단·제재 정책·운영자 검토를 UI에 실제로 노출"할 것을 요구한다
+ * (정책 13.2). 외부 링크는 금지되므로 약관 페이지로 보내지 않고 앱 안에 둔다.
+ */
+function ChatPolicy() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ marginTop: 24 }}>
+      <button
+        className="policyhead"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="h3" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <span style={{ width: 3, height: 13, borderRadius: 2, background: 'var(--grad-accent)' }} />
+          채팅 운영정책
+        </span>
+        <span className="tiny muted">{open ? '접기' : '보기'}</span>
+      </button>
+
+      {open && (
+        <div className="policybody">
+          <p><b>이런 메시지는 보낼 수 없어요</b></p>
+          <ul>
+            <li>욕설 · 비하 · 차별 표현</li>
+            <li>같은 내용 반복(도배)과 스팸</li>
+            <li>홍보, 그리고 도박 사이트로 유도하는 내용</li>
+            <li>선정적이거나 불쾌감을 주는 내용</li>
+            <li>링크 — 초기에는 모든 링크를 자동으로 막습니다</li>
+          </ul>
+
+          <p><b>신고하면 이렇게 처리돼요</b></p>
+          <ul>
+            <li>메시지 오른쪽 <b>···</b> 를 눌러 사유와 함께 신고합니다</li>
+            <li>신고가 <b>3건</b> 쌓이면 그 메시지는 자동으로 가려지고 운영자 검토로 넘어갑니다</li>
+            <li>검토 결과에 따라 경고 → 채팅 제한 → 이용 정지 순으로 조치합니다</li>
+          </ul>
+
+          <p><b>직접 차단할 수도 있어요</b></p>
+          <ul>
+            <li>같은 <b>···</b> 메뉴에서 차단하면, 그 사람의 메시지는 더 이상 보이지 않습니다</li>
+            <li>차단은 내 계정에만 적용되고 상대에게 알려지지 않습니다</li>
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 계정 칸. 지금 누구로 로그인돼 있는지 보여주고, 로그아웃할 수 있게 한다. */
+function AccountCard() {
+  const { authUser, signOut } = useApp();
+
+  // 앱인토스 안에서 계정은 토스 계정이다. 관리할 것도, 보여줄 것도 없다.
+  if (!authUser || !SELF_AUTH) return null;
+
+  return (
+    <div className="account">
+      <div className="row" style={{ gap: 10 }}>
+        <span className="avatar" style={{ width: 34, height: 34, background: 'var(--grad-accent)', color: '#fff' }}>
+          {authUser.email?.slice(0, 1).toUpperCase() ?? '·'}
+        </span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span className="h3" style={{ display: 'block', fontSize: 13 }}>로그인됨</span>
+          <span
+            className="tiny muted"
+            style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}
+          >
+            {authUser.email ?? '토스 계정'}
+          </span>
+        </span>
+        <button className="pill" onClick={() => void signOut()}>로그아웃</button>
       </div>
     </div>
   );
@@ -277,8 +405,8 @@ function Pending({ text }: { text: string }) {
     <p
       className="small muted"
       style={{
-        margin: 0, padding: '14px 16px', borderRadius: 12,
-        border: '1px dashed var(--line-strong)', lineHeight: 1.6,
+        margin: 0, padding: '14px 16px', borderRadius: 14,
+        border: '1.5px dashed var(--line-strong)', lineHeight: 1.6,
       }}
     >
       {text}
@@ -311,9 +439,12 @@ function CalibrationNote({ rows }: { rows: MyStats['calibration'] }) {
 
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginTop: 22 }}>
+    <div style={{ marginTop: 24 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <span className="h3">{title}</span>
+        <span className="h3" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <span style={{ width: 3, height: 13, borderRadius: 2, background: 'var(--grad-accent)' }} />
+          {title}
+        </span>
         {hint && <span className="tiny muted">{hint}</span>}
       </div>
       {children}

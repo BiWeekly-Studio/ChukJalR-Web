@@ -1,22 +1,35 @@
 import { useEffect, useRef, useState } from 'react';
 import { Crest } from '../components/Crest';
 import { LeagueMark } from '../components/LeagueMark';
-import { IconBack, IconCheck, IconSend, IconX } from '../components/icons';
+import { MessageActions } from '../components/MessageActions';
+import { IconBack, IconCheck, IconSend, IconUsers, IconX } from '../components/icons';
 import { fixture, league, team } from '../data/catalog';
 import { repository } from '../data';
 import type { ChatMessage } from '../data/types';
+import { haptic } from '../lib/anim';
 import { comma, kickoffLabel, pct, signed } from '../lib/format';
+import { crowdLevel } from '../lib/baseline';
 import { chatOpensLabel, chatState } from '../lib/window';
 import { CONFIDENCE_LABEL, OUTCOMES, previewScore } from '../lib/scoring';
 import { useApp } from '../store';
 
-const SEG_COLOR = ['var(--accent)', 'var(--line-strong)', 'var(--cool)'];
+/** 홈 · 무 · 원정. 키 컬러와 반대편 색을 써서 한눈에 갈린다. */
+const SEG_COLOR = [
+  'linear-gradient(90deg, #3a63ff, #7b46f0)',
+  'var(--line-strong)',
+  'linear-gradient(90deg, #ff7a4a, #d1492a)',
+];
+const DOT_COLOR = ['var(--accent)', 'var(--line-strong)', 'var(--cool)'];
 
 export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: () => void }) {
-  const { state } = useApp();
+  const { state, authUser } = useApp();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [viewers, setViewers] = useState(0);
   const [draft, setDraft] = useState('');
+  // 신고·차단은 서버에 남지만, 지금 화면에서도 즉시 치워야 조치된 느낌이 든다
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [blocked, setBlocked] = useState<Set<string>>(new Set());
+  const [notice, setNotice] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   // 기존 메시지를 불러오고 Realtime Broadcast 를 구독한다 (명세 14.4).
@@ -55,30 +68,42 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
   const away = team(f.awayTeamId);
   const saved = state.predictions[fixtureId];
   const chat = chatState(f);
+  const finished = f.state === 'FINISHED' && Boolean(f.result);
+  // 서버는 예측이 없어도 prior 로 기준선을 준다. 그건 여론이 아니므로 따로 가른다.
+  const crowd = crowdLevel(f.participants);
+  const showCrowd = f.baseline != null && crowd !== 'none';
 
   function send() {
     const body = draft.trim();
     if (!body) return;
     setDraft('');
+    haptic(10);
 
     // 서버 구현에서는 Broadcast 로 되돌아오므로 여기서 붙이지 않는다 (중복 방지).
     if (repository.kind === 'mock') {
       setMessages((prev) => [
         ...prev,
         {
-          id: `me-${Date.now()}`, fixtureId, handle: state.handle,
+          id: `me-${Date.now()}`, fixtureId, userId: authUser?.id ?? null, handle: state.handle,
           initial: state.handle.slice(0, 1), topPercent: state.topPercent,
           tier: 'MASTER', body, at: nowLabel(), mine: true,
         },
       ]);
     }
 
-    repository.sendChat(fixtureId, body).catch(() => {
-      /* 레이트 리밋 등은 조용히 무시한다 — 재전송은 유저가 한다 */
+    repository.sendChat(fixtureId, body).catch((err) => {
+      // 필터에 걸렸으면 왜 막혔는지 알려줘야 한다. 조용히 사라지면 버그로 보인다.
+      setNotice(err instanceof Error ? err.message : '메시지를 보내지 못했어요.');
     });
   }
 
-  const preview = saved ? previewScore(f.baseline, saved.pick, saved.confidence, state.streak) : null;
+  const preview =
+    saved && f.baseline ? previewScore(f.baseline, saved.pick, saved.confidence, state.streak) : null;
+
+  // 신고했거나 차단한 사람의 메시지는 즉시 뺀다
+  const visible = messages.filter(
+    (m) => !hidden.has(m.id) && !(m.userId && blocked.has(m.userId))
+  );
   const pickLabel = saved
     ? saved.pick === 'HOME' ? `${home.name} 승` : saved.pick === 'AWAY' ? `${away.name} 승` : '무승부'
     : null;
@@ -97,72 +122,86 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
 
       <div ref={listRef} className="scroll" style={{ paddingTop: 0 }}>
         <div className="pad" style={{ paddingTop: 10 }}>
-          <div className="card" style={{ borderRadius: 22, padding: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          {/* 대진 배너 — 경기 상세의 얼굴 */}
+          <div className="versus in">
+            <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <LeagueMark leagueId={f.leagueId} size={16} />
-                <span className="tiny" style={{ color: 'var(--accent)', fontWeight: 700 }}>
-                  {league(f.leagueId).name} {f.round}R
+                <span className="tiny" style={{ color: 'var(--accent-deep)', fontWeight: 800 }}>
+                  {[league(f.leagueId).name, f.round == null ? null : `${f.round}R`]
+                    .filter(Boolean)
+                    .join(' ')}
                 </span>
               </span>
-              <span className="tiny muted">{f.venue}</span>
+              {f.venue && <span className="tiny muted">{f.venue}</span>}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', marginTop: 14 }}>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                <Crest teamId={f.homeTeamId} size={46} />
-                <span className="small" style={{ fontWeight: 600 }}>{home.name}</span>
-              </div>
-              <div style={{ textAlign: 'center', padding: '0 4px' }}>
-                <div className="num" style={{ fontSize: 26, lineHeight: 1 }}>
-                  {f.state === 'FINISHED' && f.result
-                    ? `${f.homeGoals} : ${f.awayGoals}`
-                    : kickoffLabel(f.kickoffAt)}
+            <div style={{ display: 'flex', alignItems: 'center', marginTop: 16, position: 'relative' }}>
+              <Side teamId={f.homeTeamId} name={home.name} />
+              <div style={{ textAlign: 'center', padding: '0 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7 }}>
+                <span className="vs-badge">{finished ? 'FT' : 'VS'}</span>
+                <div className="num" style={{ fontSize: finished ? 28 : 22, lineHeight: 1 }}>
+                  {finished ? `${f.homeGoals} : ${f.awayGoals}` : kickoffLabel(f.kickoffAt)}
                 </div>
-                <div className="tiny muted" style={{ marginTop: 3 }}>
-                  {f.state === 'FINISHED' && f.result ? '경기 종료' : '킥오프'}
-                </div>
+                <div className="tiny muted">{finished ? '경기 종료' : '킥오프'}</div>
               </div>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                <Crest teamId={f.awayTeamId} size={46} />
-                <span className="small" style={{ fontWeight: 600 }}>{away.name}</span>
-              </div>
+              <Side teamId={f.awayTeamId} name={away.name} />
             </div>
           </div>
 
-          <div className="card" style={{ marginTop: 12, borderRadius: 20, padding: '14px 16px 16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span className="h3">다른 사람들은 이렇게 봤어요</span>
-              <span className="tiny muted">{comma(f.participants)}명</span>
+          {showCrowd && f.baseline ? (
+            <div className="card in" style={{ marginTop: 12, borderRadius: 20, padding: '14px 16px 16px', ['--i' as string]: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="h3">
+                  {crowd === 'solid' ? '다른 사람들은 이렇게 봤어요' : '지금까지의 예상 확률'}
+                </span>
+                {f.participants != null && (
+                  <span className="chip plain" style={{ fontSize: 10.5 }}>
+                    <IconUsers size={11} color="currentColor" />
+                    {comma(f.participants)}명
+                  </span>
+                )}
+              </div>
+              <div className="distbar" style={{ marginTop: 12 }}>
+                {f.baseline.map((v, i) => (
+                  <i key={i} style={{ flex: v, background: SEG_COLOR[i], ['--i' as string]: i }} />
+                ))}
+              </div>
+              {crowd === 'thin' && (
+                <p className="tiny muted" style={{ margin: '10px 0 0', lineHeight: 1.55 }}>
+                  아직 예측이 {f.participants}명뿐이라, 이 확률은 대부분 기본 예상치예요.
+                  사람이 모일수록 실제 판단 쪽으로 옮겨갑니다.
+                </p>
+              )}
+              <div style={{ display: 'flex', marginTop: 11 }}>
+                {OUTCOMES.map((o, i) => (
+                  <div
+                    key={o}
+                    style={{
+                      flex: i === 1 ? '0 0 auto' : 1, display: 'flex', alignItems: 'center', gap: 6,
+                      justifyContent: i === 2 ? 'flex-end' : 'flex-start',
+                    }}
+                  >
+                    <span style={{ width: 8, height: 8, borderRadius: 3, background: DOT_COLOR[i] }} />
+                    <span className="tiny muted">{o === 'HOME' ? home.name : o === 'AWAY' ? away.name : '무'}</span>
+                    <span className="num" style={{ fontSize: 14 }}>{pct(f.baseline![i])}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: 3, height: 11, marginTop: 12 }}>
-              {f.baseline.map((v, i) => (
-                <div
-                  key={i}
-                  style={{
-                    flex: v, background: SEG_COLOR[i],
-                    borderRadius: i === 0 ? '999px 0 0 999px' : i === 2 ? '0 999px 999px 0' : 0,
-                  }}
-                />
-              ))}
+          ) : (
+            /* 여론이 없으면 분포를 그리지 않는다 — 빈 자리를 그럴듯한 숫자로 채우면 그게 가짜다 */
+            <div
+              className="card in"
+              style={{ marginTop: 12, borderRadius: 20, padding: '18px 16px', textAlign: 'center', ['--i' as string]: 1 }}
+            >
+              <p className="h3" style={{ fontSize: 13, marginBottom: 6 }}>아직 아무도 예측하지 않았어요</p>
+              <p className="tiny muted" style={{ margin: 0, lineHeight: 1.6 }}>
+                예측이 모이면 사람들이 어느 쪽을 봤는지 여기에 나와요.
+              </p>
             </div>
-            <div style={{ display: 'flex', marginTop: 11 }}>
-              {OUTCOMES.map((o, i) => (
-                <div
-                  key={o}
-                  style={{
-                    flex: i === 1 ? '0 0 auto' : 1, display: 'flex', alignItems: 'center', gap: 6,
-                    justifyContent: i === 2 ? 'flex-end' : 'flex-start',
-                  }}
-                >
-                  <span style={{ width: 8, height: 8, borderRadius: 3, background: SEG_COLOR[i] }} />
-                  <span className="tiny muted">{o === 'HOME' ? home.name : o === 'AWAY' ? away.name : '무'}</span>
-                  <span className="num" style={{ fontSize: 14 }}>{pct(f.baseline[i])}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          )}
 
-          {saved && f.state === 'FINISHED' && state.settlements[fixtureId] && (
+          {saved && finished && state.settlements[fixtureId] && (
             <ResultBanner
               label={pickLabel ?? ''}
               won={state.settlements[fixtureId].deltaRating > 0}
@@ -171,32 +210,36 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
             />
           )}
 
-          {saved && f.state !== 'FINISHED' && preview && (
+          {saved && !finished && preview && (
             <div
+              className="in"
               style={{
-                marginTop: 12, height: 50, borderRadius: 14, background: 'var(--accent-soft)',
-                display: 'flex', alignItems: 'center', gap: 9, padding: '0 13px',
-                boxShadow: '0 3px 0 0 var(--accent-line)',
+                marginTop: 12, minHeight: 54, borderRadius: 16, background: 'var(--grad-accent)',
+                display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px',
+                boxShadow: 'var(--glow-accent)', color: '#fff', ['--i' as string]: 2,
               }}
             >
-              <span className="tick"><IconCheck /></span>
-              <span className="h3" style={{ color: 'var(--accent-deep)' }}>내 예측 · {pickLabel}</span>
-              <span className="tiny" style={{ color: 'var(--accent-deep)', marginLeft: 'auto' }}>
+              <span className="tick" style={{ background: 'rgba(255,255,255,.26)' }}><IconCheck /></span>
+              <span className="h3">내 예측 · {pickLabel}</span>
+              <span className="tiny" style={{ marginLeft: 'auto', opacity: 0.9 }}>
                 {CONFIDENCE_LABEL[saved.confidence]} · {signed(preview.ifCorrect)}
               </span>
             </div>
           )}
         </div>
 
-        <div className="pad" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '18px 20px 12px' }}>
+        <div className="pad" style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '20px 20px 12px' }}>
           <span
             className={chat === 'OPEN' ? 'live-dot' : undefined}
             style={{
-              width: 7, height: 7, borderRadius: 999,
+              width: 8, height: 8, borderRadius: 999,
               background: chat === 'OPEN' ? 'var(--accent)' : 'var(--line-strong)',
             }}
           />
           <span className="h3">경기 채팅</span>
+          {chat === 'OPEN' && (
+            <span className="chip solid" style={{ fontSize: 10, height: 20 }}>LIVE</span>
+          )}
           <span className="tiny muted">
             {chat === 'BEFORE'
               ? `${chatOpensLabel(f)}에 열려요`
@@ -207,6 +250,12 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
                   : '지금은 혼자 보고 있어요'}
           </span>
         </div>
+
+        {chat !== 'BEFORE' && (
+          <p className="chatrule">
+            욕설·도배·홍보는 신고할 수 있어요. 신고 3건이 쌓이면 자동으로 가려지고 운영자가 확인합니다.
+          </p>
+        )}
 
         {chat === 'BEFORE' ? (
           <p
@@ -224,25 +273,36 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
         ) : null}
 
         <div className="msgs">
-          {messages.map((m) => (
+          {chat !== 'BEFORE' && visible.map((m) => (
             <div key={m.id} className={`msg${m.mine ? ' mine' : ''}`}>
               {!m.mine && <span className="avatar">{m.initial}</span>}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: m.mine ? 'flex-end' : 'flex-start' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {!m.mine && <span className="tiny" style={{ fontWeight: 600, color: 'var(--ink-2)' }}>{m.handle}</span>}
-                  {!m.mine && (
+                  {!m.mine && <span className="tiny" style={{ fontWeight: 700, color: 'var(--ink-2)' }}>{m.handle}</span>}
+                  {/* 등급을 모르는 메시지(지난 기록)에는 뱃지를 붙이지 않는다 */}
+                  {!m.mine && m.topPercent != null && (
                     <span
-                      className="tiny"
-                      style={{
-                        fontWeight: 700, padding: '1px 6px', borderRadius: 999,
-                        background: m.topPercent <= 5 ? 'var(--accent-soft)' : 'var(--card-2)',
-                        color: m.topPercent <= 5 ? 'var(--accent-deep)' : 'var(--ink-2)',
-                      }}
+                      className={`chip ${m.topPercent <= 5 ? 'solid' : 'plain'}`}
+                      style={{ height: 17, fontSize: 9.5, paddingInline: 7 }}
                     >
                       상위 {m.topPercent}%
                     </span>
                   )}
                   <span className="tiny" style={{ color: 'var(--ink-4)' }}>{m.at}</span>
+                  {!m.mine && (
+                    <MessageActions
+                      message={m}
+                      onHide={() => {
+                        setHidden((prev) => new Set(prev).add(m.id));
+                        setNotice('신고했어요. 운영자가 확인합니다.');
+                      }}
+                      onBlock={(id) => {
+                        setBlocked((prev) => new Set(prev).add(id));
+                        setNotice('차단했어요. 이 사람의 메시지는 보이지 않아요.');
+                      }}
+                      onError={setNotice}
+                    />
+                  )}
                 </div>
                 <div className="bubble">{m.body}</div>
               </div>
@@ -250,6 +310,12 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
           ))}
         </div>
       </div>
+
+      {notice && (
+        <div className="toast" role="status" onClick={() => setNotice(null)}>
+          {notice}
+        </div>
+      )}
 
       {chat === 'OPEN' && (
         <div className="composer">
@@ -270,29 +336,35 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
   );
 }
 
+function Side({ teamId, name }: { teamId: number; name: string }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9, minWidth: 0 }}>
+      <Crest teamId={teamId} size={50} />
+      <span className="small" style={{ fontWeight: 700, textAlign: 'center' }}>{name}</span>
+    </div>
+  );
+}
+
 /** 정산이 끝난 경기의 내 결과 */
 function ResultBanner({
   label, won, delta, points,
 }: { label: string; won: boolean; delta: number; points: number }) {
   return (
     <div
+      className="in"
       style={{
-        marginTop: 12, height: 50, borderRadius: 14,
-        background: won ? 'var(--accent-soft)' : 'var(--card-2)',
-        display: 'flex', alignItems: 'center', gap: 9, padding: '0 13px',
-        boxShadow: `0 3px 0 0 ${won ? 'var(--accent-line)' : 'var(--line)'}`,
+        marginTop: 12, minHeight: 54, borderRadius: 16,
+        background: won ? 'linear-gradient(135deg, #22c97e, #0b8f57)' : 'var(--card-2)',
+        display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px',
+        boxShadow: won ? '0 8px 22px -10px rgba(15,169,104,.8)' : '0 3px 0 0 var(--line)',
+        color: won ? '#fff' : 'var(--ink-2)', ['--i' as string]: 2,
       }}
     >
-      <span className="tick" style={won ? undefined : { background: 'var(--ink-4)' }}>
+      <span className={`tick ${won ? '' : 'lose'}`} style={won ? { background: 'rgba(255,255,255,.28)' } : undefined}>
         {won ? <IconCheck /> : <IconX size={11} color="#fff" />}
       </span>
-      <span className="h3" style={{ color: won ? 'var(--accent-deep)' : 'var(--ink-2)' }}>
-        {won ? '적중' : '실패'} · {label}
-      </span>
-      <span
-        className="tiny"
-        style={{ marginLeft: 'auto', color: won ? 'var(--accent-deep)' : 'var(--ink-2)' }}
-      >
+      <span className="h3">{won ? '적중' : '실패'} · {label}</span>
+      <span className="tiny" style={{ marginLeft: 'auto', opacity: won ? 0.92 : 1 }}>
         지수 {delta > 0 ? `+${delta}` : `−${Math.abs(delta)}`} · +{points}점
       </span>
     </div>

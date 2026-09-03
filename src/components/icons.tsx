@@ -64,3 +64,18 @@ export const IconLock = ({ size = 18, color = 'currentColor', strokeWidth = 2 }:
     <rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3" />
   </svg>
 );
+export const IconTarget = ({ size = 16, color = 'currentColor', strokeWidth = 2 }: P) => (
+  <svg {...base(size, color, strokeWidth)}>
+    <circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4" /><circle cx="12" cy="12" r="0.6" />
+  </svg>
+);
+export const IconSparkle = ({ size = 16, color = 'currentColor', strokeWidth = 2 }: P) => (
+  <svg {...base(size, color, strokeWidth)}>
+    <path d="M12 3l2.1 5.4L19.5 10.5 14.1 12.6 12 18l-2.1-5.4L4.5 10.5l5.4-2.1z" />
+  </svg>
+);
+export const IconUsers = ({ size = 16, color = 'currentColor', strokeWidth = 2 }: P) => (
+  <svg {...base(size, color, strokeWidth)}>
+    <circle cx="9" cy="8" r="3.4" /><path d="M3 20a6 6 0 0 1 12 0" /><path d="M16 5.4a3.4 3.4 0 0 1 0 5.2" /><path d="M17.5 14.6A6 6 0 0 1 21 20" />
+  </svg>
+);

@@ -73,7 +73,7 @@ interface Seed {
 }
 
 const SEEDS: Seed[] = [
-  { id: 1183042, leagueId: 39, home: 42, away: 50, venue: '에미레이츠', inHours: 2.3, baseline: [0.62, 0.21, 0.17], participants: 12480 },
+  { id: 1183042, leagueId: 39, home: 42, away: 50, venue: '에미레이츠', inHours: 0.6, baseline: [0.62, 0.21, 0.17], participants: 12480 },
   { id: 1183043, leagueId: 39, home: 40, away: 51, venue: '안필드', inHours: 5.6, baseline: [0.71, 0.18, 0.11], participants: 9110 },
   { id: 1183044, leagueId: 39, home: 49, away: 47, venue: '스탬퍼드 브리지', inHours: 8.1, baseline: [0.44, 0.25, 0.31], participants: 7620 },
   { id: 1183051, leagueId: 140, home: 541, away: 530, venue: '베르나베우', inHours: 4.2, baseline: [0.55, 0.26, 0.19], participants: 6890 },
@@ -84,6 +84,8 @@ const SEEDS: Seed[] = [
   { id: 1183072, leagueId: 135, home: 496, away: 492, venue: '알리안츠 스타디움', inHours: 31, baseline: [0.40, 0.29, 0.31], participants: 2760 },
 ];
 
+/* 1183042 는 킥오프 36분 전으로 둔다 — 목업이 '채팅이 열린 경기' 상태도
+   보여줘야 신고·차단 화면을 백엔드 없이 확인할 수 있다. */
 export const FIXTURES: Fixture[] = SEEDS.map((s) => ({
   id: s.id,
   leagueId: s.leagueId,
@@ -110,29 +112,29 @@ export function fixture(id: number): Fixture {
 
 export const CHAT_SEED: ChatMessage[] = [
   {
-    id: 'c1', fixtureId: 1183042, handle: '홍마니아', initial: '홍', topPercent: 1.2, tier: 'GRANDMASTER',
+    id: 'c1', fixtureId: 1183042, userId: 'mock-홍마니아', handle: '홍마니아', initial: '홍', topPercent: 1.2, tier: 'GRANDMASTER',
     body: '외데고르 빠진 아스날 중원이 헐거워요. 저는 무승부 봅니다', at: '03:41',
   },
   {
-    id: 'c2', fixtureId: 1183042, handle: '팔라시오', initial: '팔', topPercent: 8, tier: 'MASTER',
+    id: 'c2', fixtureId: 1183042, userId: 'mock-팔라시오', handle: '팔라시오', initial: '팔', topPercent: 8, tier: 'MASTER',
     body: '홀란드 컨디션 보면 원정이어도 맨시티 쪽인데요', at: '03:43',
   },
   {
-    id: 'c3', fixtureId: 1183042, handle: '케인이형', initial: '케', topPercent: 24, tier: 'PLATINUM',
+    id: 'c3', fixtureId: 1183042, userId: 'mock-케인이형', handle: '케인이형', initial: '케', topPercent: 24, tier: 'PLATINUM',
     body: '라이스 복귀했으면 얘기가 다르죠', at: '03:46',
   },
   {
-    id: 'c4', fixtureId: 1183042, handle: '노스런던', initial: '노', topPercent: 12, tier: 'DIAMOND',
+    id: 'c4', fixtureId: 1183042, userId: 'mock-노스런던', handle: '노스런던', initial: '노', topPercent: 12, tier: 'DIAMOND',
     body: '홈에서 최근 8경기 무패인 건 무시 못함', at: '03:48',
   },
 ];
 
 /** 채팅이 살아있는 느낌을 주기 위한 유입 메시지 풀 (실제로는 WS 이벤트) */
 export const CHAT_INCOMING: Omit<ChatMessage, 'id' | 'fixtureId' | 'at'>[] = [
-  { handle: '오프사이드트랩', initial: '오', topPercent: 6, tier: 'MASTER', body: '세트피스에서 갈릴 것 같은데요' },
-  { handle: '볼란치킹', initial: '볼', topPercent: 19, tier: 'DIAMOND', body: '전반에 선제골 나오면 그대로 굳힐 듯' },
-  { handle: '캄프누사랑', initial: '캄', topPercent: 41, tier: 'GOLD', body: '무승부 배당이 아까운 경기' },
-  { handle: '하프타임', initial: '하', topPercent: 3.4, tier: 'MASTER', body: '원정 팀 최근 3경기 xG가 훨씬 높습니다' },
+  { userId: 'mock-오프사이드트랩', handle: '오프사이드트랩', initial: '오', topPercent: 6, tier: 'MASTER', body: '세트피스에서 갈릴 것 같은데요' },
+  { userId: 'mock-볼란치킹', handle: '볼란치킹', initial: '볼', topPercent: 19, tier: 'DIAMOND', body: '전반에 선제골 나오면 그대로 굳힐 듯' },
+  { userId: 'mock-캄프누사랑', handle: '캄프누사랑', initial: '캄', topPercent: 41, tier: 'GOLD', body: '무승부 쪽이 저평가된 느낌이에요' },
+  { userId: 'mock-하프타임', handle: '하프타임', initial: '하', topPercent: 3.4, tier: 'MASTER', body: '원정 팀 최근 3경기 xG가 훨씬 높습니다' },
 ];
 
 export const RANKING: RankRow[] = [

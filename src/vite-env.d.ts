@@ -3,8 +3,8 @@
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL?: string;
   readonly VITE_SUPABASE_ANON_KEY?: string;
-  /** 개발용: 토스 로그인 대신 Supabase 익명 로그인으로 세션을 만든다 */
-  readonly VITE_DEV_ANON_AUTH?: string;
+  /** 'standalone' 이면 앱이 자체 로그인 화면을 그린다. 비우면 앱인토스(토스 로그인 전용) */
+  readonly VITE_AUTH_MODE?: string;
 }
 
 interface ImportMeta {

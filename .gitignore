@@ -6,3 +6,8 @@ tsconfig.tsbuildinfo
 
 # 캔버스 시드 결과물 — 2.5MB 생성물이라 넣지 않는다 (design/README.md 참고)
 design/canvas/chukjalal-prediction-game.html
+
+# 개인 키 — 절대 커밋 금지 (APNs, Sign in with Apple 등)
+*.p8
+*.p12
+*.mobileprovision

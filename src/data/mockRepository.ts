@@ -1,12 +1,30 @@
-import type { Repository, Catalog, MeSnapshot } from './repository';
+import type { Auth, AuthUser, Repository, Catalog, MeSnapshot } from './repository';
 import type { ChatMessage, MyStats } from './types';
 import {
   BADGES, CHAT_INCOMING, CHAT_SEED, FIXTURES, LEAGUES, RANKING, TEAMS,
 } from './mock';
 
+/**
+ * 목업에는 계정이라는 개념이 없다. 백엔드 없이 화면을 보는 모드이므로
+ * 언제나 같은 사람이 로그인해 있는 것처럼 굴고, 로그인/로그아웃은 아무 일도 하지 않는다.
+ */
+const MOCK_USER: AuthUser = { id: 'mock-user', email: 'mock@example.com' };
+
+const mockAuth: Auth = {
+  async current() { return MOCK_USER; },
+  async signUp() { return { needsConfirmation: false }; },
+  async signIn() {},
+  async signInWithToss() {},
+  async signInWithProvider() {},
+  async listProviders() { return []; },
+  async signOut() {},
+  onChange() { return () => {}; },
+};
+
 /** 백엔드 없이 화면을 돌리기 위한 구현. 상태는 store 가 localStorage 에 보관한다. */
 export const mockRepository: Repository = {
   kind: 'mock',
+  auth: mockAuth,
 
   async loadCatalog(): Promise<Catalog> {
     return { leagues: LEAGUES, teams: TEAMS, fixtures: FIXTURES };
@@ -60,6 +78,8 @@ export const mockRepository: Repository = {
   },
 
   async sendChat() {},
+  async reportMessage() {},
+  async blockUser() {},
 
   /** 실제 구현에서는 Realtime Broadcast 구독. 여기서는 9초마다 가짜 메시지를 넣는다. */
   subscribeChat(

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Crest } from '../components/Crest';
 import { LeagueMark } from '../components/LeagueMark';
-import { IconCheck, IconX } from '../components/icons';
+import { IconCheck, IconSparkle, IconX } from '../components/icons';
+import { haptic } from '../lib/anim';
 import { leagues as allLeagues, league, teams as allTeams } from '../data/catalog';
 import type { Team } from '../data/types';
 import { matches } from '../lib/hangul';
@@ -23,10 +24,12 @@ export function Onboarding() {
   const LEAGUES = allLeagues();
 
   function toggleLeague(id: number) {
+    haptic(9);
     setPicked((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
   function toggleTeam(id: number) {
+    haptic(9);
     setFavorites((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id);
       if (prev.length >= MAX_FAVORITES) return prev;
@@ -41,6 +44,19 @@ export function Onboarding() {
 
   return (
     <div className="app">
+      <div className="pad" style={{ paddingTop: 'calc(var(--safe-top) + 18px)', display: 'flex', gap: 6 }}>
+        {[0, 1].map((i) => (
+          <span
+            key={i}
+            style={{
+              flex: 1, height: 4, borderRadius: 999,
+              background: i <= step ? 'var(--grad-accent)' : 'var(--line)',
+              transition: 'background 0.35s var(--ease)',
+            }}
+          />
+        ))}
+      </div>
+
       {step === 0 ? (
         <LeagueStep leagues={LEAGUES} picked={picked} onToggle={toggleLeague} />
       ) : (
@@ -55,11 +71,21 @@ export function Onboarding() {
 
       <div className="pad" style={{ paddingBottom: 'calc(20px + var(--safe-bottom))', paddingTop: 12 }}>
         {step === 0 ? (
-          <button className="cta" disabled={picked.length === 0} onClick={() => setStep(1)}>
-            {picked.length === 0 ? '리그를 하나 이상 골라주세요' : `${picked.length}개 리그로 시작하기`}
+          <button
+            className="cta"
+            disabled={picked.length === 0}
+            onClick={() => {
+              haptic(12);
+              setStep(1);
+            }}
+          >
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+              {picked.length > 0 && <IconSparkle size={15} color="#fff" />}
+              {picked.length === 0 ? '리그를 하나 이상 골라주세요' : `${picked.length}개 리그로 시작하기`}
+            </span>
           </button>
         ) : (
-          <button className="cta" onClick={finish}>
+          <button className="cta" onClick={() => { haptic([12, 40, 18]); finish(); }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
               <IconCheck size={16} />
               {favorites.length > 0 ? `${favorites.length}팀 선택 · 시작하기` : '건너뛰고 시작하기'}
@@ -75,7 +101,7 @@ function LeagueStep({
   leagues, picked, onToggle,
 }: { leagues: ReturnType<typeof allLeagues>; picked: number[]; onToggle: (id: number) => void }) {
   return (
-    <div className="scroll pad" style={{ paddingTop: 'calc(var(--safe-top) + 40px)' }}>
+    <div className="scroll pad screen" style={{ paddingTop: 28 }}>
       <h1 className="h1" style={{ fontSize: 27 }}>
         어느 리그를
         <br />
@@ -86,28 +112,32 @@ function LeagueStep({
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 26 }}>
-        {leagues.map((l) => {
+        {leagues.map((l, i) => {
           const idx = picked.indexOf(l.id);
           const on = idx >= 0;
           return (
             <button
               key={l.id}
               type="button"
-              className="card"
+              className="card in"
               style={{
                 padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 12,
-                border: on ? '2px solid var(--accent)' : '1px solid transparent',
+                border: on ? '2px solid var(--accent)' : '1.5px solid transparent',
+                boxShadow: on ? 'var(--glow-accent)' : 'var(--lift-lg)',
+                ['--i' as string]: i,
               }}
               aria-pressed={on}
               onClick={() => onToggle(l.id)}
             >
               <span
                 style={{
-                  width: 26, height: 26, borderRadius: 999, flexShrink: 0,
-                  background: on ? 'var(--accent)' : 'var(--card-2)',
+                  width: 28, height: 28, borderRadius: 999, flexShrink: 0,
+                  background: on ? 'var(--grad-accent)' : 'var(--card-2)',
                   color: on ? '#fff' : 'var(--ink-3)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontFamily: 'var(--display)', fontWeight: 900, fontSize: 12,
+                  transition: 'background 0.25s',
+                  animation: on ? 'tickpop 0.4s var(--spring)' : undefined,
                 }}
               >
                 {on ? idx + 1 : ''}
@@ -158,7 +188,7 @@ function TeamStep({
   const full = favorites.length >= MAX_FAVORITES;
 
   return (
-    <div className="scroll pad" style={{ paddingTop: 'calc(var(--safe-top) + 32px)' }}>
+    <div className="scroll pad screen" style={{ paddingTop: 24 }}>
       <h1 className="h1" style={{ fontSize: 26 }}>최애 팀을 골라주세요</h1>
       <p className="small muted" style={{ marginTop: 8 }}>
         내 팀 경기는 피드 맨 위에 따로 모아드려요. 최대 {MAX_FAVORITES}팀까지 고를 수 있고,

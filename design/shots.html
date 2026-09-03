@@ -1,0 +1,30 @@
+<!doctype html>
+<meta charset="utf-8">
+<!-- 이게 없으면 크롬이 980px 기본 레이아웃 뷰포트를 쓴다 → 아이프레임이 실제보다 작게 그려진다 -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>스토어 스크린샷 캔버스</title>
+<style>
+  /* 앱인토스 세로형 스크린샷 규격 636x1048 (비율 1:1.6478).
+     캡처 배율이 환경마다 달라서 크기를 맞추려 들지 않는다. 대신 아이프레임을
+     뷰포트 좌상단에 붙이고 '비율만' 정확히 맞춘 뒤, 캡처한 이미지를 잘라
+     636x1048 로 리샘플한다. 그러면 배율이 얼마든 왜곡이 생기지 않는다. */
+  html,body{margin:0;background:#000;overflow:hidden}
+  #frame{
+    /* 가운데 정렬해 두면 sips 의 중앙 크롭이 아이프레임 영역과 정확히 일치한다 */
+    position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);border:0;background:#f5f2ea;
+    /* 실제 폰 폭(392px)으로 그린다. 앱 max-width 가 520 이라 100vw 로 두면
+       데스크톱처럼 퍼져서 스토어 스크린샷으로 쓸 수 없다. */
+    width:392px;height:646px;
+  }
+</style>
+<iframe id="frame" src="/"></iframe>
+<script>
+  // 아이프레임과 같은 출처라 여기서 미리 꺼두면 안내 오버레이가 뜨지 않는다
+  localStorage.setItem('chukjalal.tutorial.v1', '1');
+  window.__ratio = 1048 / 636;
+  window.__reload = () => new Promise((res) => {
+    const f = document.getElementById('frame');
+    f.onload = () => setTimeout(res, 1500);
+    f.contentWindow.location.reload();
+  });
+</script>

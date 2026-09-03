@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { IconCrown, IconDown, IconShield, IconUp } from '../components/icons';
+import { TierChip } from '../components/TierChip';
+import { IconCrown, IconDown, IconRank, IconUp } from '../components/icons';
 import { repository } from '../data';
 import type { RankRow } from '../data/types';
+import { haptic, useCountUpInt } from '../lib/anim';
 import { comma } from '../lib/format';
-import { PLACEMENT_MATCHES, TIER_LABEL } from '../lib/scoring';
+import { PLACEMENT_MATCHES } from '../lib/scoring';
+import type { Tier } from '../lib/scoring';
 import { useAsync } from '../lib/useAsync';
 import { useApp } from '../store';
 
@@ -31,17 +34,29 @@ export function Ranking() {
   const inPlacement = state.settledMatches < PLACEMENT_MATCHES;
 
   return (
-    <div className="scroll">
+    <div className="scroll screen">
       <div className="pad" style={{ paddingTop: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 34 }}>
-          <span className="h2">랭킹</span>
-          <span className="tiny muted">매일 오전 8시 확정 · {nextPublishLabel()}</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 36 }}>
+          <span className="h1" style={{ fontSize: 22 }}>랭킹</span>
+          <span className="chip plain" style={{ fontSize: 10.5 }}>
+            <span className="live-dot" style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--accent)' }} />
+            {nextPublishLabel()}
+          </span>
         </div>
       </div>
 
       <div className="tabs" role="tablist">
         {SCOPES.map((s) => (
-          <button key={s.id} role="tab" className="tab" aria-selected={scope === s.id} onClick={() => setScope(s.id)}>
+          <button
+            key={s.id}
+            role="tab"
+            className="tab"
+            aria-selected={scope === s.id}
+            onClick={() => {
+              haptic(8);
+              setScope(s.id);
+            }}
+          >
             {s.label}
           </button>
         ))}
@@ -59,23 +74,30 @@ export function Ranking() {
         />
       ) : (
         <>
-          <div className="pad" style={{ display: 'flex', alignItems: 'flex-end', gap: 10, paddingTop: 20 }}>
-            <Podium row={second} height={50} rank={2} />
-            <Podium row={first} height={70} rank={1} crown />
-            <Podium row={third} height={36} rank={3} />
+          <div className="pad" style={{ display: 'flex', alignItems: 'flex-end', gap: 10, paddingTop: 22 }}>
+            <Podium row={second} height={54} rank={2} order={1} />
+            <Podium row={first} height={78} rank={1} order={0} crown />
+            <Podium row={third} height={40} rank={3} order={2} />
           </div>
 
-          <div className="pad" style={{ paddingTop: 8 }}>
+          <div className="pad" style={{ paddingTop: 10 }}>
             {rest.map((r, i) => (
               <div
                 key={r.handle}
-                className={`row${i < rest.length - 1 ? ' divide' : ''}`}
-                style={{ height: 54 }}
+                className={`row in-row${i < rest.length - 1 ? ' divide' : ''}`}
+                style={{
+                  height: 56, ['--i' as string]: i,
+                  ...(r.isMe
+                    ? { background: 'var(--accent-fill)', borderRadius: 14, paddingInline: 8, marginInline: -8 }
+                    : null),
+                }}
               >
-                <span className="num" style={{ width: 22, fontSize: 17, color: 'var(--ink-2)' }}>{r.rank}</span>
+                <span className="num" style={{ width: 24, fontSize: 17, color: r.isMe ? 'var(--accent)' : 'var(--ink-2)' }}>
+                  {r.rank}
+                </span>
                 <Change value={r.change} />
-                <span className="avatar" style={{ width: 30, height: 30 }}>{r.initial}</span>
-                <span className="small" style={{ flex: 1, fontWeight: r.isMe ? 800 : 600 }}>
+                <span className="avatar" style={{ width: 32, height: 32 }}>{r.initial}</span>
+                <span className="small" style={{ flex: 1, minWidth: 0, fontWeight: r.isMe ? 800 : 600 }}>
                   {r.handle}
                   {r.isMe && <span className="tiny" style={{ color: 'var(--accent)' }}> · 나</span>}
                 </span>
@@ -89,7 +111,7 @@ export function Ranking() {
         </>
       )}
 
-      <div className="pad" style={{ paddingTop: 14, paddingBottom: 24 }}>
+      <div className="pad" style={{ paddingTop: 16, paddingBottom: 24 }}>
         {inPlacement ? <PlacementCard settled={state.settledMatches} /> : <MyRankCard row={myRank} tier={tier} />}
       </div>
     </div>
@@ -100,20 +122,15 @@ export function Ranking() {
 function PlacementCard({ settled }: { settled: number }) {
   const left = Math.max(0, PLACEMENT_MATCHES - settled);
   return (
-    <div
-      style={{
-        borderRadius: 16, background: 'var(--card)', padding: '16px 16px 18px',
-        boxShadow: 'var(--lift)',
-      }}
-    >
+    <div className="levelcard in" style={{ padding: '16px 16px 18px' }}>
       <div className="row" style={{ gap: 8 }}>
-        <IconShield size={15} color="var(--accent)" />
-        <span className="h3">배치 중</span>
-        <span className="tiny muted" style={{ marginLeft: 'auto' }}>
-          {settled} / {PLACEMENT_MATCHES}
+        <TierChip tier="PLACEMENT" />
+        <span className="h3">순위 진입까지</span>
+        <span className="num" style={{ marginLeft: 'auto', fontSize: 15 }}>
+          {settled} <span className="muted" style={{ fontSize: 12 }}>/ {PLACEMENT_MATCHES}</span>
         </span>
       </div>
-      <div className="track" style={{ marginTop: 11 }}>
+      <div className="track" style={{ marginTop: 12 }}>
         <i style={{ width: `${Math.round((settled / PLACEMENT_MATCHES) * 100)}%` }} />
       </div>
       <p className="small muted" style={{ margin: '11px 0 0' }}>
@@ -125,81 +142,109 @@ function PlacementCard({ settled }: { settled: number }) {
   );
 }
 
-function MyRankCard({ row, tier }: { row: RankRow | null; tier: keyof typeof TIER_LABEL }) {
+function MyRankCard({ row, tier }: { row: RankRow | null; tier: Tier | null }) {
   const { state } = useApp();
+  const rating = useCountUpInt(row?.rating ?? 0, 1100);
   if (!row) return null;
   return (
     <div
-      className="row"
+      className="row in"
       style={{
-        height: 60, borderRadius: 16, background: 'var(--accent-soft)',
-        padding: '0 14px', boxShadow: '0 3px 0 0 var(--accent-line)',
+        height: 68, borderRadius: 20, background: 'var(--grad-accent)',
+        padding: '0 15px', boxShadow: 'var(--glow-accent)', color: '#fff',
       }}
     >
-      <span className="num" style={{ width: 22, fontSize: 17, color: 'var(--accent)' }}>{row.rank}</span>
-      <span className="avatar" style={{ width: 32, height: 32, background: '#fff', color: 'var(--accent-deep)' }}>
+      <span className="num" style={{ width: 26, fontSize: 19 }}>{row.rank}</span>
+      <span
+        className="avatar"
+        style={{ width: 36, height: 36, background: 'rgba(255,255,255,.22)', color: '#fff' }}
+      >
         {row.initial}
       </span>
-      <span style={{ flex: 1 }}>
+      <span style={{ flex: 1, minWidth: 0 }}>
         <span className="h3" style={{ display: 'block', fontSize: 14 }}>{row.handle}</span>
-        <span className="tiny" style={{ color: 'var(--accent-deep)' }}>
-          {TIER_LABEL[tier]} · 상위 {state.topPercent}%
+        <span className="tiny" style={{ opacity: 0.86 }}>
+          {tier === 'PLACEMENT' || state.topPercent == null
+            ? '배치 중'
+            : `상위 ${state.topPercent}%`}{' '}
+          · 내 순위
         </span>
       </span>
-      <Change value={row.change} />
-      <span className="num" style={{ fontSize: 14, color: 'var(--accent)' }}>{comma(row.rating)}</span>
+      <Change value={row.change} onDark />
+      <span className="num" style={{ fontSize: 16 }}>{comma(rating)}</span>
     </div>
   );
 }
 
-function Change({ value }: { value: number | null }) {
+function Change({ value, onDark }: { value: number | null; onDark?: boolean }) {
+  const dim = onDark ? 'rgba(255,255,255,.7)' : 'var(--ink-4)';
+  const up = onDark ? '#b7ffd9' : 'var(--win)';
+
   if (value == null) {
-    return <span className="tiny" style={{ color: 'var(--accent)', width: 22 }}>NEW</span>;
+    return (
+      <span className="tiny" style={{ color: onDark ? '#fff' : 'var(--accent)', width: 24, fontWeight: 800 }}>
+        NEW
+      </span>
+    );
   }
   if (value > 0) {
     return (
-      <span style={{ display: 'flex', alignItems: 'center', gap: 2, width: 22 }}>
-        <IconUp color="var(--accent)" />
-        <span className="tiny" style={{ color: 'var(--accent)' }}>{value}</span>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 2, width: 24 }}>
+        <IconUp color={up} />
+        <span className="tiny" style={{ color: up, fontWeight: 700 }}>{value}</span>
       </span>
     );
   }
   if (value < 0) {
     return (
-      <span style={{ display: 'flex', alignItems: 'center', gap: 2, width: 22 }}>
-        <IconDown color="var(--ink-4)" />
-        <span className="tiny muted">{Math.abs(value)}</span>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 2, width: 24 }}>
+        <IconDown color={dim} />
+        <span className="tiny" style={{ color: dim }}>{Math.abs(value)}</span>
       </span>
     );
   }
-  return <span style={{ width: 22, display: 'flex' }}><span style={{ width: 10, height: 2.5, borderRadius: 2, background: 'var(--line-strong)' }} /></span>;
+  return (
+    <span style={{ width: 24, display: 'flex' }}>
+      <span style={{ width: 10, height: 2.5, borderRadius: 2, background: onDark ? 'rgba(255,255,255,.5)' : 'var(--line-strong)' }} />
+    </span>
+  );
 }
 
 function Empty({ title, body }: { title: string; body: string }) {
   return (
-    <div className="pad" style={{ textAlign: 'center', padding: '56px 32px 24px' }}>
-      <p className="h3" style={{ marginBottom: 8 }}>{title}</p>
+    <div className="empty">
+      <span className="mark">
+        <IconRank size={26} color="var(--ink-4)" />
+      </span>
+      <p className="h3" style={{ fontSize: 15, marginBottom: 8 }}>{title}</p>
       <p className="small muted" style={{ margin: 0, lineHeight: 1.6 }}>{body}</p>
     </div>
   );
 }
 
 function Podium({
-  row, height, rank, crown,
-}: { row?: RankRow; height: number; rank: number; crown?: boolean }) {
+  row, height, rank, order, crown,
+}: { row?: RankRow; height: number; rank: number; order: number; crown?: boolean }) {
   const top = rank === 1;
   if (!row) return <div style={{ flex: 1 }} />;
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-      {crown && <IconCrown color="var(--gold-ink)" />}
+    <div
+      className="in"
+      style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, ['--i' as string]: order }}
+    >
+      {crown && (
+        <span className="crown">
+          <IconCrown color="var(--gold-ink)" />
+        </span>
+      )}
       <span
         className="avatar"
         style={{
-          width: top ? 54 : 42, height: top ? 54 : 42,
-          background: top ? 'var(--accent-soft)' : 'var(--card-2)',
-          color: top ? 'var(--accent-deep)' : 'var(--ink-2)',
-          fontSize: top ? 19 : 15,
-          boxShadow: `0 ${top ? 4 : 3}px 0 0 ${top ? 'var(--accent-line)' : 'var(--line-strong)'}`,
+          width: top ? 58 : 44, height: top ? 58 : 44,
+          background: top ? 'var(--grad-gold)' : 'var(--card-2)',
+          color: top ? '#fff' : 'var(--ink-2)',
+          fontSize: top ? 20 : 15,
+          boxShadow: top ? 'var(--glow-gold)' : '0 3px 0 0 var(--line-strong)',
         }}
       >
         {row.initial}
@@ -210,11 +255,20 @@ function Podium({
       >
         {row.handle}
       </span>
-      <span className="num" style={{ fontSize: top ? 14 : 13, color: top ? 'var(--accent)' : 'var(--ink-3)' }}>
+      <span className="num" style={{ fontSize: top ? 14 : 13, color: top ? 'var(--gold)' : 'var(--ink-3)' }}>
         {comma(row.rating)}
       </span>
-      <div className="podium" style={{ width: '100%', height, background: top ? 'var(--accent)' : 'var(--line-2)' }}>
-        <span className="num" style={{ fontSize: top ? 32 : 24, color: top ? '#fff6f2' : 'var(--ink-3)' }}>{rank}</span>
+      <div
+        className={`podium${top ? ' gold' : ''}`}
+        style={{
+          width: '100%', height,
+          background: rank === 2 ? 'var(--paper-2)' : 'var(--line-2)',
+          ['--i' as string]: order,
+        }}
+      >
+        <span className="num" style={{ fontSize: top ? 34 : 24, color: top ? '#fff' : 'var(--ink-3)' }}>
+          {rank}
+        </span>
       </div>
     </div>
   );

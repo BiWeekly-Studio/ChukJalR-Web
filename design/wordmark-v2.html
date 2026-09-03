@@ -1,0 +1,97 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>축잘알 로고 v2</title>
+<style>
+  body{margin:0;background:#f5f2ea;font-family:-apple-system,sans-serif;padding:14px}
+  .row{background:#fff;border-radius:18px;padding:16px;margin-bottom:12px}
+  .row.dark{background:linear-gradient(135deg,#3a63ff,#7b46f0)}
+  .row.paper{background:#f5f2ea;box-shadow:inset 0 0 0 1px #e7e0d3}
+  h2{font-size:13px;margin:0 0 10px;color:#645d51}
+  svg{display:block;width:100%;height:auto}
+</style>
+<div id="out"></div>
+<script>
+/* 축잘알 — 한 줄, 격자에 꽉 눌러 담은 뒤 덩어리째 휜다.
+   글자와 판때기가 같은 중심으로 회전하므로 서로 어긋나지 않는다. */
+
+const CX = 170, CY = 660, R = 580;      // 회전 중심과 반지름
+const STEP = 10.4;                       // 글자 사이 각도
+const CELL = 100;
+
+function r(x,y,w,h){ return `<rect x="${x}" y="${y}" width="${w}" height="${h}"/>`; }
+function l(x1,y1,x2,y2,w){ return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke-width="${w}"/>`; }
+
+/* 세 단: ㅊ / ㅜ / ㄱ. 100 안에 세 단을 넣어야 하므로 단 사이 여백을 균등하게 잡는다. */
+function chuk(){
+  return r(38,0,24,8)                    /* ㅊ 꼭지 */
+       + r(0,11,100,13)                  /* ㅊ 가로 */
+       + l(50,24,13,38,14) + l(50,24,87,38,14)
+       + r(0,45,100,12)                  /* ㅜ 가로 */
+       + r(43,57,14,11)                  /* ㅜ 세로 */
+       + r(0,76,100,12)                  /* ㄱ 가로 */
+       + r(86,88,14,12);                 /* ㄱ 꺾임 */
+}
+/* ㄹ 받침 */
+function rieul(top){
+  return r(0,top,100,12) + r(88,top+12,12,6)
+       + r(0,top+18,100,12) + r(0,top+30,12,6)
+       + r(0,top+36,100,12);
+}
+/* ㅏ — 칸 오른쪽 끝에 붙이지 않는다. 외곽선이 판때기를 넘어간다. */
+function ah(){ return r(71,0,14,50) + r(85,18,11,13); }
+/* 잘 — ㅈ 다리가 ㅏ 에 닿지 않도록 폭을 줄인다 */
+function jal(){
+  return r(0,4,58,13) + l(29,17,4,46,14) + l(29,17,54,46,14)
+       + ah() + rieul(52);
+}
+function al(ballInk, ballFill){
+  const cx=30, cy=25, rr=25, p=rr*0.44, A=[-90,-18,54,126,198];
+  const pts=A.map(a=>{const t=a*Math.PI/180;return `${(cx+Math.cos(t)*p).toFixed(1)},${(cy+Math.sin(t)*p).toFixed(1)}`}).join(' ');
+  const sp=A.map(a=>{const t=a*Math.PI/180;
+    return `<line x1="${(cx+Math.cos(t)*p).toFixed(1)}" y1="${(cy+Math.sin(t)*p).toFixed(1)}" x2="${(cx+Math.cos(t)*rr*0.88).toFixed(1)}" y2="${(cy+Math.sin(t)*rr*0.88).toFixed(1)}" stroke="${ballInk}" stroke-width="5" stroke-linecap="round"/>`}).join('');
+  return {shape: `<circle cx="${cx}" cy="${cy}" r="${rr}"/>` + ah() + rieul(52),
+          detail: `<polygon points="${pts}" fill="${ballInk}"/>${sp}`,
+          ballFill};
+}
+
+/* 곡선은 뺀다. 세 글자를 나란히 붙여 하나의 덩어리로 만들고,
+   덩어리째 살짝 기울인다. 두께는 외곽선과 그림자로 준다. */
+const GAP = 6;
+const BLOCK_W = CELL*3 + GAP*2;   // 312
+const PAD = 16;
+
+function logo({plateFill='#3a63ff', outline='#141233', shadow='#1b2a7a',
+               inkA='#ffffff', inkB='#ffc02e', ballInk='#3a63ff', ballFill='#ffffff', tilt=-4}={}){
+  const a = al(ballInk, ballFill);
+  const shapes = [chuk(), jal(), a.shape];
+  const inks = [inkA, inkB, inkA];
+  const at = (i, inner) => `<g transform="translate(${i*(CELL+GAP)},0)">${inner}</g>`;
+
+  // 외곽선은 덩어리 전체에 한 겹. 그 위를 채움이 덮어 내부 이음매를 가린다.
+  const outlined = shapes.map((s,i)=>at(i,
+    `<g fill="${outline}" stroke="${outline}" stroke-width="16" stroke-linejoin="round">${s}</g>`)).join('');
+  const filled = shapes.map((s,i)=>at(i,
+    `<g fill="${i===2 ? ballFill : inks[i]}">${s}</g>`)).join('');
+  const alLetters = at(2, `<g fill="${inks[2]}">${ah()}${rieul(52)}</g>`);
+  const ballDetail = at(2, `<g stroke="none">${a.detail}</g>`);
+
+  const plateRect = (dy, fill) =>
+    `<rect x="${-PAD}" y="${-PAD}" width="${BLOCK_W+PAD*2}" height="${CELL+PAD*2}" rx="18"
+           transform="translate(0,${dy})" fill="${fill}" stroke="${outline}" stroke-width="13"/>`;
+
+  return `<svg viewBox="-40 -40 ${BLOCK_W+80} ${CELL+92}" xmlns="http://www.w3.org/2000/svg">
+    <g transform="rotate(${tilt},${BLOCK_W/2},${CELL/2})">
+      ${plateRect(11, shadow)}
+      ${plateRect(0, plateFill)}
+      ${outlined}${filled}${alLetters}${ballDetail}
+    </g>
+  </svg>`;
+}
+
+document.getElementById('out').innerHTML = `
+  <div class="row"><h2>기본</h2>${logo()}</div>
+  <div class="row"><h2>작게 (앱 헤더)</h2><div style="width:170px">${logo()}</div></div>
+  <div class="row dark"><h2 style="color:#fff">어두운 배경</h2>${logo({plateFill:'#ffffff',shadow:'#c9d2ff',inkA:'#3a63ff',inkB:'#ff8a1a',ballInk:'#3a63ff'})}</div>
+`;
+</script>
