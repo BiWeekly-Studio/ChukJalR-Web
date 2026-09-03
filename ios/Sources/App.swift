@@ -23,11 +23,45 @@ struct SignedInView: View {
         if !store.ready {
             VStack { PlateLogo(width: 190) }
                 .frame(maxWidth: .infinity, maxHeight: .infinity).background(T.paper)
+        } else if store.loadFailed {
+            // 못 받은 것과 없는 것은 다르다. 여기서 온보딩으로 보내면 이미 가입한
+            // 사람이 다시 가입하려 든다.
+            LoadFailedView()
         } else if !store.me.onboarded {
             OnboardingView()
         } else {
             HomeView()
         }
+    }
+}
+
+/// 데이터를 못 받았을 때. 다시 시도하는 것 말고 할 수 있는 게 없으므로 그것만 둔다.
+struct LoadFailedView: View {
+    @EnvironmentObject var store: Store
+    @State private var retrying = false
+
+    var body: some View {
+        VStack(spacing: 14) {
+            PlateLogo(width: 160)
+            Text("데이터를 불러오지 못했어요")
+                .font(T.display(16, .heavy)).padding(.top, 6)
+            Text(store.error ?? "잠시 후 다시 시도해 주세요.")
+                .font(T.body(12)).foregroundStyle(T.ink3)
+                .multilineTextAlignment(.center).padding(.horizontal, 40)
+            Button {
+                retrying = true
+                Task { await store.load(); retrying = false }
+            } label: {
+                Text(retrying ? "불러오는 중…" : "다시 시도")
+                    .font(T.display(14, .heavy)).foregroundStyle(.white)
+                    .padding(.horizontal, 28).frame(height: 46)
+                    .background(T.gradAccent, in: Capsule())
+            }
+            .disabled(retrying)
+            .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(T.paper)
     }
 }
 

@@ -33,11 +33,22 @@ targets:
       - path: Resources/Fonts
         buildPhase: resources
         excludes: [README.md]
+      - path: Resources/Assets.xcassets
+      # 앱 스토어 제출에 필수다. UserDefaults 처럼 '사유를 밝혀야 하는 API' 를 쓰면
+      # 이 파일이 없는 빌드는 업로드 단계에서 막힌다.
+      - path: Resources/PrivacyInfo.xcprivacy
+        buildPhase: resources
     info:
       path: Resources/Info.generated.plist
       properties:
         CFBundleName: 축잘알
         CFBundleDisplayName: 축잘알
+        # 한국어 앱이다. 이걸 안 박으면 기기 언어에 따라 영어로 표기된다.
+        CFBundleDevelopmentRegion: ko
+        CFBundleLocalizations: [ko]
+        # 표준 HTTPS 외에 자체 암호화를 쓰지 않는다. 이 키가 없으면 업로드할 때마다
+        # 수출 규정 질문에 손으로 답해야 한다.
+        ITSAppUsesNonExemptEncryption: false
         CFBundleShortVersionString: "1.0"
         CFBundleVersion: "1"
         LSRequiresIPhoneOS: true
@@ -58,6 +69,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID)
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # Xcode 는 시뮬레이터 빌드를 언제나 애드혹으로 서명하고, 애드혹에는
         # applesignin 같은 제한 entitlement 를 실을 수 없다.
         #   붙이면 → 앱이 실행조차 안 됨 (SpringBoard 거부)
@@ -72,6 +84,9 @@ targets:
         # 이게 없으면 ASAuthorizationController 가 런타임에 거부한다.
         # 파일을 직접 두면 xcodegen 이 빈 dict 로 덮어쓴다 → 여기서 관리한다.
         com.apple.developer.applesignin: [Default]
+        # 푸시 알림과 Live Activity 원격 갱신에 필요하다. 개발 빌드는 Xcode 가
+        # development 로 바꿔 쓰고, 스토어 빌드에는 이 값이 그대로 실린다.
+        aps-environment: production
     dependencies:
       - target: ChukjalalWidgets
         embed: true

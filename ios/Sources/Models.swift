@@ -176,6 +176,7 @@ struct ChatMessage: Identifiable, Equatable {
     /// 브로드캐스트에도 실려 오지만, 차단은 보낸 사람 id 로 건다
     let userId: String
     let handle: String
+    let avatarUrl: String?
     let body: String
     let at: Date
     let mine: Bool
@@ -211,6 +212,8 @@ struct Prediction: Codable {
 /// 내 상태. 서버가 유일한 진실이고 클라이언트는 표시만 한다 (명세 11.1).
 struct Me {
     var handle: String = ""
+    /// 프로필 사진. 없으면 닉네임 첫 글자로 떨어진다.
+    var avatarUrl: String?
     var leagueOrder: [Int] = []
     var favoriteTeamIds: [Int] = []
     var onboarded = false
@@ -247,6 +250,7 @@ struct RankRow: Identifiable {
     /// 직전 발표보다 순위가 올라가면 양수. 처음 오른 사람은 nil
     let change: Int?
     let isMe: Bool
+    let avatarUrl: String?
     var initial: String { String(handle.prefix(1)) }
 }
 
@@ -273,14 +277,25 @@ struct RecentResult: Identifiable {
     let delta: Int
 }
 
+struct PickAccuracy: Identifiable {
+    let pick: Outcome
+    let n: Int
+    let accuracy: Double
+    var id: Outcome { pick }
+}
+
 struct MyStats {
     var settled = 0
     var hits = 0
     var byLeague: [LeagueAccuracy] = []
     var calibration: [CalibrationRow] = []
+    /// 어느 쪽에 걸었을 때 잘 맞히는지
+    var byOutcome: [PickAccuracy] = []
     /// 내 팀 경기에서의 경기당 평균 지수 차이. 표본이 적으면 nil
     var fanBias: (bias: Int, n: Int)?
     var recent: [RecentResult] = []
+    /// 정산 순서대로 쌓아 올린 지수. 경기마다 한 점이라 첫 경기부터 선이 그려진다.
+    var curve: [Int] = []
     var accuracy: Double? { settled > 0 ? Double(hits) / Double(settled) : nil }
 }
 

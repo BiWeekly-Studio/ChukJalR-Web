@@ -71,6 +71,7 @@ enum Decode {
             throw Supabase.Failure.http(404, "내 프로필을 찾지 못했어요.")
         }
         me.handle = p["handle"] as? String ?? ""
+        me.avatarUrl = p["avatar_url"] as? String
         me.leagueOrder = p["league_order"] as? [Int] ?? []
         me.favoriteTeamIds = p["favorite_team_ids"] as? [Int] ?? []
         me.onboarded = p["onboarded_at"] != nil && !(p["onboarded_at"] is NSNull)
@@ -107,7 +108,8 @@ extension Decode {
                 rating: r["rating"] as? Int ?? 0,
                 // 직전 발표가 없으면 '처음 오름' — 0 으로 만들지 않는다
                 change: prev.map { $0 - rank },
-                isMe: me != nil && (r["user_id"] as? String) == me)
+                isMe: me != nil && (r["user_id"] as? String) == me,
+                avatarUrl: r["avatar_url"] as? String)
         }
     }
 
@@ -129,6 +131,12 @@ extension Decode {
                                   actual: ($0["actual"] as? NSNumber)?.doubleValue ?? 0,
                                   expected: ($0["expected"] as? NSNumber)?.doubleValue ?? 0)
         }
+        s.byOutcome = (o["byOutcome"] as? [[String: Any]] ?? []).compactMap {
+            guard let pick = ($0["pick"] as? String).flatMap(Outcome.init(rawValue:)) else { return nil }
+            return PickAccuracy(pick: pick, n: $0["n"] as? Int ?? 0,
+                                accuracy: ($0["accuracy"] as? NSNumber)?.doubleValue ?? 0)
+        }
+        s.curve = (o["curve"] as? [Any] ?? []).compactMap { ($0 as? NSNumber)?.intValue }
         if let fb = o["fanBias"] as? [String: Any], let bias = fb["bias"] as? Int {
             s.fanBias = (bias, fb["n"] as? Int ?? 0)
         }
@@ -168,6 +176,7 @@ extension Decode {
                 id: id,
                 userId: userId,
                 handle: handle?.isEmpty == false ? handle! : "알 수 없음",
+                avatarUrl: (r["profiles"] as? [String: Any])?["avatar_url"] as? String,
                 body: body,
                 at: date(r["created_at"] as? String) ?? Date(),
                 mine: me != nil && userId == me)

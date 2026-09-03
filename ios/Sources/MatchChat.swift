@@ -109,6 +109,7 @@ final class MatchChat: ObservableObject {
             id: incoming.id,
             userId: incoming.userId,
             handle: incoming.handle,
+            avatarUrl: incoming.avatar,
             body: incoming.body,
             at: incoming.at,
             mine: incoming.userId == myId))

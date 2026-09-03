@@ -14,6 +14,7 @@ actor RealtimeChannel {
         let id: Int
         let userId: String
         let handle: String
+        let avatar: String?
         let body: String
         let at: Date
     }
@@ -218,6 +219,7 @@ actor RealtimeChannel {
         let at = timestamp(body["at"] as? String) ?? Date()
         return Incoming(id: id, userId: userId,
                         handle: handle?.isEmpty == false ? handle! : "알 수 없음",
+                        avatar: body["avatar"] as? String,
                         body: text, at: at)
     }
 }

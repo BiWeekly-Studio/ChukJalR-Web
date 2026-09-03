@@ -5,6 +5,12 @@ import SwiftUI
 @MainActor
 final class Store: ObservableObject {
     @Published private(set) var ready = false
+    /// 첫 로드가 실패했는지.
+    ///
+    /// 이걸 구분하지 않으면 통신이 한 번 어긋났을 때 me 가 기본값으로 남고,
+    /// 화면은 '온보딩을 안 마친 사람'으로 읽어 이미 가입한 사람을 가입 화면에
+    /// 떨어뜨린다. 빈 리그 목록까지 보여서 앱이 고장 난 것처럼 보인다.
+    @Published private(set) var loadFailed = false
     @Published private(set) var me = Me()
     @Published private(set) var leagues: [League] = []
     @Published private(set) var fixtures: [Fixture] = []
@@ -48,6 +54,7 @@ final class Store: ObservableObject {
     }
 
     func load() async {
+        loadFailed = false
         do {
             let catalog = try await repo.loadCatalog()
             leagues = catalog.leagues
@@ -63,6 +70,7 @@ final class Store: ObservableObject {
             badges = (try? await repo.loadBadges()) ?? []
         } catch {
             self.error = error.localizedDescription
+            loadFailed = true
         }
         ready = true
     }
@@ -88,6 +96,22 @@ final class Store: ObservableObject {
         } catch {
             self.error = error.localizedDescription
         }
+    }
+
+    // MARK: 프로필 편집
+
+    /// 닉네임 변경. 서버가 검증·유일성·쿨다운을 본다.
+    func setHandle(_ handle: String) async throws {
+        me.handle = try await repo.setHandle(handle)
+    }
+
+    func setAvatar(_ jpeg: Data) async throws {
+        me.avatarUrl = try await repo.setAvatar(jpeg)
+    }
+
+    func removeAvatar() async throws {
+        try await repo.removeAvatar()
+        me.avatarUrl = nil
     }
 
     func predict(_ f: Fixture, _ pick: Outcome, _ confidence: Confidence) {

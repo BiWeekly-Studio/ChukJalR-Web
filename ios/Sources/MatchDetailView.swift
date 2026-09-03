@@ -512,10 +512,7 @@ private struct MessageRow: View {
         HStack(alignment: .top, spacing: 8) {
             if message.mine { Spacer(minLength: 40) }
             if !message.mine {
-                Text(message.initial)
-                    .font(T.display(12, .heavy)).foregroundStyle(T.ink2)
-                    .frame(width: 30, height: 30)
-                    .background(T.card2, in: Circle())
+                Avatar(url: message.avatarUrl, initial: message.handle, size: 30)
             }
             VStack(alignment: message.mine ? .trailing : .leading, spacing: 4) {
                 HStack(spacing: 6) {

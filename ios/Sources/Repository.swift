@@ -27,6 +27,16 @@ protocol Repository {
     func blockUser(id: String) async throws
     /// 정산이 끝난 내 예측의 결과. 아직 정산 전이면 nil
     func loadSettlement(fixtureId: Int) async throws -> Settlement?
+
+    /// 계정 삭제. 되돌릴 수 없다 (App Store 심사 지침 5.1.1(v))
+    func deleteAccount() async throws
+
+    // 프로필 편집
+    /// - Returns: 서버가 확정한 닉네임 (앞뒤 공백이 잘린 값)
+    func setHandle(_ handle: String) async throws -> String
+    /// - Returns: 새 사진의 공개 URL
+    func setAvatar(_ jpeg: Data) async throws -> String
+    func removeAvatar() async throws
 }
 
 /// 실제 백엔드. 스키마와 RLS 는 웹과 완전히 같다.
@@ -52,7 +62,7 @@ struct SupabaseRepository: Repository {
             throw Supabase.Failure.http(401, "로그인이 필요해요.")
         }
         let profile = try await Supabase.shared.get(
-            "profiles?select=handle,league_order,favorite_team_ids,onboarded_at&id=eq.\(uid)")
+            "profiles?select=handle,avatar_url,league_order,favorite_team_ids,onboarded_at&id=eq.\(uid)")
         let rating = try await Supabase.shared.get(
             "ratings?select=rating,lifetime_points,balance,streak,settled_matches"
             + "&user_id=eq.\(uid)&order=season.desc&limit=1")
@@ -76,7 +86,7 @@ struct SupabaseRepository: Repository {
         let me = await Supabase.shared.currentUser?.id
         return Decode.ranking(
             try await Supabase.shared.get(
-                "leaderboard?select=user_id,rank,handle,rating,accuracy,prev_rank&order=rank&limit=50"),
+                "leaderboard?select=user_id,rank,handle,avatar_url,rating,accuracy,prev_rank&order=rank&limit=50"),
             me: me)
     }
 
@@ -116,7 +126,7 @@ struct SupabaseRepository: Repository {
         let me = await Supabase.shared.currentUser?.id
         // 최근 50건을 역순으로 받아 뒤집는다 — 오래된 것부터 위로 쌓아야 읽힌다.
         let data = try await Supabase.shared.get(
-            "chat_messages?select=id,body,created_at,user_id,profiles(handle)"
+            "chat_messages?select=id,body,created_at,user_id,profiles(handle,avatar_url)"
             + "&channel=eq.match:\(fixtureId)&deleted_at=is.null"
             + "&order=created_at.desc&limit=50")
         return Decode.chat(data, me: me).reversed()
@@ -167,6 +177,22 @@ struct SupabaseRepository: Repository {
             "settlements?select=fixture_id,delta_rating,points"
             + "&user_id=eq.\(uid)&fixture_id=eq.\(fixtureId)&limit=1")
         return Decode.settlement(data)
+    }
+
+    func deleteAccount() async throws {
+        try await Supabase.shared.deleteAccount()
+    }
+
+    func setHandle(_ handle: String) async throws -> String {
+        try await Supabase.shared.setHandle(handle)
+    }
+
+    func setAvatar(_ jpeg: Data) async throws -> String {
+        try await Supabase.shared.uploadAvatar(jpeg)
+    }
+
+    func removeAvatar() async throws {
+        try await Supabase.shared.removeAvatar()
     }
 
     func loadBadges() async throws -> [BadgeDef] {

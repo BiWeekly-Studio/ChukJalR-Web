@@ -94,11 +94,15 @@ struct RankingView: View {
                     Image(systemName: "crown.fill").font(.system(size: 18))
                         .foregroundStyle(T.goldInk)
                 }
-                Text(row.initial)
-                    .font(T.display(top ? 20 : 15))
-                    .foregroundStyle(top ? .white : T.ink2)
-                    .frame(width: top ? 58 : 44, height: top ? 58 : 44)
-                    .background(top ? AnyShapeStyle(T.gradGold) : AnyShapeStyle(T.card2), in: Circle())
+                if let url = row.avatarUrl {
+                    Avatar(url: url, initial: row.handle, size: top ? 58 : 44)
+                } else {
+                    Text(row.initial)
+                        .font(T.display(top ? 20 : 15))
+                        .foregroundStyle(top ? .white : T.ink2)
+                        .frame(width: top ? 58 : 44, height: top ? 58 : 44)
+                        .background(top ? AnyShapeStyle(T.gradGold) : AnyShapeStyle(T.card2), in: Circle())
+                }
                 Text(row.handle)
                     .font(T.display(top ? 14 : 12, top ? .black : .semibold))
                     .foregroundStyle(top ? T.ink : T.ink2)
@@ -127,8 +131,7 @@ struct RankingView: View {
             Text("\(r.rank)").font(T.num(17))
                 .foregroundStyle(r.isMe ? T.accent : T.ink2).frame(width: 24, alignment: .leading)
             ChangeMark(value: r.change)
-            Text(r.initial).font(T.display(11, .heavy)).foregroundStyle(T.ink2)
-                .frame(width: 32, height: 32).background(T.card2, in: Circle())
+            Avatar(url: r.avatarUrl, initial: r.handle, size: 32)
             Text(r.handle).font(T.body(12, r.isMe ? .heavy : .semibold)).lineLimit(1)
             Spacer()
             Text("적중 \(Int((r.accuracy * 100).rounded()))%")
@@ -163,9 +166,7 @@ struct RankingView: View {
         } else if let mine = rows.first(where: \.isMe) {
             HStack(spacing: 11) {
                 Text("\(mine.rank)").font(T.num(19)).frame(width: 26, alignment: .leading)
-                Text(mine.initial).font(T.display(13, .heavy))
-                    .frame(width: 36, height: 36)
-                    .background(.white.opacity(0.22), in: Circle())
+                Avatar(url: mine.avatarUrl, initial: mine.handle, size: 36)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(mine.handle).font(T.display(14, .heavy))
                     Text(store.me.topPercent.map { "상위 \(Fmt.trim($0))% · 내 순위" } ?? "내 순위")

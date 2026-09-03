@@ -26,99 +26,18 @@ struct ProfileView: View {
                 profileCard.padding(.horizontal, 20).padding(.top, 12)
                 statRow.padding(.horizontal, 20).padding(.top, 12)
 
-                section("리그별 적중률") {
-                    if stats.byLeague.isEmpty {
-                        pending("경기가 정산되면 리그별로 어디에 강한지 보여드려요.")
-                    } else {
-                        VStack(spacing: 10) {
-                            ForEach(store.leagues) { l in
-                                let row = stats.byLeague.first { $0.leagueId == l.id }
-                                HStack(spacing: 11) {
-                                    Text(l.short).font(T.body(12)).foregroundStyle(T.ink3)
-                                        .frame(width: 60, alignment: .leading)
-                                    Bar(value: row?.accuracy ?? 0)
-                                    Text(row.map { "\(Int(($0.accuracy * 100).rounded()))%" } ?? "—")
-                                        .font(T.num(14)).frame(width: 44, alignment: .trailing)
-                                    Text(row.map { "\($0.n)건" } ?? "")
-                                        .font(T.body(11)).foregroundStyle(T.ink3)
-                                        .frame(width: 30, alignment: .trailing)
-                                }
-                            }
-                        }
-                    }
-                }
+                trend.padding(.horizontal, 20).padding(.top, 12)
 
-                section("확신도는 정확한가", hint: "건 만큼 맞히고 있는지") {
-                    let usable = stats.calibration.filter { $0.n >= minCalibrationN }
-                    if usable.isEmpty {
-                        pending("확신도마다 \(minCalibrationN)건씩은 쌓여야 의미가 생겨요. 그때부터 확신을 부풀리고 있는지 알려드릴게요.")
-                    } else {
-                        VStack(spacing: 9) {
-                            ForEach(stats.calibration) { c in
-                                let enough = c.n >= minCalibrationN
-                                HStack(spacing: 11) {
-                                    Text(c.confidence.label).font(T.body(12, .semibold))
-                                        .frame(width: 84, alignment: .leading)
-                                    Bar(value: enough ? c.actual : 0,
-                                        tint: c.actual - c.expected < -0.08 ? AnyShapeStyle(T.ink4) : nil)
-                                    Text(enough ? "\(Int((c.actual * 100).rounded()))%" : "—")
-                                        .font(T.num(14)).frame(width: 40, alignment: .trailing)
-                                    Text(enough ? "건 값 \(Int((c.expected * 100).rounded()))%" : "\(c.n)건")
-                                        .font(T.body(11)).foregroundStyle(T.ink3)
-                                        .frame(width: 62, alignment: .trailing)
-                                }
-                            }
-                        }
-                        calibrationNote(usable)
-                    }
-                }
+                StatTabs(stats: stats,
+                         minCalibrationN: minCalibrationN,
+                         minFanBiasN: minFanBiasN)
+                    .environmentObject(store)
+                    .padding(.horizontal, 20).padding(.top, 12)
 
-                if !store.me.favoriteTeamIds.isEmpty {
-                    section("팬심 편향") {
-                        if let fb = stats.fanBias, fb.n >= minFanBiasN {
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack(spacing: 8) {
-                                    Text(fb.bias > 0 ? "+\(fb.bias)" : "−\(abs(fb.bias))")
-                                        .font(T.num(26))
-                                        .foregroundStyle(fb.bias < 0 ? T.cool : T.win)
-                                    Text("경기당 평균 지수").font(T.body(11)).foregroundStyle(T.ink3)
-                                }
-                                Text(fb.bias < 0
-                                     ? "내 팀 경기에서 평균 \(abs(fb.bias))점을 손해 보고 있어요. 다른 경기에서는 잘 보시는데요."
-                                     : "내 팀 경기에서 오히려 더 잘 맞히는 드문 유형이에요.")
-                                    .font(T.body(12)).foregroundStyle(T.ink3)
-                            }
-                            .padding(14)
-                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(T.line, lineWidth: 1.5))
-                        } else {
-                            pending("내 팀 경기가 \(minFanBiasN)건 쌓이면, 팬심이 예측을 흐리는지 알려드려요.")
-                        }
-                    }
-                }
-
-                section("최근 10경기",
-                        hint: stats.recent.isEmpty ? nil
-                            : "\(stats.recent.filter(\.correct).count) 적중 · \(stats.recent.filter { !$0.correct }.count) 실패") {
-                    if stats.recent.isEmpty {
-                        pending("첫 경기가 정산되면 여기에 쌓입니다.")
-                    } else {
-                        HStack(spacing: 6) {
-                            ForEach(0..<10, id: \.self) { i in
-                                let r = i < stats.recent.count ? stats.recent[i] : nil
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(r == nil ? AnyShapeStyle(T.line2)
-                                          : r!.correct ? AnyShapeStyle(T.gradWin) : AnyShapeStyle(T.line))
-                                    .frame(height: 32)
-                            }
-                        }
-                    }
-                }
-
-                section("모은 뱃지",
-                        hint: store.badges.isEmpty ? nil : "\(store.badges.filter(\.earned).count)개 획득") {
-                    if store.badges.isEmpty {
-                        pending("아직 열린 뱃지가 없어요. 준비되면 여기에 생깁니다.")
-                    } else {
+                // 열린 뱃지가 없으면 자리를 만들지 않는다. 빈 상자를 두면
+                // '뭔가 고장 났나' 로 읽힌다.
+                if !store.badges.isEmpty {
+                    section("모은 뱃지", hint: "\(store.badges.filter(\.earned).count)개 획득") {
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4),
                                   spacing: 14) {
                             ForEach(store.badges.prefix(8)) { b in BadgeCell(badge: b) }
@@ -127,10 +46,66 @@ struct ProfileView: View {
                 }
 
                 chatPolicy.padding(.horizontal, 20).padding(.top, 24)
-                accountCard.padding(.horizontal, 20).padding(.top, 24).padding(.bottom, 28)
+                accountCard.padding(.horizontal, 20).padding(.top, 24)
+                deleteRow.frame(maxWidth: .infinity)
+                    .padding(.top, 16).padding(.bottom, 28)
             }
         }
         .background(T.paper)
+    }
+
+    // MARK: 흐름
+
+    /// 지수가 어떻게 움직였는지와 최근 10경기.
+    ///
+    /// 숫자 세 개(적중률·누적·연속)는 '지금'만 말해준다. 사람이 궁금한 건
+    /// 올라가는 중인지 내려가는 중인지다.
+    private var trend: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("흐름").font(T.display(14, .heavy))
+                Spacer()
+                if !stats.recent.isEmpty {
+                    Text("최근 \(stats.recent.count)경기 · \(stats.recent.filter(\.correct).count) 적중")
+                        .font(T.body(11)).foregroundStyle(T.ink3)
+                }
+            }
+
+            if stats.curve.count >= 2 {
+                RatingCurve(values: stats.curve).padding(.top, 12)
+                HStack {
+                    Text("\(Fmt.comma(stats.curve.min() ?? 0))")
+                    Spacer()
+                    Text("\(Fmt.comma(stats.curve.max() ?? 0))")
+                }
+                .font(T.body(10)).foregroundStyle(T.ink4).padding(.top, 2)
+            }
+
+            if stats.recent.isEmpty {
+                Text("첫 경기가 정산되면 지수가 어떻게 움직이는지 여기에 그려집니다.")
+                    .font(T.body(12)).foregroundStyle(T.ink3).lineSpacing(3)
+                    .padding(.top, 10)
+            } else {
+                HStack(spacing: 6) {
+                    // 최근이 오른쪽에 오도록 뒤집는다 — 선 그래프와 방향을 맞춘다
+                    ForEach(Array(stats.recent.reversed())) { r in
+                        RoundedRectangle(cornerRadius: 9)
+                            .fill(r.correct ? AnyShapeStyle(T.gradWin) : AnyShapeStyle(T.line))
+                            .frame(height: 28)
+                            .overlay {
+                                Text(Fmt.signed(r.delta))
+                                    .font(T.num(10))
+                                    .foregroundStyle(r.correct ? .white : T.ink3)
+                            }
+                    }
+                }
+                .padding(.top, stats.curve.count >= 2 ? 12 : 10)
+            }
+        }
+        .padding(EdgeInsets(top: 14, leading: 16, bottom: 16, trailing: 16))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(T.card, in: RoundedRectangle(cornerRadius: 20))
+        .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
     }
 
     // MARK: 프로필 카드
@@ -139,11 +114,19 @@ struct ProfileView: View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 11) {
-                    Text(String(store.me.handle.prefix(1)))
-                        .font(T.display(21))
-                        .frame(width: 54, height: 54)
-                        .background(.white.opacity(0.2), in: Circle())
-                        .overlay(Circle().stroke(.white.opacity(0.55), lineWidth: 2.5))
+                    Group {
+                        if let url = store.me.avatarUrl {
+                            Avatar(url: url, initial: store.me.handle, size: 54)
+                        } else {
+                            // 사진이 없을 때는 그라데이션 카드 위라서 Avatar 의 기본
+                            // 배경(같은 그라데이션)이 묻힌다. 여기서는 반투명 원을 쓴다.
+                            Text(String(store.me.handle.prefix(1)))
+                                .font(T.display(21))
+                                .frame(width: 54, height: 54)
+                                .background(.white.opacity(0.2), in: Circle())
+                        }
+                    }
+                    .overlay(Circle().stroke(.white.opacity(0.55), lineWidth: 2.5))
                     VStack(alignment: .leading, spacing: 5) {
                         Text(store.me.handle).font(T.display(18))
                         HStack(spacing: 6) {
@@ -289,14 +272,17 @@ struct ProfileView: View {
         }
     }
 
+    @State private var editing = false
+    @State private var confirmingDelete = false
+    @State private var deleting = false
+
     private var accountCard: some View {
         HStack(spacing: 10) {
-            Text(String((store.me.handle.first ?? "·").description))
-                .font(T.display(13, .heavy)).foregroundStyle(.white)
-                .frame(width: 34, height: 34).background(T.gradAccent, in: Circle())
+            Avatar(url: store.me.avatarUrl, initial: store.me.handle, size: 34)
             VStack(alignment: .leading, spacing: 2) {
-                Text("로그인됨").font(T.display(13, .heavy))
-                Text(store.me.handle).font(T.body(11)).foregroundStyle(T.ink3).lineLimit(1)
+                Text(store.me.handle).font(T.display(13, .heavy)).lineLimit(1)
+                Button("프로필 편집") { editing = true }
+                    .font(T.body(11)).foregroundStyle(T.accent)
             }
             Spacer()
             Button("로그아웃", action: auth.signOut)
@@ -306,6 +292,38 @@ struct ProfileView: View {
         }
         .padding(16)
         .background(T.card, in: RoundedRectangle(cornerRadius: 18))
+        .sheet(isPresented: $editing) { ProfileEditView().environmentObject(store) }
+    }
+
+    /// 계정 삭제.
+    ///
+    /// 계정을 만들 수 있는 앱은 앱 안에서 삭제도 할 수 있어야 한다 (App Store 5.1.1(v)).
+    /// 눈에 잘 안 띄게 두되 찾을 수는 있게 — 실수로 누르는 자리에 두지 않는다.
+    private var deleteRow: some View {
+        Button("계정 삭제") { confirmingDelete = true }
+            .font(T.body(11)).foregroundStyle(T.ink4)
+            .disabled(deleting)
+            .confirmationDialog("계정을 삭제할까요?", isPresented: $confirmingDelete,
+                                titleVisibility: .visible) {
+                Button("삭제", role: .destructive) { deleteAccount() }
+                Button("취소", role: .cancel) {}
+            } message: {
+                Text("예측 기록·지수·포인트가 모두 사라지고 되돌릴 수 없어요. "
+                     + "채팅에 남긴 글은 가려집니다.")
+            }
+    }
+
+    private func deleteAccount() {
+        deleting = true
+        Task {
+            do {
+                try await Repositories.current.deleteAccount()
+                auth.signOut()
+            } catch {
+                store.error = error.localizedDescription
+            }
+            deleting = false
+        }
     }
 
     // MARK: 조각
