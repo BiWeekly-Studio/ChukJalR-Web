@@ -8,6 +8,12 @@
  *   ?mode=results    10분마다. 단, 지금 열려 있고 아직 안 끝난 경기가
  *                    있을 때만 호출한다. 없으면 API를 아예 부르지 않는다. 0~2회
  *   ?mode=priors     주 1회. 순위표로 팀 전력을 재고 경기별 기준 확률을 만든다. 4회
+ *   ?mode=odds       하루 1회. 북메이커 배당 → 기준 확률. 모델보다 정확하다. 30~60회
+ *   ?mode=live       1분마다. 진행 중 경기의 점수·경과. 점수가 바뀐 경기만
+ *                    이벤트를 따로 받는다. 없으면 0회.                    0~3회
+ *   ?mode=lineups    5분마다. 킥오프 75분 전부터, 아직 못 받은 경기만.    0~10회
+ *   ?mode=h2h        하루 1회. 새로 들어온 경기의 상대 전적.              0~40회
+ *   ?mode=stats      하루 1회. 끝난 경기의 점유율·슈팅.                   0~30회
  *   ?mode=status     수동. 요금제와 남은 호출량을 확인한다.               1회
  *
  * results 모드는 폴링할 경기 id 를 DB 에서 먼저 뽑아 `?ids=` 로 정확히 그것만
@@ -48,10 +54,25 @@ interface Api {
   calls: number;
 }
 
+/**
+ * 요금제에는 하루 한도만 있는 게 아니라 분당 한도도 있다. 경기별 모드를 병렬로
+ * 던지면 몇 초 만에 80건이 나가고, 하루 한도는 멀쩡한데 분당 한도에 걸린다
+ * (실제로 "exceeded the limit of requests per minute" 를 받았다).
+ * 요청 시작 간격을 벌려 초당 4건으로 묶는다.
+ */
+const MIN_REQUEST_GAP_MS = 250;
+
 function api(key: string): Api {
+  let nextSlot = 0;
+
   const self: Api = {
     calls: 0,
     async get(path) {
+      const now = Date.now();
+      const slot = Math.max(now, nextSlot);
+      nextSlot = slot + MIN_REQUEST_GAP_MS;
+      if (slot > now) await new Promise((r) => setTimeout(r, slot - now));
+
       self.calls += 1;
       const res = await fetch(`${API_BASE}${path}`, { headers: { 'x-apisports-key': key } });
       if (!res.ok) throw new Error(`api-football ${res.status} on ${path}`);
@@ -84,6 +105,25 @@ function toRow(f: ApiFixture) {
 }
 
 /** 팀 이름에서 3글자 약어를 만든다. API 가 code 를 주면 그것을 쓴다. */
+/**
+ * 정해진 개수만큼만 동시에 굴린다.
+ *
+ * 경기별로 한 번씩 부르는 모드(배당·상대전적·통계)를 순서대로 돌리면 수십 초가 걸리고,
+ * 크론을 태우는 pg_net 이 먼저 끊는다. 한꺼번에 다 던지면 API 쪽 레이트 리밋에 걸린다.
+ * 그 사이를 잡는 값이다.
+ */
+async function pool<T>(items: T[], size: number, fn: (item: T) => Promise<void>): Promise<void> {
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(size, items.length) }, async () => {
+    while (cursor < items.length) {
+      await fn(items[cursor++]);
+    }
+  });
+  await Promise.all(workers);
+}
+
+const POOL = 6;
+
 function abbrOf(name: string, code: string | null): string {
   if (code) return code.toUpperCase();
   return name.replace(/[^A-Za-z ]/g, '').trim().slice(0, 3).toUpperCase();
@@ -263,7 +303,17 @@ async function syncPriors(sb: Db, a: Api, season: number) {
     }
 
     const fixtures = await sb.upcomingFixtures(leagueId);
+    // 배당에서 뽑은 기준선이 이미 있으면 건드리지 않는다. 모델이 덮어쓰면 더 나쁜
+    // 기준선으로 되돌아간다 — 배당에는 부상·출전 정지까지 이미 반영돼 있다.
+    const fromOdds = new Set(
+      (await sb.select<{ fixture_id: number }>(
+        'fixture_priors',
+        `select=fixture_id&source=eq.odds&fixture_id=in.(${fixtures.map((f) => f.id).join(',') || 0})`
+      )).map((r) => r.fixture_id)
+    );
+
     const rows = fixtures.flatMap((f) => {
+      if (fromOdds.has(f.id)) return [];
       const home = strength.get(f.home_team_id);
       const away = strength.get(f.away_team_id);
       // 순위표에 없는 팀(승격·컵 소속 등)은 지어내지 않고 건너뛴다
@@ -271,7 +321,7 @@ async function syncPriors(sb: Db, a: Api, season: number) {
       const q = normalize(outcomeProbabilities(
         home.attack * away.defence * homeAvg,
         away.attack * home.defence * awayAvg));
-      return [{ fixture_id: f.id, q }];
+      return [{ fixture_id: f.id, q, source: 'model', updated_at: new Date().toISOString() }];
     });
 
     if (rows.length) {
@@ -282,6 +332,341 @@ async function syncPriors(sb: Db, a: Api, season: number) {
   }
 
   return { priors: written, leagues };
+}
+
+/* ------------------------------------------------------------------ 라이브 */
+
+/**
+ * 진행 중인 경기의 점수·경과 시간과 이벤트.
+ *
+ * 호출을 아끼는 방법: 점수는 `?ids=` 로 한 번에 20경기까지 묶어 1회로 받고,
+ * 이벤트는 **점수가 바뀐 경기만** 따로 부른다. 매분 모든 경기의 이벤트를 훑으면
+ * 라이브 한 시간에 수백 회가 나가지만, 이렇게 하면 득점이 난 순간에만 1회 더 든다.
+ *
+ * 정규 결과(_ft)는 여기서 건드리지 않는다 — 정산 근거는 results 모드가 채운다.
+ */
+interface ApiLiveFixture {
+  fixture: { id: number; status: { short: string; elapsed: number | null } };
+  goals: { home: number | null; away: number | null };
+  teams: { home: { id: number }; away: { id: number } };
+}
+
+interface ApiEvent {
+  time: { elapsed: number | null; extra: number | null };
+  team: { id: number };
+  player: { name: string | null };
+  assist: { name: string | null };
+  type: string;
+  detail: string | null;
+}
+
+async function syncLive(sb: Db, a: Api) {
+  // 킥오프했고 아직 안 끝난 경기. results 모드와 같은 조건이다.
+  const now = new Date().toISOString();
+  const floor = new Date(Date.now() - 6 * 3600e3).toISOString();
+  const live = await sb.select<{ id: number; home_goals_live: number | null; away_goals_live: number | null }>(
+    'fixtures',
+    `select=id,home_goals_live,away_goals_live&state=in.(SCHEDULED,LIVE)` +
+      `&kickoff_at=lte.${now}&kickoff_at=gte.${floor}&order=kickoff_at&limit=40`
+  );
+  if (live.length === 0) return { live: 0, changed: 0, events: 0, skipped: true };
+
+  const before = new Map(live.map((f) => [f.id, `${f.home_goals_live}-${f.away_goals_live}`]));
+  const changed: number[] = [];
+  const rows: Record<string, unknown>[] = [];
+
+  for (let i = 0; i < live.length; i += IDS_PER_CALL) {
+    const chunk = live.slice(i, i + IDS_PER_CALL).map((f) => f.id);
+    const { response } = await a.get(`/fixtures?ids=${chunk.join('-')}`);
+    for (const f of response as ApiLiveFixture[]) {
+      const home = f.goals.home;
+      const away = f.goals.away;
+      rows.push({
+        id: f.fixture.id,
+        state: mapState(f.fixture.status.short),
+        status_short: f.fixture.status.short,
+        home_goals_live: home,
+        away_goals_live: away,
+        elapsed: f.fixture.status.elapsed,
+      });
+      if (before.get(f.fixture.id) !== `${home}-${away}`) changed.push(f.fixture.id);
+    }
+  }
+  if (rows.length) await sb.upsert('fixtures', rows);
+
+  // 점수가 바뀐 경기만 이벤트를 다시 받는다
+  let events = 0;
+  for (const fixtureId of changed) {
+    events += await pullEvents(sb, a, fixtureId);
+  }
+
+  return { live: live.length, changed: changed.length, events, skipped: false };
+}
+
+async function pullEvents(sb: Db, a: Api, fixtureId: number) {
+  const { response } = await a.get(`/fixtures/events?fixture=${fixtureId}`);
+  const rows = (response as ApiEvent[]).map((e, seq) => ({
+    fixture_id: fixtureId,
+    seq,
+    minute: e.time.elapsed,
+    extra: e.time.extra,
+    team_id: e.team.id,
+    type: e.type,
+    detail: e.detail,
+    player: e.player.name,
+    assist: e.assist?.name ?? null,
+  }));
+  if (rows.length) await sb.upsert('fixture_events', rows, 'fixture_id,seq');
+  return rows.length;
+}
+
+/* ------------------------------------------------------------------ 선발 명단 */
+
+/**
+ * 킥오프 한 시간 전쯤 공개된다. 앱을 미리 열 이유가 되는 거의 유일한 데이터다.
+ * 아직 안 받은 경기만 부르므로, 한 경기당 평생 한 번만 든다.
+ */
+const LINEUP_WINDOW_MIN = 75;
+
+interface ApiLineup {
+  team: { id: number };
+  formation: string | null;
+  coach: { name: string | null };
+  startXI: { player: { name: string | null; number: number | null; pos: string | null } }[];
+  substitutes: { player: { name: string | null; number: number | null; pos: string | null } }[];
+}
+
+async function syncLineups(sb: Db, a: Api) {
+  const now = Date.now();
+  const soon = new Date(now + LINEUP_WINDOW_MIN * 60e3).toISOString();
+  const floor = new Date(now - 3 * 3600e3).toISOString();
+  const candidates = await sb.select<{ id: number }>(
+    'fixtures',
+    `select=id&state=in.(SCHEDULED,LIVE)&kickoff_at=lte.${soon}&kickoff_at=gte.${floor}` +
+      `&order=kickoff_at&limit=30`
+  );
+  if (candidates.length === 0) return { lineups: 0, skipped: true };
+
+  const have = new Set(
+    (await sb.select<{ fixture_id: number }>(
+      'fixture_lineups',
+      `select=fixture_id&fixture_id=in.(${candidates.map((f) => f.id).join(',')})`
+    )).map((r) => r.fixture_id)
+  );
+
+  const rows: Record<string, unknown>[] = [];
+  await pool(candidates.filter((f) => !have.has(f.id)), POOL, async (f) => {
+    const { response } = await a.get(`/fixtures/lineups?fixture=${f.id}`);
+    // 아직 발표 전이면 빈 배열이 온다. 그때는 쓰지 않고 다음 주기에 다시 본다.
+    for (const l of response as ApiLineup[]) {
+      rows.push({
+        fixture_id: f.id,
+        team_id: l.team.id,
+        formation: l.formation,
+        coach: l.coach?.name ?? null,
+        starters: l.startXI.map((x) => ({ name: x.player.name, number: x.player.number, pos: x.player.pos })),
+        bench: l.substitutes.map((x) => ({ name: x.player.name, number: x.player.number, pos: x.player.pos })),
+        updated_at: new Date().toISOString(),
+      });
+    }
+  });
+  if (rows.length) await sb.upsert('fixture_lineups', rows, 'fixture_id,team_id');
+  return { lineups: rows.length, skipped: false };
+}
+
+/* ------------------------------------------------------------------ 상대 전적 */
+
+interface ApiH2H {
+  fixture: { id: number; date: string };
+  teams: { home: { id: number }; away: { id: number } };
+  score: { fulltime: { home: number | null; away: number | null } };
+}
+
+/**
+ * 두 팀의 최근 맞대결. 경기당 한 번만 받으면 되고, 예측 판단에 실제로 쓰이는 정보다.
+ */
+async function syncH2H(sb: Db, a: Api, limit = 40) {
+  const now = new Date().toISOString();
+  const fixtures = await sb.select<UpcomingFixture>(
+    'fixtures',
+    `select=id,home_team_id,away_team_id&state=eq.SCHEDULED&kickoff_at=gte.${now}` +
+      `&order=kickoff_at&limit=${limit * 3}`
+  );
+  const have = new Set(
+    (await sb.select<{ fixture_id: number }>(
+      'fixture_h2h',
+      `select=fixture_id&fixture_id=in.(${fixtures.map((f) => f.id).join(',') || 0})`
+    )).map((r) => r.fixture_id)
+  );
+
+  const todo = fixtures.filter((f) => !have.has(f.id)).slice(0, limit);
+  const rows: Record<string, unknown>[] = [];
+
+  await pool(todo, POOL, async (f) => {
+    const { response } = await a.get(
+      `/fixtures/headtohead?h2h=${f.home_team_id}-${f.away_team_id}&last=10`
+    );
+    const past = (response as ApiH2H[]).filter(
+      (m) => m.score.fulltime.home !== null && m.score.fulltime.away !== null
+    );
+    let homeWins = 0, draws = 0, awayWins = 0;
+    for (const m of past) {
+      const hg = m.score.fulltime.home!;
+      const ag = m.score.fulltime.away!;
+      // 홈/원정이 뒤바뀐 경기도 있으므로, 이 경기의 홈팀 기준으로 다시 센다
+      const homeIsThisHome = m.teams.home.id === f.home_team_id;
+      const forHome = homeIsThisHome ? hg : ag;
+      const forAway = homeIsThisHome ? ag : hg;
+      if (forHome > forAway) homeWins += 1;
+      else if (forHome < forAway) awayWins += 1;
+      else draws += 1;
+    }
+    rows.push({
+      fixture_id: f.id,
+      played: past.length,
+      home_wins: homeWins,
+      draws,
+      away_wins: awayWins,
+      recent: past.slice(0, 5).map((m) => ({
+        date: m.fixture.date,
+        home_id: m.teams.home.id,
+        away_id: m.teams.away.id,
+        hg: m.score.fulltime.home,
+        ag: m.score.fulltime.away,
+      })),
+      updated_at: new Date().toISOString(),
+    });
+  });
+
+  if (rows.length) await sb.upsert('fixture_h2h', rows, 'fixture_id');
+  return { h2h: rows.length, considered: fixtures.length };
+}
+
+/* ------------------------------------------------------------------ 경기 통계 */
+
+interface ApiStats {
+  team: { id: number };
+  statistics: { type: string; value: string | number | null }[];
+}
+
+/** 끝난 경기의 점유율·슈팅 등. 경기당 한 번. */
+async function syncStats(sb: Db, a: Api) {
+  const floor = new Date(Date.now() - 3 * 86400e3).toISOString();
+  const finished = await sb.select<{ id: number }>(
+    'fixtures',
+    `select=id&state=eq.FINISHED&kickoff_at=gte.${floor}&order=kickoff_at.desc&limit=30`
+  );
+  if (finished.length === 0) return { stats: 0, skipped: true };
+
+  const have = new Set(
+    (await sb.select<{ fixture_id: number }>(
+      'fixture_stats',
+      `select=fixture_id&fixture_id=in.(${finished.map((f) => f.id).join(',')})`
+    )).map((r) => r.fixture_id)
+  );
+
+  const rows: Record<string, unknown>[] = [];
+  await pool(finished.filter((f) => !have.has(f.id)), POOL, async (f) => {
+    const { response } = await a.get(`/fixtures/statistics?fixture=${f.id}`);
+    for (const t of response as ApiStats[]) {
+      rows.push({
+        fixture_id: f.id,
+        team_id: t.team.id,
+        stats: Object.fromEntries(t.statistics.map((x) => [x.type, x.value])),
+        updated_at: new Date().toISOString(),
+      });
+    }
+  });
+  if (rows.length) await sb.upsert('fixture_stats', rows, 'fixture_id,team_id');
+  return { stats: rows.length, skipped: false };
+}
+
+/* ------------------------------------------------------------------ 배당 기준선 */
+
+/**
+ * 북메이커 배당에서 기준 확률을 뽑는다.
+ *
+ * 순위표 모델보다 정확하다 — 배당에는 부상·출전 정지·일정·분위기까지 이미 반영돼 있고,
+ * 돈이 걸린 만큼 틀리면 손해를 보는 쪽이 매긴 값이다. 그래서 배당이 있으면 배당을 쓰고,
+ * 없는 경기만 모델이 채운다 (fixture_priors.source 로 구분한다).
+ *
+ * 배당 자체는 절대 화면에 내보내지 않는다. 서버에서 기준선으로만 쓴다 —
+ * 노출하면 이 앱이 도박처럼 읽히고, 앱인토스 심사에서도 문제가 된다.
+ *
+ * 배당 → 확률은 역수를 취한 뒤 합으로 나눈다. 합이 1을 넘는 만큼이 북메이커의
+ * 마진(오버라운드)이고, 나누면 그게 걷힌다.
+ */
+const ODDS_HORIZON_DAYS = 3;   // 이보다 먼 경기는 배당이 아직 얇거나 없다
+const ODDS_BET_MATCH_WINNER = 1;
+
+interface ApiOdds {
+  fixture: { id: number };
+  bookmakers: {
+    id: number;
+    bets: { id: number; name: string; values: { value: string; odd: string }[] }[];
+  }[];
+}
+
+/** 한 북메이커의 1X2 배당 → 마진을 걷어낸 확률 */
+function impliedFromOdds(values: { value: string; odd: string }[]): [number, number, number] | null {
+  const pick = (name: string) => {
+    const v = values.find((x) => x.value.toLowerCase() === name);
+    const odd = v ? Number(v.odd) : NaN;
+    return Number.isFinite(odd) && odd > 1 ? 1 / odd : NaN;
+  };
+  const raw = [pick('home'), pick('draw'), pick('away')];
+  if (raw.some((v) => !Number.isFinite(v))) return null;
+  const sum = raw[0] + raw[1] + raw[2];
+  // 마진이 비정상이면(합이 1 미만이거나 1.3 초과) 데이터가 이상한 것이다
+  if (sum < 1 || sum > 1.3) return null;
+  return [raw[0] / sum, raw[1] / sum, raw[2] / sum];
+}
+
+/** 북메이커마다 조금씩 다르다. 중앙값을 쓰면 한 곳의 이상치에 흔들리지 않는다. */
+function median(values: number[]): number {
+  const sorted = [...values].sort((x, y) => x - y);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+async function syncOdds(sb: Db, a: Api) {
+  const now = new Date().toISOString();
+  const horizon = new Date(Date.now() + ODDS_HORIZON_DAYS * 864e5).toISOString();
+  // 아직 안 잠긴 경기만. 잠긴 뒤에 기준선을 바꾸면 정산 근거가 흔들린다.
+  const fixtures = await sb.select<{ id: number }>(
+    'fixtures',
+    `select=id&state=eq.SCHEDULED&lock_at=gte.${now}&kickoff_at=lte.${horizon}` +
+      `&order=kickoff_at&limit=60`
+  );
+
+  let missing = 0;
+  const rows: Record<string, unknown>[] = [];
+
+  await pool(fixtures, POOL, async (f) => {
+    const { response } = await a.get(`/odds?fixture=${f.id}&bet=${ODDS_BET_MATCH_WINNER}`);
+    const books = (response as ApiOdds[])[0]?.bookmakers ?? [];
+    const probs = books
+      .map((b) => b.bets.find((bet) => bet.id === ODDS_BET_MATCH_WINNER)?.values)
+      .filter((v): v is { value: string; odd: string }[] => Array.isArray(v))
+      .map(impliedFromOdds)
+      .filter((q): q is [number, number, number] => q !== null);
+
+    if (probs.length === 0) { missing += 1; return; }
+
+    rows.push({
+      fixture_id: f.id,
+      q: normalize([
+        median(probs.map((q) => q[0])),
+        median(probs.map((q) => q[1])),
+        median(probs.map((q) => q[2])),
+      ]),
+      source: 'odds',
+      updated_at: new Date().toISOString(),
+    });
+  });
+
+  if (rows.length) await sb.upsert('fixture_priors', rows, 'fixture_id');
+  return { odds: rows.length, noOdds: missing, considered: fixtures.length };
 }
 
 /* ------------------------------------------------------------------ 데모 */
@@ -367,6 +752,8 @@ interface Db {
   pendingFixtureIds(): Promise<number[]>;
   demoFixtureIds(): Promise<number[]>;
   upcomingFixtures(leagueId: number): Promise<UpcomingFixture[]>;
+  /** PostgREST 쿼리를 그대로 던진다. 모드마다 조건이 달라 일일이 메서드를 만들지 않는다. */
+  select<T>(table: string, query: string): Promise<T[]>;
 }
 
 interface UpcomingFixture {
@@ -410,6 +797,12 @@ function db(url: string, serviceKey: string): Db {
       const res = await fetch(`${url}/rest/v1/fixtures?${q}`, { headers });
       if (!res.ok) throw new Error(`pending ${res.status}: ${await res.text()}`);
       return ((await res.json()) as { id: number }[]).map((r) => r.id);
+    },
+
+    async select(table, query) {
+      const res = await fetch(`${url}/rest/v1/${table}?${query}`, { headers });
+      if (!res.ok) throw new Error(`select ${table} ${res.status}: ${await res.text()}`);
+      return await res.json();
     },
 
     /** 아직 안 끝난 경기. 기준 확률을 다시 계산할 대상이다. */
@@ -474,6 +867,31 @@ Deno.serve(async (req: Request) => {
     if (mode === 'status') {
       const { response } = await a.get('/status');
       return Response.json({ ok: true, mode, status: response, apiCalls: a.calls });
+    }
+
+    if (mode === 'live') {
+      const r = await syncLive(sb, a);
+      return Response.json({ ok: true, mode, ...r, apiCalls: a.calls });
+    }
+
+    if (mode === 'lineups') {
+      const r = await syncLineups(sb, a);
+      return Response.json({ ok: true, mode, ...r, apiCalls: a.calls });
+    }
+
+    if (mode === 'h2h') {
+      const r = await syncH2H(sb, a, Number(params.get('limit')) || 40);
+      return Response.json({ ok: true, mode, ...r, apiCalls: a.calls });
+    }
+
+    if (mode === 'stats') {
+      const r = await syncStats(sb, a);
+      return Response.json({ ok: true, mode, ...r, apiCalls: a.calls });
+    }
+
+    if (mode === 'odds') {
+      const r = await syncOdds(sb, a);
+      return Response.json({ ok: true, mode, ...r, apiCalls: a.calls });
     }
 
     if (mode === 'priors') {
