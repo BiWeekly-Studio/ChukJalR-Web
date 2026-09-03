@@ -9,6 +9,10 @@ import SwiftUI
 final class MatchChat: ObservableObject {
     @Published private(set) var messages: [ChatMessage] = []
     @Published private(set) var viewers = 0
+    /// 수집한 곁들이 정보. 없으면 그 자리를 아예 그리지 않는다.
+    @Published private(set) var info = MatchDetailData()
+    /// 브로드캐스트로 들어온 진행 중 점수. 카탈로그 값보다 이쪽이 최신이다.
+    @Published private(set) var live: RealtimeChannel.Live?
     @Published var notice: String?
     @Published private(set) var sending = false
 
@@ -30,6 +34,7 @@ final class MatchChat: ObservableObject {
         myId = await Supabase.shared.currentUser?.id
         // 채팅을 못 불러와도 경기 정보는 보여야 한다
         messages = (try? await repo.loadChat(fixtureId: fixtureId)) ?? []
+        info = (try? await repo.loadMatchDetail(fixtureId: fixtureId)) ?? MatchDetailData()
 
         let channel = RealtimeChannel(
             channel: "match:\(fixtureId)",
@@ -38,6 +43,12 @@ final class MatchChat: ObservableObject {
             },
             onPresence: { [weak self] n in
                 Task { @MainActor in self?.viewers = n }
+            },
+            onLive: { [weak self] l in
+                Task { @MainActor in self?.live = l }
+            },
+            onEvent: { [weak self] raw in
+                Task { @MainActor in self?.appendEvent(raw) }
             })
         self.channel = channel
         let token = await Supabase.shared.accessToken
@@ -85,6 +96,11 @@ final class MatchChat: ObservableObject {
             blocked.remove(m.userId)
             notice = error.localizedDescription
         }
+    }
+
+    private func appendEvent(_ raw: [String: Any]) {
+        guard let e = Decode.event(raw), !info.events.contains(where: { $0.seq == e.seq }) else { return }
+        info.events = (info.events + [e]).sorted { $0.seq < $1.seq }
     }
 
     private func append(_ incoming: RealtimeChannel.Incoming) {

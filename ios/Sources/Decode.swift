@@ -57,7 +57,9 @@ enum Decode {
                 baseline: nil, participants: nil,
                 state: r["state"] as? String ?? "SCHEDULED",
                 homeGoals: r["home_goals_ft"] as? Int, awayGoals: r["away_goals_ft"] as? Int,
-                result: (r["result"] as? String).flatMap(Outcome.init(rawValue:)))
+                result: (r["result"] as? String).flatMap(Outcome.init(rawValue:)),
+                liveHome: r["home_goals_live"] as? Int, liveAway: r["away_goals_live"] as? Int,
+                elapsed: r["elapsed"] as? Int)
         }
         return Catalog(leagues: ls, teams: ts, fixtures: fs)
     }
@@ -178,5 +180,70 @@ extension Decode {
               let delta = r["delta_rating"] as? Int,
               let points = r["points"] as? Int else { return nil }
         return Settlement(fixtureId: fixtureId, deltaRating: delta, points: points)
+    }
+
+    // MARK: 경기 부가 정보
+
+    static func events(_ data: Data) -> [MatchEvent] {
+        rows(data).compactMap(event)
+    }
+
+    /// REST 는 snake_case, 브로드캐스트는 camelCase 로 준다. 한 자리에서 흡수한다.
+    static func event(_ r: [String: Any]) -> MatchEvent? {
+        guard let seq = r["seq"] as? Int, let type = r["type"] as? String else { return nil }
+        return MatchEvent(
+            seq: seq,
+            minute: r["minute"] as? Int,
+            extra: r["extra"] as? Int,
+            teamId: (r["team_id"] as? Int) ?? (r["teamId"] as? Int),
+            type: type,
+            detail: r["detail"] as? String,
+            player: r["player"] as? String,
+            assist: r["assist"] as? String)
+    }
+
+    static func lineups(_ data: Data) -> [Lineup] {
+        rows(data).compactMap { r in
+            guard let teamId = r["team_id"] as? Int else { return nil }
+            func people(_ key: String) -> [LineupPlayer] {
+                (r[key] as? [[String: Any]] ?? []).map {
+                    LineupPlayer(name: $0["name"] as? String,
+                                 number: $0["number"] as? Int,
+                                 pos: $0["pos"] as? String)
+                }
+            }
+            return Lineup(teamId: teamId,
+                          formation: r["formation"] as? String,
+                          coach: r["coach"] as? String,
+                          starters: people("starters"),
+                          bench: people("bench"))
+        }
+    }
+
+    static func h2h(_ data: Data) -> HeadToHead? {
+        guard let r = rows(data).first, let played = r["played"] as? Int else { return nil }
+        let recent = (r["recent"] as? [[String: Any]] ?? []).compactMap { m -> H2HMatch? in
+            guard let home = m["home_id"] as? Int, let away = m["away_id"] as? Int else { return nil }
+            return H2HMatch(date: date(m["date"] as? String), homeId: home, awayId: away,
+                            hg: m["hg"] as? Int, ag: m["ag"] as? Int)
+        }
+        return HeadToHead(played: played,
+                          homeWins: r["home_wins"] as? Int ?? 0,
+                          draws: r["draws"] as? Int ?? 0,
+                          awayWins: r["away_wins"] as? Int ?? 0,
+                          recent: recent)
+    }
+
+    static func stats(_ data: Data) -> [TeamStats] {
+        rows(data).compactMap { r in
+            guard let teamId = r["team_id"] as? Int else { return nil }
+            // 값이 숫자로도 문자열로도 온다 ("54%" / 14 / null). 문자열로 통일한다.
+            let raw = r["stats"] as? [String: Any] ?? [:]
+            var out: [String: String] = [:]
+            for (k, v) in raw where !(v is NSNull) {
+                out[k] = (v as? String) ?? String(describing: v)
+            }
+            return TeamStats(teamId: teamId, stats: out)
+        }
     }
 }

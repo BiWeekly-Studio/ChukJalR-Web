@@ -23,6 +23,11 @@ struct MatchDetailView: View {
     private var away: Team { store.team(fixture.awayTeamId) }
     private var saved: Prediction? { store.predictions[fixture.id] }
     private var finished: Bool { fixture.window() == .finished }
+    /// 진행 중 점수. 브로드캐스트로 받은 값이 있으면 그게 최신이다.
+    private var liveHome: Int? { chat.live?.home ?? fixture.liveHome }
+    private var liveAway: Int? { chat.live?.away ?? fixture.liveAway }
+    private var elapsed: Int? { chat.live?.elapsed ?? fixture.elapsed }
+    private var inPlay: Bool { !finished && liveHome != nil && liveAway != nil }
     private var chatState: ChatState { fixture.chat() }
     private var crowd: CrowdLevel { crowdLevel(fixture.participants) }
     private var showCrowd: Bool { fixture.baseline != nil && crowd != .none }
@@ -45,6 +50,7 @@ struct MatchDetailView: View {
                         versus.padding(.horizontal, 20).padding(.top, 10)
                         distribution.padding(.horizontal, 20).padding(.top, 12)
                         myPick.padding(.horizontal, 20)
+                        info.padding(.horizontal, 20)
                         chatHead.padding(.horizontal, 20).padding(.top, 20)
                         chatBody.padding(.top, 4)
                         Color.clear.frame(height: 8).id(bottomAnchor)
@@ -62,7 +68,11 @@ struct MatchDetailView: View {
         .task {
             await chat.start()
             settlement = try? await Repositories.current.loadSettlement(fixtureId: fixture.id)
+            startLiveActivity()
         }
+        .onChange(of: chat.live?.home) { _ in pushLiveActivity() }
+        .onChange(of: chat.live?.away) { _ in pushLiveActivity() }
+        .onChange(of: chat.live?.elapsed) { _ in pushLiveActivity() }
         .onDisappear { chat.stop() }
         .confirmationDialog("이 메시지를 신고할까요?", isPresented: reportingBinding, titleVisibility: .visible) {
             if let m = reporting {
@@ -72,6 +82,40 @@ struct MatchDetailView: View {
                 Button("이 사람 차단", role: .destructive) { Task { await chat.block(m) } }
             }
             Button("취소", role: .cancel) {}
+        }
+    }
+
+    // MARK: Live Activity
+    //
+    // 채팅방에 들어가면 띄우고, 나가도 경기가 끝날 때까지 남긴다 — 앱을 닫아도
+    // 점수를 보는 게 이 기능의 존재 이유다. 그래서 onDisappear 에서 끝내지 않는다.
+
+    private func startLiveActivity() {
+        guard #available(iOS 16.2, *), fixture.chat() == .open else { return }
+        LiveScore.start(fixture: fixture, home: home, away: away, myPick: saved?.pick)
+        pushLiveActivity()
+    }
+
+    private func pushLiveActivity() {
+        guard #available(iOS 16.2, *), let h = liveHome, let a = liveAway else { return }
+        // 내 예측이 지금 맞고 있는지. 예측이 없으면 nil 이고, 위젯도 그 자리를 비운다.
+        let leading: Bool? = saved.map { p in
+            switch p.pick {
+            case .home: return h > a
+            case .draw: return h == a
+            case .away: return a > h
+            }
+        }
+        let status: MatchActivityAttributes.ContentState.Status =
+            finished ? .finished : (chat.live?.state == "FINISHED" ? .finished : .live)
+
+        Task {
+            if status == .finished {
+                await LiveScore.end(fixtureId: fixture.id, home: h, away: a, myPickLeading: leading)
+            } else {
+                await LiveScore.update(fixtureId: fixture.id, home: h, away: a,
+                                       minute: elapsed, status: status, myPickLeading: leading)
+            }
         }
     }
 
@@ -118,16 +162,20 @@ struct MatchDetailView: View {
             HStack(alignment: .top, spacing: 6) {
                 side(home)
                 VStack(spacing: 7) {
-                    Text(finished ? "FT" : "VS")
-                        .font(T.display(10, .heavy)).foregroundStyle(.white)
-                        .padding(.horizontal, 9).padding(.vertical, 4)
-                        .background(T.gradAccent, in: Capsule())
-                    Text(finished
-                         ? "\(fixture.homeGoals ?? 0) : \(fixture.awayGoals ?? 0)"
-                         : Fmt.kickoff(fixture.kickoffAt))
-                        .font(T.num(finished ? 26 : 20, .heavy))
+                    if inPlay {
+                        LivePill()
+                    } else {
+                        Text(finished ? "FT" : "VS")
+                            .font(T.display(10, .heavy)).foregroundStyle(.white)
+                            .padding(.horizontal, 9).padding(.vertical, 4)
+                            .background(T.gradAccent, in: Capsule())
+                    }
+                    Text(scoreLine)
+                        .font(T.num(finished || inPlay ? 26 : 20, .heavy))
                         .lineLimit(1).minimumScaleFactor(0.7)
-                    Text(finished ? "경기 종료" : "킥오프")
+                    Text(finished ? "경기 종료"
+                         : inPlay ? (elapsed.map { "\($0)분 진행" } ?? "진행 중")
+                         : "킥오프")
                         .font(T.body(11)).foregroundStyle(T.ink3)
                 }
                 .padding(.horizontal, 4)
@@ -138,6 +186,12 @@ struct MatchDetailView: View {
         .padding(16)
         .background(T.card, in: RoundedRectangle(cornerRadius: 22))
         .shadow(color: .black.opacity(0.10), radius: 14, y: 6)
+    }
+
+    private var scoreLine: String {
+        if finished { return "\(fixture.homeGoals ?? 0) : \(fixture.awayGoals ?? 0)" }
+        if inPlay { return "\(liveHome ?? 0) : \(liveAway ?? 0)" }
+        return Fmt.kickoff(fixture.kickoffAt)
     }
 
     private var leagueLine: String {
@@ -266,6 +320,20 @@ struct MatchDetailView: View {
         .frame(maxWidth: .infinity)
         .background(win ? AnyShapeStyle(T.gradAccent) : AnyShapeStyle(T.ink2),
                     in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    // MARK: 곁들이 정보
+
+    @ViewBuilder private var info: some View {
+        VStack(spacing: 12) {
+            EventTimeline(events: chat.info.events, homeTeamId: fixture.homeTeamId)
+            MatchStatsView(stats: chat.info.stats, homeTeamId: fixture.homeTeamId)
+            LineupsView(lineups: chat.info.lineups, homeTeamId: fixture.homeTeamId)
+            if let h2h = chat.info.h2h {
+                HeadToHeadView(h2h: h2h, homeTeamId: fixture.homeTeamId, awayTeamId: fixture.awayTeamId)
+            }
+        }
+        .padding(.top, 12)
     }
 
     // MARK: 채팅

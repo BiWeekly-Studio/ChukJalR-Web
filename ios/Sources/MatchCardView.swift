@@ -95,6 +95,9 @@ struct MatchCardView: View {
         if let r = fixture.round { parts[0] += " \(r)R" }
         if phase == .finished, let h = fixture.homeGoals, let a = fixture.awayGoals {
             parts.append("종료 \(h) : \(a)")
+        } else if let h = fixture.liveHome, let a = fixture.liveAway {
+            // 진행 중이면 경기장·킥오프 대신 지금 점수를 보여준다. 그게 더 궁금하다.
+            parts.append(fixture.elapsed.map { "\($0)' \(h) : \(a)" } ?? "\(h) : \(a)")
         } else {
             if let v = fixture.venue { parts.append(v) }
             parts.append(Fmt.kickoff(fixture.kickoffAt))

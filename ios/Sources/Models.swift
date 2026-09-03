@@ -42,6 +42,11 @@ struct Fixture: Identifiable, Codable {
     let homeGoals: Int?
     let awayGoals: Int?
     let result: Outcome?
+    /// 진행 중 점수. 표시 전용이다 — 정산은 오직 homeGoals/awayGoals(정규 결과)만 본다.
+    let liveHome: Int?
+    let liveAway: Int?
+    /// 경과 분. 하프타임에는 45 에서 멈춘다
+    let elapsed: Int?
 
     /// 지금 매치데이에 속한 경기인지.
     ///
@@ -67,6 +72,88 @@ struct Fixture: Identifiable, Codable {
         if now >= lockAt { return .locked }
         return .open
     }
+}
+
+// MARK: - 경기 부가 정보
+
+struct MatchEvent: Identifiable, Equatable {
+    let seq: Int
+    let minute: Int?
+    let extra: Int?
+    let teamId: Int?
+    /// Goal | Card | subst | Var
+    let type: String
+    let detail: String?
+    let player: String?
+    let assist: String?
+
+    var id: Int { seq }
+
+    var minuteLabel: String {
+        guard let minute else { return "" }
+        return extra.map { "\(minute)+\($0)'" } ?? "\(minute)'"
+    }
+
+    /// 화면에 그릴 표시. 아는 종류만 그리고, 모르는 건 통째로 건너뛴다.
+    var mark: String? {
+        let d = (detail ?? "").lowercased()
+        switch type {
+        case "Goal": return d.contains("missed") ? "✖" : "⚽"
+        case "Card": return d.contains("red") ? "🟥" : "🟨"
+        case "subst": return "↔"
+        default: return nil
+        }
+    }
+}
+
+struct LineupPlayer: Equatable {
+    let name: String?
+    let number: Int?
+    let pos: String?
+}
+
+struct Lineup: Identifiable, Equatable {
+    let teamId: Int
+    let formation: String?
+    let coach: String?
+    let starters: [LineupPlayer]
+    let bench: [LineupPlayer]
+
+    var id: Int { teamId }
+}
+
+struct H2HMatch: Identifiable, Equatable {
+    let date: Date?
+    let homeId: Int
+    let awayId: Int
+    let hg: Int?
+    let ag: Int?
+
+    var id: String { "\(homeId)-\(awayId)-\(date?.timeIntervalSince1970 ?? 0)" }
+}
+
+struct HeadToHead: Equatable {
+    let played: Int
+    let homeWins: Int
+    let draws: Int
+    let awayWins: Int
+    let recent: [H2HMatch]
+}
+
+struct TeamStats: Identifiable, Equatable {
+    let teamId: Int
+    /// API 가 주는 이름을 그대로 쓴다 ("Ball Possession" 등)
+    let stats: [String: String]
+
+    var id: Int { teamId }
+}
+
+/// 경기 상세가 한 번에 받아오는 묶음. 없는 항목은 빈 값이다.
+struct MatchDetailData: Equatable {
+    var events: [MatchEvent] = []
+    var lineups: [Lineup] = []
+    var h2h: HeadToHead?
+    var stats: [TeamStats] = []
 }
 
 // MARK: - 채팅

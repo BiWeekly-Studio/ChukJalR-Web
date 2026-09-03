@@ -18,6 +18,8 @@ protocol Repository {
     func saveOnboarding(leagueOrder: [Int], favoriteTeamIds: [Int]) async throws
 
     // 경기 상세
+    /// 이벤트·선발명단·상대전적·기록. 없는 항목은 빈 값이다.
+    func loadMatchDetail(fixtureId: Int) async throws -> MatchDetailData
     func loadChat(fixtureId: Int) async throws -> [ChatMessage]
     func sendChat(fixtureId: Int, body: String) async throws
     /// 신고 3건이 쌓이면 서버가 자동으로 가리고 검토 큐로 넘긴다 (명세 10장)
@@ -35,6 +37,7 @@ struct SupabaseRepository: Repository {
         let horizon = ISO8601DateFormatter().string(from: Date().addingTimeInterval(14 * 86400))
         async let fixturesData = Supabase.shared.get(
             "fixtures?select=id,league_id,round,home_team_id,away_team_id,venue,kickoff_at,opens_at,lock_at,state,home_goals_ft,away_goals_ft,result"
+            + ",home_goals_live,away_goals_live,elapsed"
             + "&kickoff_at=lte.\(horizon)&state=neq.VOID&order=kickoff_at")
 
         return try Decode.catalog(
@@ -88,6 +91,26 @@ struct SupabaseRepository: Repository {
     }
 
     // MARK: 경기 상세
+
+    func loadMatchDetail(fixtureId: Int) async throws -> MatchDetailData {
+        // 네 개를 병렬로. 하나가 없어도 나머지는 보여야 하므로 실패를 삼킨다 —
+        // 경기 상세의 핵심은 예측과 채팅이고, 이건 곁들이는 정보다.
+        async let events = try? Supabase.shared.get(
+            "fixture_events?select=seq,minute,extra,team_id,type,detail,player,assist"
+            + "&fixture_id=eq.\(fixtureId)&order=seq")
+        async let lineups = try? Supabase.shared.get(
+            "fixture_lineups?select=team_id,formation,coach,starters,bench&fixture_id=eq.\(fixtureId)")
+        async let h2h = try? Supabase.shared.get(
+            "fixture_h2h?select=played,home_wins,draws,away_wins,recent&fixture_id=eq.\(fixtureId)")
+        async let stats = try? Supabase.shared.get(
+            "fixture_stats?select=team_id,stats&fixture_id=eq.\(fixtureId)")
+
+        return MatchDetailData(
+            events: await events.map(Decode.events) ?? [],
+            lineups: await lineups.map(Decode.lineups) ?? [],
+            h2h: await h2h.flatMap(Decode.h2h),
+            stats: await stats.map(Decode.stats) ?? [])
+    }
 
     func loadChat(fixtureId: Int) async throws -> [ChatMessage] {
         let me = await Supabase.shared.currentUser?.id

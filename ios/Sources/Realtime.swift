@@ -25,16 +25,30 @@ actor RealtimeChannel {
     private var heartbeat: Task<Void, Never>?
     private var closed = false
 
+    /// 진행 중 점수
+    struct Live {
+        let home: Int?
+        let away: Int?
+        let elapsed: Int?
+        let state: String
+    }
+
     private let onMessage: @Sendable (Incoming) -> Void
     private let onPresence: @Sendable (Int) -> Void
+    private var onLive: (@Sendable (Live) -> Void)?
+    private var onEvent: (@Sendable ([String: Any]) -> Void)?
 
     /// - Parameter channel: 서버가 쓰는 채널 이름 그대로 ("match:123")
     init(channel: String,
          onMessage: @escaping @Sendable (Incoming) -> Void,
-         onPresence: @escaping @Sendable (Int) -> Void) {
+         onPresence: @escaping @Sendable (Int) -> Void,
+         onLive: (@Sendable (Live) -> Void)? = nil,
+         onEvent: (@Sendable ([String: Any]) -> Void)? = nil) {
         self.topic = "realtime:" + channel
         self.onMessage = onMessage
         self.onPresence = onPresence
+        self.onLive = onLive
+        self.onEvent = onEvent
     }
 
     func connect(accessToken: String?) {
@@ -152,9 +166,21 @@ actor RealtimeChannel {
 
         switch event {
         case "broadcast":
-            guard payload["event"] as? String == "chat.message",
+            guard let name = payload["event"] as? String,
                   let body = payload["payload"] as? [String: Any] else { return }
-            if let m = Self.message(from: body) { onMessage(m) }
+            switch name {
+            case "chat.message":
+                if let m = Self.message(from: body) { onMessage(m) }
+            case "match.live":
+                onLive?(Live(home: body["home"] as? Int,
+                             away: body["away"] as? Int,
+                             elapsed: body["elapsed"] as? Int,
+                             state: body["state"] as? String ?? "LIVE"))
+            case "match.event":
+                onEvent?(body)
+            default:
+                break
+            }
 
         case "presence_state":
             // 붙자마자 오는 전체 상태. 여기서 기준을 잡는다.
