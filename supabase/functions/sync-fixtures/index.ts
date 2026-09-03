@@ -7,13 +7,18 @@
  *   ?mode=teams      시즌 시작 및 월 1회. 팀 카탈로그.                  4회
  *   ?mode=results    10분마다. 단, 지금 열려 있고 아직 안 끝난 경기가
  *                    있을 때만 호출한다. 없으면 API를 아예 부르지 않는다. 0~2회
+ *   ?mode=priors     주 1회. 순위표로 팀 전력을 재고 경기별 기준 확률을 만든다. 4회
+ *   ?mode=status     수동. 요금제와 남은 호출량을 확인한다.               1회
  *
  * results 모드는 폴링할 경기 id 를 DB 에서 먼저 뽑아 `?ids=` 로 정확히 그것만
  * 요청한다. 리그 전체나 날짜 전체를 훑지 않으므로 응답도 작고 호출도 적다.
  *
  * 주간 예산 (유럽 주말 기준)
- *   일정 4 + 팀 1 + 결과 폴링 약 220  ≈ 225회/주  ≈ 32회/일
- *   → 무료 플랜(100회/일)으로도 운영 가능하다.
+ *   일정 4 + 팀 1 + 기준확률 4 + 결과 폴링 약 200  ≈ 210회/주  ≈ 30회/일
+ *
+ * 지금 계정은 Pro(7,500회/일)라 이 정도는 여유가 많다. 그래도 필요 없는 호출은
+ * 하지 않는다 — 남는 한도는 라이브 스코어나 배당 같은, 실제로 값을 더하는 쪽에 쓴다.
+ * 요금제와 잔여량은 ?mode=status 로 확인한다.
  */
 
 const API_BASE = 'https://v3.football.api-sports.io';
@@ -140,6 +145,145 @@ async function syncResults(sb: Db, a: Api) {
   return { updated, skipped: false };
 }
 
+/* ------------------------------------------------------------------ 기준 확률 */
+
+/**
+ * 순위표 한 장으로 팀 전력을 재고, 경기별 승/무/패 기준 확률을 만든다.
+ *
+ * 왜 필요한가: 기준선이 없으면 모든 경기가 같은 값(0.45/0.26/0.29)을 쓴다.
+ * 그러면 강팀의 홈 경기를 맞혀도, 약체의 원정 승을 맞혀도 점수가 같아진다 —
+ * 로그 스코어가 실력을 재지 못한다.
+ *
+ * 모델은 독립 포아송이다. 팀마다 공격력·수비력을 리그 평균 대비 배수로 재고
+ *   λ_home = 공격(홈) × 수비(원정) × 리그 홈 평균 득점
+ *   λ_away = 공격(원정) × 수비(홈)  × 리그 원정 평균 득점
+ * 두 포아송의 격자를 더해 P(승/무/패)를 얻는다.
+ *
+ * 시즌 초에는 표본이 서너 경기뿐이라 그대로 쓰면 튄다. 두 군데를 모두 끌어당겨야 한다.
+ *
+ * 1) 팀 배수 — 경기 수로 리그 평균(=1) 쪽에. 4경기 치른 팀은 배수의 40%만 반영된다.
+ * 2) 리그 홈/원정 평균 — 이걸 빼먹으면 2라운드짜리 표본이 그대로 홈 어드밴티지가 된다.
+ *    실제로 분데스리가가 홈 1.67골 / 원정 0.67골로 잡혀 홈 승률 87% 같은 값이 나왔다.
+ *    팀 배수는 이 평균에 곱해지므로, 여기가 틀어지면 리그 전체가 같이 틀어진다.
+ */
+const PRIOR_SHRINK = 6;      // 이 경기 수에서 팀 고유값과 리그 평균이 반반 섞인다
+const LEAGUE_SHRINK = 150;   // 리그 평균이 자리잡는 데 필요한 경기 수 (약 반 시즌)
+const LEAGUE_BASE_HOME = 1.55;  // 유럽 5대 리그의 장기 평균 (경기당 홈 득점)
+const LEAGUE_BASE_AWAY = 1.25;
+const STRENGTH_MIN = 0.6;    // 표본이 적을 때 한 경기 대승이 배수를 튀게 하는 걸 막는다
+const STRENGTH_MAX = 1.6;
+const MAX_GOALS = 8;         // 포아송 격자 상한. 8골이면 꼬리는 무시해도 된다
+
+interface StandingRow {
+  team: { id: number };
+  all: { played: number; goals: { for: number; against: number } };
+  home: { played: number; goals: { for: number; against: number } };
+  away: { played: number; goals: { for: number; against: number } };
+}
+
+interface Strength {
+  attack: number;
+  defence: number;
+}
+
+function poisson(lambda: number, k: number): number {
+  let p = Math.exp(-lambda);
+  for (let i = 1; i <= k; i++) p = (p * lambda) / i;
+  return p;
+}
+
+/** 두 포아송의 격자를 훑어 승/무/패 확률로 접는다 */
+function outcomeProbabilities(lambdaHome: number, lambdaAway: number): [number, number, number] {
+  const h = Array.from({ length: MAX_GOALS + 1 }, (_, k) => poisson(lambdaHome, k));
+  const a = Array.from({ length: MAX_GOALS + 1 }, (_, k) => poisson(lambdaAway, k));
+  let home = 0, draw = 0, away = 0;
+  for (let i = 0; i <= MAX_GOALS; i++) {
+    for (let j = 0; j <= MAX_GOALS; j++) {
+      const p = h[i] * a[j];
+      if (i > j) home += p;
+      else if (i === j) draw += p;
+      else away += p;
+    }
+  }
+  // 격자 밖으로 샌 확률을 비율대로 되돌린다
+  const sum = home + draw + away;
+  return [home / sum, draw / sum, away / sum];
+}
+
+/** [0.03, 0.94] 로 자르고 합이 1이 되게 맞춘다 (명세 2.2, DB 쪽과 같은 규칙) */
+function normalize(q: [number, number, number]): [number, number, number] {
+  const clamped = q.map((v) => Math.min(0.94, Math.max(0.03, v)));
+  const sum = clamped[0] + clamped[1] + clamped[2];
+  const out = clamped.map((v) => Number((v / sum).toFixed(6)));
+  return [out[0], out[1], 1 - out[0] - out[1]];
+}
+
+async function syncPriors(sb: Db, a: Api, season: number) {
+  let written = 0;
+  const leagues: number[] = [];
+
+  for (const leagueId of LEAGUES) {
+    const { response } = await a.get(`/standings?league=${leagueId}&season=${season}`);
+    const groups = (response as { league: { standings: StandingRow[][] } }[])[0]
+      ?.league?.standings ?? [];
+    const table = groups.flat();
+    // 순위표가 아직 없는 리그(시즌 시작 전)는 건너뛴다. 기본 기준선이 그대로 쓰인다.
+    if (table.length === 0) continue;
+
+    const totalPlayed = table.reduce((n, r) => n + r.all.played, 0);
+    if (totalPlayed === 0) continue;
+
+    // 리그 평균: 팀당 한 경기 득점. 홈/원정을 나눠야 홈 어드밴티지가 모델에 들어간다.
+    const homePlayed = table.reduce((n, r) => n + r.home.played, 0);
+    const awayPlayed = table.reduce((n, r) => n + r.away.played, 0);
+    // 관측값을 장기 평균 쪽으로 끌어당긴다. 2라운드(18경기)면 관측이 11%만 반영된다.
+    const lw = homePlayed / (homePlayed + LEAGUE_SHRINK);
+    const homeObs = homePlayed > 0
+      ? table.reduce((n, r) => n + r.home.goals.for, 0) / homePlayed : LEAGUE_BASE_HOME;
+    const awayObs = awayPlayed > 0
+      ? table.reduce((n, r) => n + r.away.goals.for, 0) / awayPlayed : LEAGUE_BASE_AWAY;
+    const homeAvg = lw * homeObs + (1 - lw) * LEAGUE_BASE_HOME;
+    const awayAvg = lw * awayObs + (1 - lw) * LEAGUE_BASE_AWAY;
+    const leagueAvg = (homeAvg + awayAvg) / 2;
+
+    const strength = new Map<number, Strength>();
+    for (const r of table) {
+      const played = r.all.played;
+      if (played === 0) {
+        strength.set(r.team.id, { attack: 1, defence: 1 });
+        continue;
+      }
+      // 표본이 적을수록 리그 평균(=1) 쪽으로 끌어당긴다
+      const w = played / (played + PRIOR_SHRINK);
+      const clamp = (v: number) => Math.min(STRENGTH_MAX, Math.max(STRENGTH_MIN, v));
+      strength.set(r.team.id, {
+        attack: clamp(1 + (r.all.goals.for / played / leagueAvg - 1) * w),
+        defence: clamp(1 + (r.all.goals.against / played / leagueAvg - 1) * w),
+      });
+    }
+
+    const fixtures = await sb.upcomingFixtures(leagueId);
+    const rows = fixtures.flatMap((f) => {
+      const home = strength.get(f.home_team_id);
+      const away = strength.get(f.away_team_id);
+      // 순위표에 없는 팀(승격·컵 소속 등)은 지어내지 않고 건너뛴다
+      if (!home || !away) return [];
+      const q = normalize(outcomeProbabilities(
+        home.attack * away.defence * homeAvg,
+        away.attack * home.defence * awayAvg));
+      return [{ fixture_id: f.id, q }];
+    });
+
+    if (rows.length) {
+      await sb.upsert('fixture_priors', rows, 'fixture_id');
+      written += rows.length;
+      leagues.push(leagueId);
+    }
+  }
+
+  return { priors: written, leagues };
+}
+
 /* ------------------------------------------------------------------ 데모 */
 
 /**
@@ -219,9 +363,16 @@ async function finishDemo(sb: Db, a: Api, season: number) {
 /* ------------------------------------------------------------------ DB */
 
 interface Db {
-  upsert(table: string, rows: unknown[]): Promise<void>;
+  upsert(table: string, rows: unknown[], conflict?: string): Promise<void>;
   pendingFixtureIds(): Promise<number[]>;
   demoFixtureIds(): Promise<number[]>;
+  upcomingFixtures(leagueId: number): Promise<UpcomingFixture[]>;
+}
+
+interface UpcomingFixture {
+  id: number;
+  home_team_id: number;
+  away_team_id: number;
 }
 
 function db(url: string, serviceKey: string): Db {
@@ -232,8 +383,8 @@ function db(url: string, serviceKey: string): Db {
   };
 
   return {
-    async upsert(table, rows) {
-      const res = await fetch(`${url}/rest/v1/${table}?on_conflict=id`, {
+    async upsert(table, rows, conflict = 'id') {
+      const res = await fetch(`${url}/rest/v1/${table}?on_conflict=${conflict}`, {
         method: 'POST',
         headers: { ...headers, Prefer: 'resolution=merge-duplicates,return=minimal' },
         body: JSON.stringify(rows),
@@ -259,6 +410,16 @@ function db(url: string, serviceKey: string): Db {
       const res = await fetch(`${url}/rest/v1/fixtures?${q}`, { headers });
       if (!res.ok) throw new Error(`pending ${res.status}: ${await res.text()}`);
       return ((await res.json()) as { id: number }[]).map((r) => r.id);
+    },
+
+    /** 아직 안 끝난 경기. 기준 확률을 다시 계산할 대상이다. */
+    async upcomingFixtures(leagueId) {
+      const q =
+        `select=id,home_team_id,away_team_id&league_id=eq.${leagueId}` +
+        `&state=in.(SCHEDULED,LIVE)&order=kickoff_at&limit=400`;
+      const res = await fetch(`${url}/rest/v1/fixtures?${q}`, { headers });
+      if (!res.ok) throw new Error(`upcoming ${res.status}: ${await res.text()}`);
+      return (await res.json()) as UpcomingFixture[];
     },
 
     /** 데모로 심어둔, 아직 결과가 없는 경기 */
@@ -307,6 +468,17 @@ Deno.serve(async (req: Request) => {
     if (mode === 'schedule') {
       const n = await syncSchedule(sb, a, season);
       return Response.json({ ok: true, mode, season, fixtures: n, apiCalls: a.calls });
+    }
+
+    // 요금제로 열리는 엔드포인트와 남은 호출량이 다르다. 추측하지 말고 물어본다.
+    if (mode === 'status') {
+      const { response } = await a.get('/status');
+      return Response.json({ ok: true, mode, status: response, apiCalls: a.calls });
+    }
+
+    if (mode === 'priors') {
+      const r = await syncPriors(sb, a, season);
+      return Response.json({ ok: true, mode, season, ...r, apiCalls: a.calls });
     }
 
     if (mode === 'demo') {
