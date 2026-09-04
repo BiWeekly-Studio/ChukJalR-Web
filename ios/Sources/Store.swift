@@ -137,6 +137,7 @@ final class Store: ObservableObject {
                     // 확정 연출이 끝난 뒤에 뜨게 한다
                     try? await Task.sleep(nanoseconds: 1_400_000_000)
                     await Notifications.requestPermission()
+                    await PushRegistration.shared.registerIfAllowed()
                 }
                 await scheduleReminders()
             } catch {

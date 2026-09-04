@@ -425,3 +425,7 @@ verify_jwt = false
 # 토스 로그인 브리지. 로그인 전에 부르는 것이라 세션이 없다.
 [functions.toss-login]
 verify_jwt = false
+
+# 정산 결과 푸시. 크론이 pg_net 으로 부르므로 Authorization 헤더를 실을 수 없다.
+[functions.push-settlements]
+verify_jwt = false

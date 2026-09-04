@@ -155,8 +155,14 @@ final class NotificationRouter: NSObject, UNUserNotificationCenterDelegate {
 
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                didReceive response: UNNotificationResponse) async {
-        if let id = response.notification.request.content.userInfo["fixtureId"] as? Int {
+        let info = response.notification.request.content.userInfo
+        // 로컬 알림은 경기 id 를, 서버 푸시(정산 결과)는 예측 id 를 실어 보낸다.
+        if let id = info["fixtureId"] as? Int {
             onOpen(id)
+        } else if let predictionId = info["predictionId"] as? Int,
+                  let fixtureId = try? await Repositories.current
+                    .fixtureId(forPrediction: predictionId) {
+            onOpen(fixtureId)
         }
     }
 

@@ -39,6 +39,7 @@ struct NotificationSettingsCard: View {
                 Button {
                     Task {
                         await Notifications.requestPermission()
+                        await PushRegistration.shared.registerIfAllowed()
                         await refresh()
                         await store.scheduleReminders()
                         await refresh()

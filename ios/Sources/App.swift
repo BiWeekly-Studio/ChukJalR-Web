@@ -5,6 +5,8 @@ struct ChukjalalApp: App {
     @StateObject private var auth = Auth()
     @StateObject private var store = Store()
     @StateObject private var router = Router()
+    /// 원격 알림 등록 결과는 AppDelegate 로만 온다
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     /// 알림 델리게이트는 화면이 그려지기 전에 붙어 있어야 한다 — 알림으로 앱을
     /// 열면 SwiftUI 보다 콜백이 먼저 온다.
     @State private var notifications: NotificationRouter?
@@ -23,6 +25,7 @@ struct ChukjalalApp: App {
                         }
                     }
                     await auth.restore()
+                    await PushRegistration.shared.registerIfAllowed()
                 }
                 .onOpenURL { router.handle($0) }
         }

@@ -30,6 +30,8 @@ protocol Repository {
 
     /// 내가 한 예측과 그 결말. 최근 것부터.
     func loadHistory() async throws -> [PredictionRecord]
+    /// 정산 푸시는 예측 id 로 온다. 어느 경기였는지 되찾는다.
+    func fixtureId(forPrediction id: Int) async throws -> Int?
 
     /// 계정 삭제. 되돌릴 수 없다 (App Store 심사 지침 5.1.1(v))
     func deleteAccount() async throws
@@ -190,6 +192,12 @@ struct SupabaseRepository: Repository {
             + "fixtures(home_team_id,away_team_id,league_id,kickoff_at,state,"
             + "home_goals_ft,away_goals_ft,result)"
             + "&user_id=eq.\(uid)&order=fixtures(kickoff_at).desc&limit=100"))
+    }
+
+    func fixtureId(forPrediction id: Int) async throws -> Int? {
+        let data = try await Supabase.shared.get("predictions?select=fixture_id&id=eq.\(id)&limit=1")
+        return ((try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]])?
+            .first?["fixture_id"] as? Int
     }
 
     func deleteAccount() async throws {

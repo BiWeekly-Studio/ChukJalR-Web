@@ -257,6 +257,37 @@ actor Supabase {
         }
     }
 
+    /// APNs 기기 토큰 등록. 같은 토큰이 다시 오면 덮어쓴다.
+    func savePushToken(_ token: String) async throws {
+        guard let uid = session?.user.id else { throw Failure.http(401, "로그인이 필요해요.") }
+        var req = URLRequest(url: URL(string: url + "/rest/v1/push_tokens")!)
+        req.httpMethod = "POST"
+        req.setValue(anonKey, forHTTPHeaderField: "apikey")
+        req.setValue("Bearer \(session?.access_token ?? "")", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("resolution=merge-duplicates,return=minimal", forHTTPHeaderField: "Prefer")
+        req.httpBody = try JSONSerialization.data(withJSONObject: [
+            "token": token, "user_id": uid, "platform": "ios",
+            // 스토어·TestFlight 빌드는 production APNs 를 쓴다. 개발 빌드만 sandbox 다.
+            "environment": Self.apnsEnvironment,
+            "updated_at": ISO8601DateFormatter().string(from: Date()),
+        ])
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(code) else {
+            throw Failure.http(code, Self.tableMessage(from: data))
+        }
+    }
+
+    /// 빌드가 어느 APNs 서버를 쓰는지. embedded.mobileprovision 의 aps-environment 로 가른다.
+    private static var apnsEnvironment: String {
+        #if DEBUG
+        return "sandbox"
+        #else
+        return "production"
+        #endif
+    }
+
     /// 계정 삭제. 서버가 지우고 나면 이 기기의 세션도 함께 버린다.
     /// 남겨두면 다음 실행에서 이미 없는 계정으로 세션을 복구하려 든다.
     func deleteAccount() async throws {
