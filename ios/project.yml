@@ -11,7 +11,7 @@ settings:
     # JalR Company 네임스페이스 — 야잘알은 com.jalr.yajalal 로 간다.
     APP_BUNDLE_ID: com.jalr.chukjalal
     MARKETING_VERSION: "1.0"
-    CURRENT_PROJECT_VERSION: "1"
+    CURRENT_PROJECT_VERSION: "3"
     SWIFT_VERSION: "5.9"
     # 팀 ID 는 ios/.env.local 에서 온다 (저장소에 없음). 시뮬레이터 빌드에는 없어도 된다.
     DEVELOPMENT_TEAM: ${DEVELOPMENT_TEAM}
@@ -49,8 +49,10 @@ targets:
         # 표준 HTTPS 외에 자체 암호화를 쓰지 않는다. 이 키가 없으면 업로드할 때마다
         # 수출 규정 질문에 손으로 답해야 한다.
         ITSAppUsesNonExemptEncryption: false
-        CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "1"
+        # 값을 여기 박으면 빌드 설정(MARKETING_VERSION·CURRENT_PROJECT_VERSION)을
+        # 올려도 Info.plist 는 그대로 남는다. 참조로 두어야 한 곳만 고치면 된다.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSRequiresIPhoneOS: true
         UILaunchScreen: {}
         UIUserInterfaceStyle: Light
@@ -104,6 +106,9 @@ targets:
       path: Widgets/Info.generated.plist
       properties:
         CFBundleDisplayName: 축잘알 경기
+        # 확장의 버전은 앱과 같아야 한다. 다르면 업로드 단계에서 막힌다.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
