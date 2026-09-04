@@ -37,6 +37,18 @@ enum Fmt {
         return "\(c.month!)월 \(c.day!)일 \(time)에 열려요"
     }
 
+    /// "오늘" · "어제" · "9월 2일 화요일" — 기록을 날짜로 묶을 때 쓴다
+    static func dayLabel(_ date: Date) -> String {
+        let cal = Calendar.current
+        if cal.isDateInToday(date) { return "오늘" }
+        if cal.isDateInYesterday(date) { return "어제" }
+        if cal.isDateInTomorrow(date) { return "내일" }
+        let f = DateFormatter(); f.locale = Locale(identifier: "ko_KR")
+        f.dateFormat = cal.isDate(date, equalTo: .now, toGranularity: .year)
+            ? "M월 d일 EEEE" : "yyyy년 M월 d일"
+        return f.string(from: date)
+    }
+
     /// "9월 3일 목요일"
     static func dateHeading(_ date: Date) -> String {
         let f = DateFormatter(); f.locale = Locale(identifier: "ko_KR"); f.dateFormat = "M월 d일 EEEE"

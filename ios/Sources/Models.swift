@@ -195,6 +195,33 @@ enum ReportReason: String, CaseIterable {
     }
 }
 
+/// 내가 한 예측 하나와 그 결말.
+///
+/// 정산 전에는 결과 칸이 비어 있다 — '아직 모른다' 와 '틀렸다' 는 다르므로
+/// 없는 값을 0 으로 채우지 않는다.
+struct PredictionRecord: Identifiable {
+    let id: Int
+    let fixtureId: Int
+    let homeTeamId: Int
+    let awayTeamId: Int
+    let leagueId: Int
+    let kickoffAt: Date
+    let pick: Outcome
+    let confidence: Confidence
+    let state: String
+
+    /// 정규 결과. 아직 안 끝났으면 nil
+    let actual: Outcome?
+    let homeGoals: Int?
+    let awayGoals: Int?
+    /// 정산 결과. 경기가 끝나도 정산 전이면 nil
+    let deltaRating: Int?
+    let points: Int?
+
+    var settled: Bool { deltaRating != nil }
+    var hit: Bool? { actual.map { $0 == pick } }
+}
+
 /// 정산이 끝난 내 예측의 결과. 서버 기록이 유일한 진실이다 (명세 11.1).
 struct Settlement {
     let fixtureId: Int

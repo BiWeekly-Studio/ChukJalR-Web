@@ -28,6 +28,9 @@ protocol Repository {
     /// 정산이 끝난 내 예측의 결과. 아직 정산 전이면 nil
     func loadSettlement(fixtureId: Int) async throws -> Settlement?
 
+    /// 내가 한 예측과 그 결말. 최근 것부터.
+    func loadHistory() async throws -> [PredictionRecord]
+
     /// 계정 삭제. 되돌릴 수 없다 (App Store 심사 지침 5.1.1(v))
     func deleteAccount() async throws
 
@@ -177,6 +180,16 @@ struct SupabaseRepository: Repository {
             "settlements?select=fixture_id,delta_rating,points"
             + "&user_id=eq.\(uid)&fixture_id=eq.\(fixtureId)&limit=1")
         return Decode.settlement(data)
+    }
+
+    func loadHistory() async throws -> [PredictionRecord] {
+        guard let uid = await Supabase.shared.currentUser?.id else { return [] }
+        return Decode.history(try await Supabase.shared.get(
+            "predictions?select=id,fixture_id,pick,confidence,"
+            + "settlements(delta_rating,points),"
+            + "fixtures(home_team_id,away_team_id,league_id,kickoff_at,state,"
+            + "home_goals_ft,away_goals_ft,result)"
+            + "&user_id=eq.\(uid)&order=fixtures(kickoff_at).desc&limit=100"))
     }
 
     func deleteAccount() async throws {

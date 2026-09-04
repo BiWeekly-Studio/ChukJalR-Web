@@ -28,6 +28,28 @@ struct ProfileView: View {
 
                 trend.padding(.horizontal, 20).padding(.top, 12)
 
+                Button { historyOpen = true } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "list.bullet.rectangle")
+                            .font(.system(size: 15)).foregroundStyle(T.accent)
+                            .frame(width: 34, height: 34)
+                            .background(T.accentSoft, in: RoundedRectangle(cornerRadius: 11))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("예측 기록").font(T.display(13, .heavy))
+                            Text("어제 뭘 걸었고 어떻게 끝났는지")
+                                .font(T.body(11)).foregroundStyle(T.ink3)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .bold)).foregroundStyle(T.ink4)
+                    }
+                    .padding(14)
+                    .contentShape(Rectangle())
+                    .background(T.card, in: RoundedRectangle(cornerRadius: 18))
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 20).padding(.top, 12)
+
                 StatTabs(stats: stats,
                          minCalibrationN: minCalibrationN,
                          minFanBiasN: minFanBiasN)
@@ -56,6 +78,7 @@ struct ProfileView: View {
             }
         }
         .background(T.paper)
+        .sheet(isPresented: $historyOpen) { HistoryView().environmentObject(store) }
     }
 
     // MARK: 흐름
@@ -276,6 +299,7 @@ struct ProfileView: View {
         }
     }
 
+    @State private var historyOpen = false
     @State private var editing = false
     @State private var confirmingDelete = false
     @State private var deleting = false

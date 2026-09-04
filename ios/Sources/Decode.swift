@@ -255,4 +255,37 @@ extension Decode {
             return TeamStats(teamId: teamId, stats: out)
         }
     }
+
+    // MARK: 예측 기록
+
+    /// predictions 에 fixtures 와 settlements 를 임베드해서 받은 것을 편다.
+    static func history(_ data: Data) -> [PredictionRecord] {
+        rows(data).compactMap { r in
+            guard let id = r["id"] as? Int,
+                  let pick = (r["pick"] as? String).flatMap(Outcome.init(rawValue:)),
+                  let conf = (r["confidence"] as? Int).flatMap(Confidence.init(rawValue:)),
+                  let f = r["fixtures"] as? [String: Any],
+                  let home = f["home_team_id"] as? Int,
+                  let away = f["away_team_id"] as? Int,
+                  let kickoff = date(f["kickoff_at"] as? String) else { return nil }
+
+            // 정산은 예측당 최대 하나지만, PostgREST 는 관계에 따라 배열로도 준다
+            let s = (r["settlements"] as? [String: Any])
+                ?? (r["settlements"] as? [[String: Any]])?.first
+
+            return PredictionRecord(
+                id: id,
+                fixtureId: r["fixture_id"] as? Int ?? 0,
+                homeTeamId: home, awayTeamId: away,
+                leagueId: f["league_id"] as? Int ?? 0,
+                kickoffAt: kickoff,
+                pick: pick, confidence: conf,
+                state: f["state"] as? String ?? "SCHEDULED",
+                actual: (f["result"] as? String).flatMap(Outcome.init(rawValue:)),
+                homeGoals: f["home_goals_ft"] as? Int,
+                awayGoals: f["away_goals_ft"] as? Int,
+                deltaRating: s?["delta_rating"] as? Int,
+                points: s?["points"] as? Int)
+        }
+    }
 }
