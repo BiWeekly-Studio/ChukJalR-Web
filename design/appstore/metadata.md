@@ -73,28 +73,20 @@ EPL,프리미어리그,라리가,분데스리가,세리에A,해외축구,축구�
 ## 지원 URL (필수)
 
 ```
-https://<배포도메인>/support.html
+https://biweekly-studio.github.io/ChukJalR-Web/support.html
 ```
 
 페이지는 `public/support.html` 에 만들어 뒀다 — 문의 메일, 점수 규칙, 예측 마감,
 순위 조건, 채팅 시간, 닉네임 변경, 계정 삭제, 신고·차단, 그리고 "현금 베팅 없음"까지
 심사자가 확인할 것들이 다 들어 있다.
 
-**아직 웹이 배포돼 있지 않다.** 이 URL 이 열리지 않으면 제출이 막히므로 먼저 올려야
-한다. 가장 빠른 길:
-
-```
-npm run build
-npx vercel deploy --prod dist
-```
-
-Vercel 무료 플랜이면 `chukjalal.vercel.app` 같은 주소가 바로 나온다. 나중에 도메인을
-사면 그때 바꿔도 되고, 심사 중에 바꿔도 문제되지 않는다.
+GitHub Pages 로 배포돼 있고 열리는 것을 확인했다. 나중에 도메인을 사면 그때
+바꿔도 되고, 심사 중에 바꿔도 문제되지 않는다.
 
 ## 개인정보 처리방침 URL (필수)
 
 ```
-https://<배포도메인>/privacy.html
+https://biweekly-studio.github.io/ChukJalR-Web/privacy.html
 ```
 
 페이지는 `public/privacy.html` 에 있다. 지원 URL 과 같은 배포에 함께 올라간다.
@@ -102,9 +94,12 @@ https://<배포도메인>/privacy.html
 
 ## 마케팅 URL (선택)
 
-**비워둔다.** 홍보용 랜딩 페이지가 실제로 있을 때만 넣는 자리다. 지원 URL 과 같은
-주소를 넣거나 빈 페이지를 가리키면 심사자가 열어보고 지적한다. 나중에 소개
-페이지를 만들면 그때 채우면 된다.
+```
+https://biweekly-studio.github.io/ChukJalR-Web/
+```
+
+랜딩 페이지 소스는 `landing/` 이고 push 하면 자동으로 배포된다
+(`.github/workflows/pages.yml`).
 
 ## 저작권
 
@@ -192,8 +187,8 @@ Apple로 로그인 또는 Google로 로그인만 지원합니다. 심사자님�
 
 ## 제출 전 확인
 
-- [ ] 개인정보 처리방침 URL 이 실제로 열리는지
-- [ ] 지원 URL 이 실제로 열리는지
+- [x] 개인정보 처리방침 URL 이 실제로 열리는지
+- [x] 지원 URL 이 실제로 열리는지
 - [ ] 스크린샷 6.9인치 (`./ios/screenshots.sh` → `design/appstore/`)
 - [ ] 실기기에서 Apple 로그인 확인 (시뮬레이터에서는 애드혹 서명 때문에 안 된다)
 - [ ] Supabase 대시보드에서 Anonymous sign-ins 끄기
