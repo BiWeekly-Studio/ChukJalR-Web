@@ -308,4 +308,9 @@ struct BadgeDef: Identifiable {
     /// 1 같은 값을 넣으면 '0/1' 이라는 없는 진행도가 생긴다.
     let target: Int?
     var earned: Bool { target.map { progress >= $0 } ?? false }
+    /// 0~1. 목표를 모르면 0 — 진행도를 지어내지 않는다.
+    var closeness: Double {
+        guard let target, target > 0 else { return 0 }
+        return min(1, Double(progress) / Double(target))
+    }
 }

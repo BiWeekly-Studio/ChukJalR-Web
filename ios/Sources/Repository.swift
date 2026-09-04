@@ -196,8 +196,14 @@ struct SupabaseRepository: Repository {
     }
 
     func loadBadges() async throws -> [BadgeDef] {
-        Decode.badges(try await Supabase.shared.get(
+        let all = Decode.badges(try await Supabase.shared.get(
             "badge_definitions?select=id,name,tier,user_badges(progress,target)&active=eq.true"))
+        // 받은 것 먼저, 그다음은 받기까지 가까운 순. 화면에는 여덟 개만 보이므로
+        // 순서를 두지 않으면 손에 안 닿는 뱃지만 뜨는 일이 생긴다.
+        return all.sorted { a, b in
+            if a.earned != b.earned { return a.earned }
+            return a.closeness > b.closeness
+        }
     }
 }
 
