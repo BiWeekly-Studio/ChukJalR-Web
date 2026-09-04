@@ -11,3 +11,6 @@ design/canvas/chukjalal-prediction-game.html
 *.p8
 *.p12
 *.mobileprovision
+
+# Supabase CLI 가 만드는 로컬 상태. 저장소에 있을 이유가 없다.
+supabase/.temp
