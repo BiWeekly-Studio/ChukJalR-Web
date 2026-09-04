@@ -68,6 +68,7 @@ final class Store: ObservableObject {
             ranking = (try? await repo.loadRanking()) ?? []
             stats = (try? await repo.loadMyStats()) ?? MyStats()
             badges = (try? await repo.loadBadges()) ?? []
+            await scheduleReminders()
         } catch {
             self.error = error.localizedDescription
             loadFailed = true
@@ -75,11 +76,13 @@ final class Store: ObservableObject {
         ready = true
     }
 
-    /// 마감 임박 알림 재예약. 예측이 바뀔 때마다 다시 깐다.
+    /// 알림 재예약. 예측·최애 팀·일정이 바뀌면 기존 예약이 어긋나므로 통째로 다시 깐다.
     func scheduleReminders() async {
-        await Notifications.scheduleLockReminders(
-            fixtures: fixtures.filter { $0.window() == .open },
+        await Notifications.reschedule(
+            // 지난 경기는 뺀다. 예약 상한(64)이 있어서 자리를 낭비하면 안 된다.
+            fixtures: fixtures.filter { $0.kickoffAt > .now },
             predicted: Set(predictions.keys),
+            isFavorite: { [weak self] in self?.isFavorite($0) ?? false },
             teamName: { [weak self] in self?.team($0).name ?? "" })
     }
 
@@ -128,6 +131,13 @@ final class Store: ObservableObject {
         Task {
             do {
                 try await repo.upsertPrediction(fixtureId: f.id, pick: pick, confidence: confidence)
+                // 권한은 첫 예측 직후에 묻는다. 앱을 켜자마자 물으면 무슨 알림인지
+                // 모르는 채로 거절하고, 한 번 거절하면 앱 안에서 되돌릴 수 없다.
+                if await Notifications.canAsk {
+                    // 확정 연출이 끝난 뒤에 뜨게 한다
+                    try? await Task.sleep(nanoseconds: 1_400_000_000)
+                    await Notifications.requestPermission()
+                }
                 await scheduleReminders()
             } catch {
                 predictions[f.id] = previous     // 되돌린다

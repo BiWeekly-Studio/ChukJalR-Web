@@ -3,6 +3,7 @@ import SwiftUI
 /// 예측 홈. 앱을 열면 가장 먼저 보이는 화면이다.
 struct PredictView: View {
     @EnvironmentObject var store: Store
+    @EnvironmentObject var router: Router
     @State private var tab: Int?
     /// 경기 상세는 별도 탭이 아니라 이 화면 위에 덮인다 — 채팅이 경기에 속하기 때문이다
     @State private var opened: Fixture?
@@ -56,6 +57,17 @@ struct PredictView: View {
         .fullScreenCover(item: $opened) { f in
             MatchDetailView(fixture: f).environmentObject(store)
         }
+        // 알림이나 링크로 들어온 경기를 연다. 목록에 없으면(지난 경기 등) 조용히 넘긴다.
+        .onChange(of: router.pendingFixtureId) { id in openPending(id) }
+        .onAppear { openPending(router.pendingFixtureId) }
+    }
+
+    private func openPending(_ id: Int?) {
+        guard let id, let f = store.fixtures.first(where: { $0.id == id }) else { return }
+        // 그 경기가 속한 리그로 옮겨야 뒤로 나왔을 때 화면이 어긋나지 않는다
+        tab = f.leagueId
+        opened = f
+        router.pendingFixtureId = nil
     }
 
     private var header: some View {

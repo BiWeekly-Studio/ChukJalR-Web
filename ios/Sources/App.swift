@@ -4,13 +4,27 @@ import SwiftUI
 struct ChukjalalApp: App {
     @StateObject private var auth = Auth()
     @StateObject private var store = Store()
+    @StateObject private var router = Router()
+    /// 알림 델리게이트는 화면이 그려지기 전에 붙어 있어야 한다 — 알림으로 앱을
+    /// 열면 SwiftUI 보다 콜백이 먼저 온다.
+    @State private var notifications: NotificationRouter?
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(auth)
                 .environmentObject(store)
-                .task { await auth.restore() }
+                .environmentObject(router)
+                .task {
+                    if notifications == nil {
+                        let r = router
+                        notifications = NotificationRouter { id in
+                            Task { @MainActor in r.open(fixtureId: id) }
+                        }
+                    }
+                    await auth.restore()
+                }
+                .onOpenURL { router.handle($0) }
         }
     }
 }
@@ -68,7 +82,7 @@ struct LoadFailedView: View {
 /// 하단 탭. 채팅은 별도 탭이 아니다 — 경기에 들어가야 나온다.
 struct HomeView: View {
     @EnvironmentObject var store: Store
-    @State private var tab = 0
+    @EnvironmentObject var router: Router
     @State private var showTour = !Tour.seen
 
     var body: some View {
@@ -77,7 +91,7 @@ struct HomeView: View {
                 VStack { PlateLogo(width: 190) }
                     .frame(maxWidth: .infinity, maxHeight: .infinity).background(T.paper)
             } else {
-                switch tab {
+                switch router.tab {
                 case 0: PredictView()
                 case 1: RankingView()
                 case 2: ProfileView()
@@ -86,7 +100,7 @@ struct HomeView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity).background(T.paper)
                 }
             }
-            TabBar(selection: $tab).tour("nav")
+            TabBar(selection: $router.tab).tour("nav")
         }
         .background(T.paper)
         .ignoresSafeArea(.keyboard)
@@ -95,7 +109,7 @@ struct HomeView: View {
             GeometryReader { space in
                 // 코치마크는 첫 실행에, 예측 탭에서만. 화면 전체를 덮으므로
                 // 온보딩이 끝나고 데이터가 다 온 뒤에 띄운다.
-                if showTour, tab == 0, store.ready {
+                if showTour, router.tab == 0, store.ready {
                     Coachmarks(anchors: anchors, space: space) { showTour = false }
                 }
             }

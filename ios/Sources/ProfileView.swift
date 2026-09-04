@@ -45,6 +45,10 @@ struct ProfileView: View {
                     }
                 }
 
+                NotificationSettingsCard()
+                    .environmentObject(store)
+                    .padding(.horizontal, 20).padding(.top, 12)
+
                 chatPolicy.padding(.horizontal, 20).padding(.top, 24)
                 accountCard.padding(.horizontal, 20).padding(.top, 24)
                 deleteRow.frame(maxWidth: .infinity)
