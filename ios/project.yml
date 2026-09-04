@@ -70,6 +70,9 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID)
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # 아이폰 전용. 아이패드에서도 돌게 두면 심사에서 아이패드 화면까지 보고,
+        # 세로 한 컬럼으로 짠 레이아웃이 큰 화면에서 허전하다는 지적을 받는다.
+        TARGETED_DEVICE_FAMILY: "1"
         # Xcode 는 시뮬레이터 빌드를 언제나 애드혹으로 서명하고, 애드혹에는
         # applesignin 같은 제한 entitlement 를 실을 수 없다.
         #   붙이면 → 앱이 실행조차 안 됨 (SpringBoard 거부)
@@ -107,3 +110,5 @@ targets:
       base:
         # 위젯 번들 ID 는 앱 번들 ID 로 시작해야 한다
         PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).widgets
+        # 확장은 앱과 같은 기기 계열이어야 한다. 어긋나면 설치 단계에서 막힌다.
+        TARGETED_DEVICE_FAMILY: "1"
