@@ -74,6 +74,26 @@ struct Fixture: Identifiable, Codable {
     }
 }
 
+// MARK: - 리그 순위표
+
+struct StandingRow: Identifiable, Equatable {
+    let leagueId: Int
+    let teamId: Int
+    let rank: Int
+    let points: Int
+    let played: Int
+    let win: Int
+    let draw: Int
+    let lose: Int
+    let goalsFor: Int
+    let goalsAgainst: Int
+    let goalDiff: Int
+    /// 최근 5경기 "WWDLW". API 가 준 그대로 — 우리가 다시 세지 않는다.
+    let form: String?
+
+    var id: Int { teamId }
+}
+
 // MARK: - 경기 부가 정보
 
 struct MatchEvent: Identifiable, Equatable {

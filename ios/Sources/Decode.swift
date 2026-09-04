@@ -288,4 +288,22 @@ extension Decode {
                 points: s?["points"] as? Int)
         }
     }
+
+    // MARK: 리그 순위표
+
+    static func standings(_ data: Data) -> [StandingRow] {
+        rowsPublic(data).compactMap { r in
+            guard let league = r["league_id"] as? Int,
+                  let team = r["team_id"] as? Int,
+                  let rank = r["rank"] as? Int else { return nil }
+            func n(_ k: String) -> Int { r[k] as? Int ?? 0 }
+            return StandingRow(
+                leagueId: league, teamId: team, rank: rank,
+                points: n("points"), played: n("played"),
+                win: n("win"), draw: n("draw"), lose: n("lose"),
+                goalsFor: n("goals_for"), goalsAgainst: n("goals_against"),
+                goalDiff: n("goal_diff"),
+                form: r["form"] as? String)
+        }
+    }
 }

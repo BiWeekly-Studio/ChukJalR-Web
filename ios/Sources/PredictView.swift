@@ -7,6 +7,7 @@ struct PredictView: View {
     @State private var tab: Int?
     /// 경기 상세는 별도 탭이 아니라 이 화면 위에 덮인다 — 채팅이 경기에 속하기 때문이다
     @State private var opened: Fixture?
+    @State private var standingsOpen = false
 
     private var activeLeague: Int { tab ?? store.orderedLeagues.first?.id ?? 0 }
 
@@ -27,6 +28,7 @@ struct PredictView: View {
                 header.padding(.horizontal, 20).padding(.top, 8)
                 hud.padding(.horizontal, 20).padding(.top, 12).tour("hud")
                 leagueTabs.padding(.top, 14)
+                standingsLink.padding(.horizontal, 20).padding(.top, 12)
                 sectionHead.padding(.horizontal, 20).padding(.top, 16)
 
                 VStack(alignment: .leading, spacing: 13) {
@@ -54,6 +56,9 @@ struct PredictView: View {
             }
         }
         .background(T.paper)
+        .sheet(isPresented: $standingsOpen) {
+            StandingsView(leagueId: activeLeague).environmentObject(store)
+        }
         .fullScreenCover(item: $opened) { f in
             MatchDetailView(fixture: f).environmentObject(store)
         }
@@ -163,6 +168,38 @@ struct PredictView: View {
                 }
             }
             .padding(.horizontal, 20)
+        }
+    }
+
+    /// 지금 보고 있는 리그의 순위표로. 상위 세 팀을 미리 보여줘서
+    /// 눌러야 할 이유를 만든다 — 이름만 있는 줄은 아무도 누르지 않는다.
+    @ViewBuilder private var standingsLink: some View {
+        let top = store.standings.values
+            .filter { $0.leagueId == activeLeague }
+            .sorted { $0.rank < $1.rank }
+            .prefix(3)
+
+        if !top.isEmpty {
+            Button { Haptics.tap(); standingsOpen = true } label: {
+                HStack(spacing: 9) {
+                    Text("순위표").font(T.body(12, .heavy)).foregroundStyle(T.ink2)
+                    HStack(spacing: 6) {
+                        ForEach(Array(top)) { r in
+                            HStack(spacing: 4) {
+                                Text("\(r.rank)").font(T.num(10, .heavy)).foregroundStyle(T.ink4)
+                                Crest(team: store.team(r.teamId), size: 16)
+                            }
+                        }
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .bold)).foregroundStyle(T.ink4)
+                }
+                .padding(.horizontal, 14).frame(height: 44)
+                .contentShape(Rectangle())
+                .background(T.card, in: RoundedRectangle(cornerRadius: 14))
+            }
+            .buttonStyle(.plain)
         }
     }
 

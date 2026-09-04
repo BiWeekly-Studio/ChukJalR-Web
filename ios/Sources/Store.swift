@@ -18,6 +18,8 @@ final class Store: ObservableObject {
     @Published private(set) var ranking: [RankRow] = []
     @Published private(set) var stats = MyStats()
     @Published private(set) var badges: [BadgeDef] = []
+    /// 팀 id → 순위. 카드마다 배열을 훑지 않으려고 미리 편다.
+    @Published private(set) var standings: [Int: StandingRow] = [:]
     @Published var error: String?
     /// 예측 확정 순간의 연출을 띄우기 위한 방아쇠.
     /// stamp 는 같은 경기를 다시 확정했을 때도 연출이 한 번 더 재생되게 하는 도장이다.
@@ -49,6 +51,9 @@ final class Store: ObservableObject {
         return order.compactMap { id in leagues.first { $0.id == id } }
     }
 
+    /// 이 팀의 현재 등수. 순위표를 못 받았거나 승격팀이면 nil — 0위를 만들지 않는다.
+    func rank(_ teamId: Int) -> Int? { standings[teamId]?.rank }
+
     func isFavorite(_ f: Fixture) -> Bool {
         me.favoriteTeamIds.contains(f.homeTeamId) || me.favoriteTeamIds.contains(f.awayTeamId)
     }
@@ -68,6 +73,9 @@ final class Store: ObservableObject {
             ranking = (try? await repo.loadRanking()) ?? []
             stats = (try? await repo.loadMyStats()) ?? MyStats()
             badges = (try? await repo.loadBadges()) ?? []
+            // 순위표는 없어도 앱이 떠야 한다. 못 받으면 등수만 안 보인다.
+            standings = Dictionary(
+                uniqueKeysWithValues: ((try? await repo.loadStandings()) ?? []).map { ($0.teamId, $0) })
             await scheduleReminders()
         } catch {
             self.error = error.localizedDescription

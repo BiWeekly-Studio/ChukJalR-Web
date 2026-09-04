@@ -73,8 +73,10 @@ struct MatchCardView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Text(home.name).font(T.display(16, .heavy))
+                    RankTag(rank: store.rank(fixture.homeTeamId))
                     Text("vs").font(T.display(16, .heavy)).foregroundStyle(T.ink4)
                     Text(away.name).font(T.display(16, .heavy))
+                    RankTag(rank: store.rank(fixture.awayTeamId))
                 }
                 .lineLimit(1).minimumScaleFactor(0.8)
 

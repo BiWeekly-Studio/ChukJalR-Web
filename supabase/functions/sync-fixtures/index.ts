@@ -7,7 +7,9 @@
  *   ?mode=teams      시즌 시작 및 월 1회. 팀 카탈로그.                  4회
  *   ?mode=results    10분마다. 단, 지금 열려 있고 아직 안 끝난 경기가
  *                    있을 때만 호출한다. 없으면 API를 아예 부르지 않는다. 0~2회
- *   ?mode=priors     주 1회. 순위표로 팀 전력을 재고 경기별 기준 확률을 만든다. 4회
+ *   ?mode=standings  하루 1회. 리그 순위표. 화면의 등수와 순위표 화면이 쓴다. 4회
+ *   ?mode=priors     주 1회. 저장된 순위표로 팀 전력을 재 경기별 기준 확률을
+ *                    만든다. API 를 부르지 않는다.                        0회
  *   ?mode=odds       하루 1회. 북메이커 배당 → 기준 확률. 모델보다 정확하다. 30~60회
  *   ?mode=live       1분마다. 진행 중 경기의 점수·경과. 점수가 바뀐 경기만
  *                    이벤트를 따로 받는다. 없으면 0회.                    0~3회
@@ -218,8 +220,15 @@ const STRENGTH_MAX = 1.6;
 const MAX_GOALS = 8;         // 포아송 격자 상한. 8골이면 꼬리는 무시해도 된다
 
 interface StandingRow {
+  rank: number;
+  points: number;
+  goalsDiff: number;
+  form: string | null;
   team: { id: number };
-  all: { played: number; goals: { for: number; against: number } };
+  all: {
+    played: number; win: number; draw: number; lose: number;
+    goals: { for: number; against: number };
+  };
   home: { played: number; goals: { for: number; against: number } };
   away: { played: number; goals: { for: number; against: number } };
 }
@@ -261,8 +270,15 @@ function normalize(q: [number, number, number]): [number, number, number] {
   return [out[0], out[1], 1 - out[0] - out[1]];
 }
 
-async function syncPriors(sb: Db, a: Api, season: number) {
-  let written = 0;
+/**
+ * 순위표를 받아 저장한다.
+ *
+ * 원래는 기준 확률을 만들려고 받아 쓰고 표는 버렸다. 화면에 등수를 띄우기
+ * 시작하면서 주 1회로는 낡는다 — 주중 경기 뒤 하루 이틀 지난 값이 보인다.
+ * 따로 떼어 하루 한 번 받는다 (리그당 1회, 4회).
+ */
+async function syncStandings(sb: Db, a: Api, season: number) {
+  let teams = 0;
   const leagues: number[] = [];
 
   for (const leagueId of LEAGUES) {
@@ -270,38 +286,92 @@ async function syncPriors(sb: Db, a: Api, season: number) {
     const groups = (response as { league: { standings: StandingRow[][] } }[])[0]
       ?.league?.standings ?? [];
     const table = groups.flat();
+    // 시즌 시작 전이면 표가 비어 있다. 빈 표로 덮어쓰지 않는다.
+    if (table.length === 0) continue;
+
+    await sb.upsert('standings', table.map((r) => ({
+      league_id: leagueId,
+      season,
+      team_id: r.team.id,
+      rank: r.rank,
+      points: r.points,
+      played: r.all.played,
+      win: r.all.win,
+      draw: r.all.draw,
+      lose: r.all.lose,
+      goals_for: r.all.goals.for,
+      goals_against: r.all.goals.against,
+      goal_diff: r.goalsDiff,
+      // 홈/원정 분리. 기준 확률 모델이 리그의 홈 어드밴티지를 여기서 읽는다.
+      home_played: r.home.played,
+      home_goals_for: r.home.goals.for,
+      away_played: r.away.played,
+      away_goals_for: r.away.goals.for,
+      form: r.form,
+      updated_at: new Date().toISOString(),
+    })), 'league_id,season,team_id');
+
+    teams += table.length;
+    leagues.push(leagueId);
+  }
+
+  return { teams, leagues };
+}
+
+/** 저장된 순위표에서 읽는 모양. API 응답과 컬럼 이름이 다르다. */
+interface StoredStanding {
+  team_id: number;
+  played: number;
+  goals_for: number;
+  goals_against: number;
+  home_played: number;
+  home_goals_for: number;
+  away_played: number;
+  away_goals_for: number;
+}
+
+async function syncPriors(sb: Db, season: number) {
+  let written = 0;
+  const leagues: number[] = [];
+
+  for (const leagueId of LEAGUES) {
+    // API 를 부르지 않는다 — standings 모드가 매일 채워 둔 표를 읽는다.
+    const table = await sb.select<StoredStanding>(
+      'standings',
+      `select=team_id,played,goals_for,goals_against,home_played,home_goals_for,`
+      + `away_played,away_goals_for&league_id=eq.${leagueId}&season=eq.${season}`);
     // 순위표가 아직 없는 리그(시즌 시작 전)는 건너뛴다. 기본 기준선이 그대로 쓰인다.
     if (table.length === 0) continue;
 
-    const totalPlayed = table.reduce((n, r) => n + r.all.played, 0);
+    const totalPlayed = table.reduce((n, r) => n + r.played, 0);
     if (totalPlayed === 0) continue;
 
     // 리그 평균: 팀당 한 경기 득점. 홈/원정을 나눠야 홈 어드밴티지가 모델에 들어간다.
-    const homePlayed = table.reduce((n, r) => n + r.home.played, 0);
-    const awayPlayed = table.reduce((n, r) => n + r.away.played, 0);
+    const homePlayed = table.reduce((n, r) => n + r.home_played, 0);
+    const awayPlayed = table.reduce((n, r) => n + r.away_played, 0);
     // 관측값을 장기 평균 쪽으로 끌어당긴다. 2라운드(18경기)면 관측이 11%만 반영된다.
     const lw = homePlayed / (homePlayed + LEAGUE_SHRINK);
     const homeObs = homePlayed > 0
-      ? table.reduce((n, r) => n + r.home.goals.for, 0) / homePlayed : LEAGUE_BASE_HOME;
+      ? table.reduce((n, r) => n + r.home_goals_for, 0) / homePlayed : LEAGUE_BASE_HOME;
     const awayObs = awayPlayed > 0
-      ? table.reduce((n, r) => n + r.away.goals.for, 0) / awayPlayed : LEAGUE_BASE_AWAY;
+      ? table.reduce((n, r) => n + r.away_goals_for, 0) / awayPlayed : LEAGUE_BASE_AWAY;
     const homeAvg = lw * homeObs + (1 - lw) * LEAGUE_BASE_HOME;
     const awayAvg = lw * awayObs + (1 - lw) * LEAGUE_BASE_AWAY;
     const leagueAvg = (homeAvg + awayAvg) / 2;
 
     const strength = new Map<number, Strength>();
     for (const r of table) {
-      const played = r.all.played;
+      const played = r.played;
       if (played === 0) {
-        strength.set(r.team.id, { attack: 1, defence: 1 });
+        strength.set(r.team_id, { attack: 1, defence: 1 });
         continue;
       }
       // 표본이 적을수록 리그 평균(=1) 쪽으로 끌어당긴다
       const w = played / (played + PRIOR_SHRINK);
       const clamp = (v: number) => Math.min(STRENGTH_MAX, Math.max(STRENGTH_MIN, v));
-      strength.set(r.team.id, {
-        attack: clamp(1 + (r.all.goals.for / played / leagueAvg - 1) * w),
-        defence: clamp(1 + (r.all.goals.against / played / leagueAvg - 1) * w),
+      strength.set(r.team_id, {
+        attack: clamp(1 + (r.goals_for / played / leagueAvg - 1) * w),
+        defence: clamp(1 + (r.goals_against / played / leagueAvg - 1) * w),
       });
     }
 
@@ -897,8 +967,13 @@ Deno.serve(async (req: Request) => {
       return Response.json({ ok: true, mode, ...r, apiCalls: a.calls });
     }
 
+    if (mode === 'standings') {
+      const r = await syncStandings(sb, a, season);
+      return Response.json({ ok: true, mode, season, ...r, apiCalls: a.calls });
+    }
+
     if (mode === 'priors') {
-      const r = await syncPriors(sb, a, season);
+      const r = await syncPriors(sb, season);
       return Response.json({ ok: true, mode, season, ...r, apiCalls: a.calls });
     }
 

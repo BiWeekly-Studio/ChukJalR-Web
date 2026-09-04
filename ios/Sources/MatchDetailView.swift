@@ -256,9 +256,12 @@ struct MatchDetailView: View {
     private func side(_ t: Team) -> some View {
         VStack(spacing: 9) {
             Crest(team: t, size: 50)
-            Text(t.name)
-                .font(T.body(13, .heavy)).multilineTextAlignment(.center)
-                .lineLimit(2).minimumScaleFactor(0.8)
+            VStack(spacing: 3) {
+                Text(t.name)
+                    .font(T.body(13, .heavy)).multilineTextAlignment(.center)
+                    .lineLimit(2).minimumScaleFactor(0.8)
+                RankTag(rank: store.rank(t.id))
+            }
         }
         .frame(maxWidth: .infinity)
     }

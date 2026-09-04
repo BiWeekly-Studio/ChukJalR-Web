@@ -15,6 +15,8 @@ protocol Repository {
     func loadRanking() async throws -> [RankRow]
     func loadMyStats() async throws -> MyStats
     func loadBadges() async throws -> [BadgeDef]
+    /// 리그 순위표. 팀 옆의 등수와 순위표 화면이 같은 값을 본다.
+    func loadStandings() async throws -> [StandingRow]
     func saveOnboarding(leagueOrder: [Int], favoriteTeamIds: [Int]) async throws
 
     // 경기 상세
@@ -214,6 +216,12 @@ struct SupabaseRepository: Repository {
 
     func removeAvatar() async throws {
         try await Supabase.shared.removeAvatar()
+    }
+
+    func loadStandings() async throws -> [StandingRow] {
+        Decode.standings(try await Supabase.shared.get(
+            "standings?select=league_id,team_id,rank,points,played,win,draw,lose,"
+            + "goals_for,goals_against,goal_diff,form&order=league_id,rank"))
     }
 
     func loadBadges() async throws -> [BadgeDef] {
