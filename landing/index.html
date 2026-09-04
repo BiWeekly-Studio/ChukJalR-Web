@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>축잘알 — 축구를 읽는 사람들의 리그</title>
+<meta name="description" content="프리미어리그·라리가·분데스리가·세리에A. 오늘 경기의 승부를 고르고 얼마나 확신하는지까지 겁니다. 남들이 다 맞힌 경기는 조금, 아무도 못 본 결과를 읽어내면 크게 오릅니다." />
+<meta property="og:title" content="축잘알 — 축구를 읽는 사람들의 리그" />
+<meta property="og:description" content="찍는 게 아니라 읽는 사람들의 리그." />
+<meta property="og:image" content="./assets/icon.png" />
+<meta property="og:type" content="website" />
+<link rel="icon" href="./assets/icon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" />
+<style>
+  :root {
+    color-scheme: light;
+    --paper: #f5f2ea; --card: #fff; --ink: #16140f; --ink2: #645d51; --ink3: #9c9385;
+    --line: #e7e0d3; --accent: #2f57f2; --accent2: #7b46f0;
+    --grad: linear-gradient(135deg, #3a63ff, #7b46f0);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+         font-family: 'IBM Plex Sans KR', -apple-system, sans-serif; line-height: 1.7;
+         -webkit-font-smoothing: antialiased; }
+  img { max-width: 100%; display: block; }
+  a { color: var(--accent); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 22px; }
+
+  /* 히어로 — 로고와 한 문장이면 충분하다. 스크롤 전에 무슨 앱인지 알아야 한다. */
+  header { padding: 72px 0 8px; text-align: center; }
+  header .mark { width: min(340px, 78vw); margin: 0 auto; }
+  .tagline { font-size: clamp(17px, 4.4vw, 22px); font-weight: 600; margin: 26px 0 8px; }
+  .sub { color: var(--ink2); font-size: 15px; margin: 0 auto; max-width: 30em; }
+  .cta { display: inline-flex; align-items: center; gap: 8px; margin-top: 26px;
+         padding: 0 22px; height: 50px; border-radius: 999px; background: var(--grad);
+         color: #fff; font-weight: 700; text-decoration: none; font-size: 15px;
+         box-shadow: 0 10px 26px -12px rgba(47,87,242,.75); }
+  .cta[aria-disabled="true"] { background: var(--card); color: var(--ink3);
+         box-shadow: none; border: 1.5px solid var(--line); cursor: default; }
+
+  /* 스크린샷 — 기기 틀을 흉내 내지 않는다. 화면만 보여주는 편이 깔끔하다. */
+  .shots { display: flex; gap: 20px; justify-content: center; margin: 56px 0 8px;
+           overflow-x: auto; padding: 8px 2px 20px; scroll-snap-type: x mandatory; }
+  .shots img { width: 260px; flex: 0 0 auto; border-radius: 26px;
+               border: 1px solid var(--line); scroll-snap-align: center;
+               box-shadow: 0 24px 50px -28px rgba(22,20,15,.5); }
+
+  section { padding: 56px 0; }
+  h2 { font-size: clamp(20px, 4.6vw, 26px); letter-spacing: -0.03em; margin: 0 0 8px; }
+  .lede { color: var(--ink2); margin: 0 0 30px; max-width: 34em; }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+  .card { background: var(--card); border-radius: 20px; padding: 22px 22px 24px; }
+  .card h3 { margin: 0 0 8px; font-size: 16px; letter-spacing: -0.02em; }
+  .card p { margin: 0; color: var(--ink2); font-size: 14.5px; }
+  .card .num { font-family: 'IBM Plex Sans KR'; font-weight: 700; font-size: 12px;
+               color: var(--accent); letter-spacing: .04em; }
+
+  /* 가장 하고 싶은 말은 따로 크게 */
+  .pull { background: var(--card); border-radius: 26px; padding: 40px 30px; text-align: center; }
+  .pull p { margin: 0; font-size: clamp(17px, 4vw, 21px); font-weight: 600; line-height: 1.65; }
+  .pull small { display: block; margin-top: 14px; color: var(--ink3); font-size: 14px; font-weight: 400; }
+
+  footer { border-top: 1px solid var(--line); margin-top: 40px; padding: 34px 0 60px;
+           color: var(--ink3); font-size: 13.5px; }
+  footer nav { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 12px; }
+  @media (prefers-reduced-motion: no-preference) {
+    .shots img { transition: transform .3s cubic-bezier(.22,.61,.36,1); }
+    .shots img:hover { transform: translateY(-6px); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="mark"><img src="./assets/wordmark.svg" alt="축잘알" /></div>
+    <p class="tagline">찍는 게 아니라, 읽는 사람들의 리그.</p>
+    <p class="sub">프리미어리그 · 라리가 · 분데스리가 · 세리에A.
+       오늘 경기의 승부를 고르고, 얼마나 확신하는지까지 겁니다.</p>
+    <a class="cta" aria-disabled="true" href="#">App Store 출시 준비 중</a>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="shots">
+    <img src="./assets/shot-predict.png" alt="오늘의 경기와 예측 화면" loading="lazy" />
+    <img src="./assets/shot-profile.png" alt="내 기록과 통계 화면" loading="lazy" />
+    <img src="./assets/shot-ranking.png" alt="랭킹 화면" loading="lazy" />
+  </div>
+</div>
+
+<section class="wrap">
+  <div class="pull">
+    <p>누구나 맞힐 수 있는 경기를 맞히는 건 실력이 아닙니다.<br />
+       축잘알은 <b>남들이 어떻게 봤는지와 비교해서</b> 점수를 매깁니다.</p>
+    <small>모두가 홈 승을 고른 경기에서 홈이 이기면 얻는 게 적고,
+           아무도 보지 않은 결과를 읽어내면 크게 오릅니다.</small>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2>어떻게 다른가</h2>
+  <p class="lede">맞히는 것만으로는 순위가 오르지 않습니다. 얼마나 어려운 걸 읽어냈는지를 봅니다.</p>
+  <div class="grid">
+    <div class="card">
+      <p class="num">01</p>
+      <h3>확신까지 겁니다</h3>
+      <p>승·무·패를 고른 다음 확신도를 세 단계로 정합니다. 확신이 클수록 맞혔을 때
+         많이 얻고 틀렸을 때 많이 잃습니다. ‘아무거나 세게 거는’ 전략은 오래가지 않습니다.</p>
+    </div>
+    <div class="card">
+      <p class="num">02</p>
+      <h3>4대 리그, 매일</h3>
+      <p>일정과 결과를 매일 받아옵니다. 좋아하는 리그를 고른 순서대로 홈 화면이
+         정렬되고, 최애 팀 경기는 맨 위에 모입니다.</p>
+    </div>
+    <div class="card">
+      <p class="num">03</p>
+      <h3>같이 봅니다</h3>
+      <p>킥오프 한 시간 전에 경기 채팅이 열립니다. 실시간 스코어와 득점·경고 기록이
+         함께 올라오고, 앱을 닫아도 잠금화면에서 점수를 봅니다.</p>
+    </div>
+    <div class="card">
+      <p class="num">04</p>
+      <h3>내 약점을 알려줍니다</h3>
+      <p>리그별 적중률, 확신도가 실제로 정확한지, 홈·무·원정 중 어디에 잘 거는지,
+         그리고 최애 팀 경기에서 팬심이 판단을 흐리는지까지.</p>
+    </div>
+    <div class="card">
+      <p class="num">05</p>
+      <h3>순위는 매일 아침</h3>
+      <p>정산된 예측 20경기를 채우면 순위표에 이름이 올라갑니다. 운으로 세 번 맞힌
+         사람이 1위가 되면 순위표가 의미를 잃기 때문입니다.</p>
+    </div>
+    <div class="card">
+      <p class="num">06</p>
+      <h3>돈은 걸지 않습니다</h3>
+      <p>현금 베팅도, 상금도, 인앱 결제도 없습니다. 앱 안의 포인트는 현금으로 바꿀 수
+         없습니다. 겨루는 것은 오직 축구를 읽는 눈입니다.</p>
+    </div>
+  </div>
+</section>
+
+<footer class="wrap">
+  <nav>
+    <a href="./support.html">지원 · 자주 묻는 것</a>
+    <a href="./privacy.html">개인정보 처리방침</a>
+    <a href="mailto:jspark@wemakedeal.co.kr">문의</a>
+  </nav>
+  <p style="margin:0">2026 JalR Company</p>
+</footer>
+
+</body>
+</html>
