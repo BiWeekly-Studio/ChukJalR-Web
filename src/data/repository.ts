@@ -1,6 +1,6 @@
 import type {
   BadgeDef, ChatMessage, Fixture, League, MatchDetailData, MatchEvent, MyStats,
-  Prediction, RankRow, ReportReason, SettlementResult, Team,
+  Prediction, RankRow, ReportReason, SettlementResult, StandingRow, Team,
 } from './types';
 import type { Confidence, Outcome } from '../lib/scoring';
 
@@ -100,6 +100,8 @@ export interface Repository {
   /** 순위표에 오른 경우 내 행. 배치 중이면 null */
   loadMyRank(): Promise<RankRow | null>;
   loadBadges(): Promise<BadgeDef[]>;
+  /** 리그 순위표. 팀 옆의 등수와 순위표 화면이 같은 값을 본다 */
+  loadStandings(): Promise<StandingRow[]>;
   /** 프로필 화면 집계. 한 번의 호출로 전부 받는다 */
   loadMyStats(): Promise<MyStats>;
   /**

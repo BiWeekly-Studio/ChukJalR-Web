@@ -3,6 +3,7 @@ import { Crest } from '../components/Crest';
 import { LeagueMark } from '../components/LeagueMark';
 import { MessageActions } from '../components/MessageActions';
 import { EventTimeline, HeadToHeadCard, Lineups, MatchStatsCard } from '../components/MatchInfo';
+import { RankTag } from '../components/Standings';
 import { IconBack, IconCheck, IconSend, IconUsers, IconX } from '../components/icons';
 import { fixture, league, team } from '../data/catalog';
 import { repository } from '../data';
@@ -423,9 +424,10 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
 
 function Side({ teamId, name }: { teamId: number; name: string }) {
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9, minWidth: 0 }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, minWidth: 0 }}>
       <Crest teamId={teamId} size={50} />
       <span className="small" style={{ fontWeight: 700, textAlign: 'center' }}>{name}</span>
+      <RankTag teamId={teamId} />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { Fixture, League, Team } from './types';
+import type { Fixture, League, StandingRow, Team } from './types';
 
 /**
  * 카탈로그 레지스트리.
@@ -17,6 +17,28 @@ export function hydrate(data: { leagues: League[]; teams: Team[]; fixtures: Fixt
     (a, b) => +new Date(a.kickoffAt) - +new Date(b.kickoffAt)
   );
 }
+
+/**
+ * 리그 순위표. 팀·경기와 같은 자리에 둔다 — 앱 전체가 읽기만 하는 참조 데이터이고,
+ * 화면마다 배열을 훑지 않으려면 미리 펴 두어야 한다.
+ */
+let _rankByTeam = new Map<number, StandingRow>();
+let _tableByLeague = new Map<number, StandingRow[]>();
+
+export function hydrateStandings(rows: StandingRow[]) {
+  _rankByTeam = new Map(rows.map((r) => [r.teamId, r]));
+  _tableByLeague = new Map();
+  for (const r of rows) {
+    const list = _tableByLeague.get(r.leagueId) ?? [];
+    list.push(r);
+    _tableByLeague.set(r.leagueId, list);
+  }
+  for (const list of _tableByLeague.values()) list.sort((a, b) => a.rank - b.rank);
+}
+
+/** 이 팀의 현재 등수. 순위표를 못 받았거나 승격팀이면 null — 0위를 만들지 않는다 */
+export const rank = (teamId: number): number | null => _rankByTeam.get(teamId)?.rank ?? null;
+export const standingsOf = (leagueId: number): StandingRow[] => _tableByLeague.get(leagueId) ?? [];
 
 export const leagues = (): League[] => _leagues;
 export const fixtures = (): Fixture[] => _fixtureList;

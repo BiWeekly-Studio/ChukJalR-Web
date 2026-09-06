@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Burst } from './Burst';
 import { Crest } from './Crest';
+import { RankTag } from './Standings';
 import { IconCheck, IconFlame, IconX } from './icons';
 import { fixture, league, team } from '../data/catalog';
 import { haptic } from '../lib/anim';
@@ -81,7 +82,9 @@ export function MatchCard({
         </button>
         <button onClick={onOpen} style={{ textAlign: 'left', flex: 1, minWidth: 0 }}>
           <div className="h3" style={{ fontSize: 16 }}>
-            {home.name} <span style={{ color: 'var(--ink-4)' }}>vs</span> {away.name}
+            {home.name} <RankTag teamId={f.homeTeamId} />{' '}
+            <span style={{ color: 'var(--ink-4)' }}>vs</span>{' '}
+            {away.name} <RankTag teamId={f.awayTeamId} />
           </div>
           <div className="tiny muted" style={{ marginTop: 2 }}>
             {isFav && <b style={{ color: favTeam?.color }}>내 팀 · </b>}

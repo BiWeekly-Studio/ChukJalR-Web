@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import type { Prediction, SettlementResult } from './data/types';
 import type { Confidence, Outcome } from './lib/scoring';
 import { levelFromPoints, previewScore, tierFromPercentile } from './lib/scoring';
-import { fixture, fixtures, hydrate, leagues } from './data/catalog';
+import { fixture, fixtures, hydrate, hydrateStandings, leagues } from './data/catalog';
 import { windowState } from './lib/window';
 import { repository } from './data';
 import type { AuthUser, MeSnapshot } from './data/repository';
@@ -178,9 +178,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     repository
       .loadCatalog()
-      .then((catalog) => {
+      .then(async (catalog) => {
         if (cancelled) return;
         hydrate(catalog);
+        // 순위표는 곁들이다. 못 받으면 등수만 안 보이고 나머지는 그대로 돈다.
+        hydrateStandings(await repository.loadStandings().catch(() => []));
         dispatch({ type: 'catalogReady' });
       })
       .catch((err) => {

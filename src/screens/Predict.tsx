@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Crest } from '../components/Crest';
 import { Wordmark } from '../components/Logo';
 import { MatchCard } from '../components/MatchCard';
+import { StandingsLink } from '../components/Standings';
 import { Ring } from '../components/Ring';
 import { TierChip } from '../components/TierChip';
 import { IconFlame, IconLock } from '../components/icons';
@@ -54,6 +55,10 @@ export function Predict({ onOpenMatch }: { onOpenMatch: (id: number) => void }) 
             {l.short}
           </button>
         ))}
+      </div>
+
+      <div className="pad" style={{ padding: '12px 20px 0' }}>
+        <StandingsLink leagueId={activeTab} />
       </div>
 
       <div className="pad" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 10px' }}>

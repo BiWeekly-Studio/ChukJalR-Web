@@ -61,6 +61,23 @@ export interface Fixture {
   elapsed: number | null;
 }
 
+/** 리그 순위표 한 줄 */
+export interface StandingRow {
+  leagueId: number;
+  teamId: number;
+  rank: number;
+  points: number;
+  played: number;
+  win: number;
+  draw: number;
+  lose: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDiff: number;
+  /** 최근 5경기 "WWDLW". API 가 준 그대로 — 우리가 다시 세지 않는다 */
+  form: string | null;
+}
+
 /* ------------------------------------------------------------------ 경기 부가 정보 */
 
 export type MatchEventType = 'Goal' | 'Card' | 'subst' | 'Var';

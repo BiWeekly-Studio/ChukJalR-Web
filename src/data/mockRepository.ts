@@ -53,6 +53,9 @@ export const mockRepository: Repository = {
   async loadMyRank() { return null; },
   async loadBadges() { return BADGES; },
 
+  // 목업에는 순위표가 없다. 지어내지 않고 빈 배열을 준다.
+  async loadStandings() { return []; },
+
   async loadMyStats(): Promise<MyStats> {
     return {
       settled: 50,

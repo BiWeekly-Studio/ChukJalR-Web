@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Auth, AuthUser, Catalog, MeSnapshot, OAuthProvider, Repository } from './repository';
 import type {
   BadgeDef, ChatMessage, Fixture, LineupPlayer, MatchDetailData, MatchEvent, MyStats,
-  Prediction, RankRow, SettlementResult,
+  Prediction, RankRow, SettlementResult, StandingRow,
 } from './types';
 import type { Confidence, Outcome } from '../lib/scoring';
 
@@ -304,6 +304,21 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
       const { data, error } = await sb.rpc('my_stats');
       if (error) throw error;
       return (data as MyStats) ?? EMPTY_STATS;
+    },
+
+    async loadStandings(): Promise<StandingRow[]> {
+      const { data, error } = await sb
+        .from('standings')
+        .select('league_id, team_id, rank, points, played, win, draw, lose, goals_for, goals_against, goal_diff, form')
+        .order('league_id')
+        .order('rank');
+      if (error) throw error;
+      return (data ?? []).map((r) => ({
+        leagueId: r.league_id, teamId: r.team_id, rank: r.rank,
+        points: r.points, played: r.played, win: r.win, draw: r.draw, lose: r.lose,
+        goalsFor: r.goals_for, goalsAgainst: r.goals_against, goalDiff: r.goal_diff,
+        form: r.form,
+      }));
     },
 
     async loadMatchDetail(fixtureId): Promise<MatchDetailData> {
