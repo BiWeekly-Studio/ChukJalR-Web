@@ -1,6 +1,8 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-const reply = (status: number) => new Response(JSON.stringify({ok:status===200}),{status,headers:{'Content-Type':'application/json'}});
+const headers = { 'Content-Type':'application/json', 'Access-Control-Allow-Origin':'https://apps-in-toss.toss.im', 'Access-Control-Allow-Headers':'authorization,content-type,apikey,x-client-info,x-region', 'Access-Control-Allow-Methods':'POST,OPTIONS' };
+const reply = (status: number) => new Response(JSON.stringify({ok:status===200}),{status,headers});
 Deno.serve(async req => {
+  if(req.method === 'OPTIONS') return new Response(null,{status:204,headers});
   if(req.method !== 'POST') return reply(405);
   const secret=Deno.env.get('TOSS_UNLINK_SECRET');
   if(!secret) return reply(503);
