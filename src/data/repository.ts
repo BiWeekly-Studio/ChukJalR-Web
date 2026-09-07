@@ -11,6 +11,7 @@ export interface Catalog {
 }
 
 export interface MeSnapshot {
+  avatarUrl?: string | null;
   handle: string;
   leagueOrder: number[];
   favoriteTeamIds: number[];
@@ -88,7 +89,21 @@ export interface Auth {
  * 화면이 데이터를 얻는 유일한 통로.
  * 목업과 Supabase 구현이 이 인터페이스를 공유하므로, 백엔드가 붙어도 화면은 바뀌지 않는다.
  */
+export interface PredictionRecord {
+  id: number;
+  pick: Outcome;
+  confidence: Confidence;
+  fixtures: { home_team_id: number; away_team_id: number; kickoff_at: string; state: string;
+    home_goals_ft: number | null; away_goals_ft: number | null; result: Outcome | null };
+  settlements: { delta_rating: number; points: number }[] | { delta_rating: number; points: number } | null;
+}
+
 export interface Repository {
+  loadHistory(): Promise<PredictionRecord[]>;
+  setHandle(handle: string): Promise<string>;
+  setAvatar(image: Blob): Promise<string>;
+  removeAvatar(): Promise<void>;
+  deleteAccount(): Promise<void>;
   readonly kind: 'mock' | 'supabase';
   readonly auth: Auth;
   loadCatalog(): Promise<Catalog>;

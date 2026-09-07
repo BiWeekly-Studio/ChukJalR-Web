@@ -38,7 +38,7 @@ export function TossLogin() {
             <Wordmark width={250} />
           </span>
           <p className="small muted" style={{ margin: '16px 0 0', lineHeight: 1.7 }}>
-            찍는 게 아니라 읽는 사람들의 리그.
+            축구 승부를 예측하고 내 실력을 확인해요.
             <br />
             토스 계정으로 바로 시작할 수 있어요.
           </p>
@@ -56,8 +56,9 @@ export function TossLogin() {
           {busy ? '토스로 이동 중…' : '토스로 로그인'}
         </button>
         <p className="tiny muted" style={{ textAlign: 'center', margin: '12px 0 0', lineHeight: 1.6 }}>
-          예측 기록과 순위는 토스 계정에 저장돼요.
+          예측 기록과 순위는 토스로 로그인한 축잘알 계정에 저장돼요.
         </p>
+        <p className="tiny muted" style={{textAlign:'center'}}><a href="./terms.html" target="_blank" rel="noreferrer">이용약관</a> · <a href="./privacy.html" target="_blank" rel="noreferrer">개인정보 처리방침</a></p>
       </div>
     </div>
   );

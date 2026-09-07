@@ -24,7 +24,15 @@ enum Decode {
         return v
     }
 
-    static func catalog(leagues: Data, teams: Data, fixtures: Data) throws -> Catalog {
+    static func catalog(leagues: Data, teams: Data, fixtures: Data, baselines: Data? = nil) throws -> Catalog {
+        var byId: [Int: (q: [Double], n: Int)] = [:]
+        for row in baselines.map(rows) ?? [] {
+            if let id = row["fixture_id"] as? Int, let q = row["q"] as? [Double],
+               q.count == 3, q.allSatisfy({ $0.isFinite && $0 > 0 }),
+               let n = row["n"] as? Int, n >= 0 {
+                byId[id] = (q, n)
+            }
+        }
         let ls = rows(leagues).compactMap { r -> League? in
             guard let id = r["id"] as? Int, let name = r["name"] as? String else { return nil }
             return League(id: id, name: name,
@@ -54,7 +62,7 @@ enum Decode {
                 venue: (venue?.isEmpty ?? true) ? nil : venue,
                 kickoffAt: kickoff, opensAt: opens, lockAt: lock,
                 // 기준선은 live_baselines RPC 로 따로 받는다. 여기서 기본값을 만들지 않는다.
-                baseline: nil, participants: nil,
+                baseline: byId[id]?.q, participants: byId[id]?.n,
                 state: r["state"] as? String ?? "SCHEDULED",
                 homeGoals: r["home_goals_ft"] as? Int, awayGoals: r["away_goals_ft"] as? Int,
                 result: (r["result"] as? String).flatMap(Outcome.init(rawValue:)),

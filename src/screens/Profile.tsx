@@ -4,7 +4,8 @@ import { leagues as allLeagues, team } from '../data/catalog';
 import { repository } from '../data';
 import { useState } from 'react';
 import { useCountUpInt } from '../lib/anim';
-import { SELF_AUTH } from '../lib/env';
+import { History, ProfileAccount, RatingTrend } from '../components/ProfileFeatures';
+import { Avatar } from '../components/Avatar';
 import { useAsync } from '../lib/useAsync';
 import type { BadgeDef, MyStats } from '../data/types';
 import { comma } from '../lib/format';
@@ -18,6 +19,7 @@ const MIN_FAN_BIAS_N = 10;
 
 export function Profile({ onReplayTutorial }: { onReplayTutorial?: () => void }) {
   const { state, level, tier } = useApp();
+  const [historyOpen, setHistoryOpen] = useState(false);
   const badges = useAsync<BadgeDef[]>(() => repository.loadBadges(), []);
   const stats = useAsync<MyStats | null>(() => repository.loadMyStats(), null);
   const leagues = allLeagues();
@@ -50,16 +52,7 @@ export function Profile({ onReplayTutorial }: { onReplayTutorial?: () => void })
             }}
           >
             <div className="row">
-              <span
-                style={{
-                  width: 54, height: 54, borderRadius: 999, background: 'rgba(255,255,255,.2)',
-                  border: '2.5px solid rgba(255,255,255,.55)', display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', fontFamily: 'var(--display)', fontWeight: 700,
-                  fontSize: 21, flexShrink: 0,
-                }}
-              >
-                {state.handle.slice(0, 1)}
-              </span>
+              <Avatar url={state.avatarUrl} name={state.handle} size={54} />
               <div style={{ minWidth: 0 }}>
                 <div className="h2" style={{ fontSize: 18 }}>{state.handle}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5 }}>
@@ -141,6 +134,9 @@ export function Profile({ onReplayTutorial }: { onReplayTutorial?: () => void })
           </div>
         </div>
 
+        <RatingTrend stats={stats} />
+        <button className="ghostcta" style={{marginTop:12}} onClick={()=>setHistoryOpen(true)}>예측 기록 · 내 예측과 실제 결과 비교</button>
+        {historyOpen && <History close={()=>setHistoryOpen(false)} />}
         <Section title="리그별 적중률">
           {!hasRecord ? (
             <Pending text="경기가 정산되면 리그별로 어디에 강한지 보여드려요." />
@@ -167,7 +163,7 @@ export function Profile({ onReplayTutorial }: { onReplayTutorial?: () => void })
           )}
         </Section>
 
-        <Section title="확신도는 정확한가" hint="건 만큼 맞히고 있는지">
+        <Section title="확신도는 정확한가" hint="확신한 만큼 맞히고 있는지">
           {!stats ||
           stats.calibration.length === 0 ||
           stats.calibration.every((c) => c.n < MIN_CALIBRATION_N) ? (
@@ -320,7 +316,8 @@ export function Profile({ onReplayTutorial }: { onReplayTutorial?: () => void })
           </button>
         )}
 
-        <AccountCard />
+        <ProfileAccount />
+        <p className="tiny muted" style={{textAlign:'center'}}><a href="./terms.html" target="_blank" rel="noreferrer">이용약관</a> · <a href="./privacy.html" target="_blank" rel="noreferrer">개인정보 처리방침</a></p>
 
         <div style={{ height: 24 }} />
       </div>
@@ -375,34 +372,6 @@ function ChatPolicy() {
           </ul>
         </div>
       )}
-    </div>
-  );
-}
-
-/** 계정 칸. 지금 누구로 로그인돼 있는지 보여주고, 로그아웃할 수 있게 한다. */
-function AccountCard() {
-  const { authUser, signOut } = useApp();
-
-  // 앱인토스 안에서 계정은 토스 계정이다. 관리할 것도, 보여줄 것도 없다.
-  if (!authUser || !SELF_AUTH) return null;
-
-  return (
-    <div className="account">
-      <div className="row" style={{ gap: 10 }}>
-        <span className="avatar" style={{ width: 34, height: 34, background: 'var(--grad-accent)', color: '#fff' }}>
-          {authUser.email?.slice(0, 1).toUpperCase() ?? '·'}
-        </span>
-        <span style={{ flex: 1, minWidth: 0 }}>
-          <span className="h3" style={{ display: 'block', fontSize: 13 }}>로그인됨</span>
-          <span
-            className="tiny muted"
-            style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}
-          >
-            {authUser.email ?? '토스 계정'}
-          </span>
-        </span>
-        <button className="pill" onClick={() => void signOut()}>로그아웃</button>
-      </div>
     </div>
   );
 }

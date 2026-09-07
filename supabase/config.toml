@@ -429,3 +429,6 @@ verify_jwt = false
 # 정산 결과 푸시. 크론이 pg_net 으로 부르므로 Authorization 헤더를 실을 수 없다.
 [functions.push-settlements]
 verify_jwt = false
+
+[functions.toss-unlink]
+verify_jwt = false

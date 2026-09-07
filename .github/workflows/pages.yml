@@ -3,15 +3,19 @@
 # App Store 제출에는 열려 있는 지원 URL 과 개인정보 처리방침 URL 이 반드시 필요하다.
 # 랜딩·지원·처리방침을 한 곳에 두면 주소가 하나로 정리되고, 마케팅 URL 도 같이 생긴다.
 #
-# 앱(SPA)은 여기 올리지 않는다. Supabase 키를 빌드 시점에 넣어야 하고 배포 주기도
-# 다르다 — 랜딩은 정적 파일 몇 개뿐이라 따로 두는 편이 단순하다.
-name: Deploy landing to Pages
+# 공개 웹은 /app/에 배포하고 랜딩·지원·약관 URL은 유지한다.
+name: Deploy web and landing to Pages
 
 on:
   push:
     branches: [main]
     paths:
       - 'landing/**'
+      - 'src/**'
+      - 'public/**'
+      - 'package*.json'
+      - 'vite.config.ts'
+      - 'index.html'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -33,6 +37,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build:web
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+      - run: mkdir -p landing/app && cp -R dist/. landing/app/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

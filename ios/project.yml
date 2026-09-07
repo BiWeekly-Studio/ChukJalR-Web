@@ -11,7 +11,7 @@ settings:
     # JalR Company 네임스페이스 — 야잘알은 com.jalr.yajalal 로 간다.
     APP_BUNDLE_ID: com.jalr.chukjalal
     MARKETING_VERSION: "1.0"
-    CURRENT_PROJECT_VERSION: "4"
+    CURRENT_PROJECT_VERSION: "5"
     SWIFT_VERSION: "5.9"
     # 팀 ID 는 ios/.env.local 에서 온다 (저장소에 없음). 시뮬레이터 빌드에는 없어도 된다.
     DEVELOPMENT_TEAM: ${DEVELOPMENT_TEAM}

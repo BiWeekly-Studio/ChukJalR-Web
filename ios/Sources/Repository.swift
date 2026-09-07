@@ -52,13 +52,25 @@ struct SupabaseRepository: Repository {
         async let leaguesData = Supabase.shared.get("leagues?select=id,name,short_name,country")
         async let teamsData = Supabase.shared.get("teams?select=id,league_id,name,name_ko,abbr,color,tint,logo_url")
         let horizon = ISO8601DateFormatter().string(from: Date().addingTimeInterval(14 * 86400))
+        let since = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-3 * 86400))
         async let fixturesData = Supabase.shared.get(
             "fixtures?select=id,league_id,round,home_team_id,away_team_id,venue,kickoff_at,opens_at,lock_at,state,home_goals_ft,away_goals_ft,result"
             + ",home_goals_live,away_goals_live,elapsed"
-            + "&kickoff_at=lte.\(horizon)&state=neq.VOID&order=kickoff_at")
+            + "&kickoff_at=lte.\(horizon)&kickoff_at=gte.\(since)&state=neq.VOID&order=kickoff_at")
 
+        let fixtureData = try await fixturesData
+        let ids = ((try? JSONSerialization.jsonObject(with: fixtureData)) as? [[String: Any]])?
+            .compactMap { $0["id"] as? Int } ?? []
+        var baselines: Data?
+        if !ids.isEmpty {
+            do {
+                baselines = try await Supabase.shared.rpc("live_baselines", body: ["p_fixture_ids": ids])
+            } catch {
+                print("live_baselines failed; showing fixtures without estimates")
+            }
+        }
         return try Decode.catalog(
-            leagues: await leaguesData, teams: await teamsData, fixtures: await fixturesData)
+            leagues: await leaguesData, teams: await teamsData, fixtures: fixtureData, baselines: baselines)
     }
 
     func loadMe() async throws -> Me {

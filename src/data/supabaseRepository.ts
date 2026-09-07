@@ -1,5 +1,5 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Auth, AuthUser, Catalog, MeSnapshot, OAuthProvider, Repository } from './repository';
+import { createClient, FunctionRegion, type SupabaseClient } from '@supabase/supabase-js';
+import type { Auth, AuthUser, Catalog, MeSnapshot, OAuthProvider, PredictionRecord, Repository } from './repository';
 import type {
   BadgeDef, ChatMessage, Fixture, LineupPlayer, MatchDetailData, MatchEvent, MyStats,
   Prediction, RankRow, SettlementResult, StandingRow,
@@ -32,7 +32,16 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
   const auth: Auth = {
     async current(): Promise<AuthUser | null> {
       const { data } = await sb.auth.getSession();
-      return data.session ? toAuthUser(data.session.user) : null;
+      if (!data.session) return null;
+      const verified = await sb.auth.getUser();
+      if (verified.error) {
+        if (verified.error.status === 401 || verified.error.status === 403) {
+          await sb.auth.signOut({ scope: 'local' });
+          return null;
+        }
+        throw verified.error;
+      }
+      return verified.data.user ? toAuthUser(verified.data.user) : null;
     },
 
     async signUp(email, password, handle) {
@@ -64,6 +73,7 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
 
       // 인가 코드는 서버에서만 교환할 수 있다 (토스 서버 API 가 mTLS 를 요구한다)
       const res = await sb.functions.invoke('toss-login', {
+        region: FunctionRegion.ApNortheast2,
         body: { authorizationCode, referrer },
       });
       if (res.error) throw new Error(tossMessage(res.error.message));
@@ -113,6 +123,52 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
 
   return {
     kind: 'supabase',
+    async loadHistory() {
+      const userId = await uid();
+      if (!userId) throw new Error('로그인이 필요해요.');
+      const { data, error } = await sb.from('predictions')
+        .select('id,pick,confidence,fixtures!inner(home_team_id,away_team_id,kickoff_at,state,home_goals_ft,away_goals_ft,result),settlements(delta_rating,points)')
+        .eq('user_id', userId).order('created_at', { ascending: false }).limit(100);
+      if (error) throw error;
+      return (data as unknown as PredictionRecord[]).sort((a,b) =>
+        Date.parse(b.fixtures.kickoff_at) - Date.parse(a.fixtures.kickoff_at));
+    },
+    async setHandle(handle) {
+      const { data, error } = await sb.rpc('set_handle', { p_handle: handle.trim() });
+      if (error) {
+        const code = error.message;
+        if (code.includes('HANDLE_LENGTH')) throw new Error('닉네임은 2~12자로 입력해 주세요.');
+        if (code.includes('HANDLE_CHARS')) throw new Error('공백은 사용할 수 없어요.');
+        if (code.includes('HANDLE_TAKEN')) throw new Error('이미 사용 중인 닉네임이에요.');
+        if (code.includes('HANDLE_COOLDOWN')) throw new Error('닉네임은 7일에 한 번 바꿀 수 있어요.');
+        throw error;
+      }
+      return data as string;
+    },
+    async setAvatar(image) {
+      const id = await uid();
+      if (!id) throw new Error('로그인이 필요해요.');
+      const path = `${id}/avatar.jpg`;
+      const { error } = await sb.storage.from('avatars').upload(path, image, { upsert: true, contentType: 'image/jpeg' });
+      if (error) throw error;
+      const avatarUrl = sb.storage.from('avatars').getPublicUrl(path).data.publicUrl + `?v=${Date.now()}`;
+      const result = await sb.from('profiles').update({ avatar_url: avatarUrl }).eq('id', id);
+      if (result.error) throw result.error;
+      return avatarUrl;
+    },
+    async removeAvatar() {
+      const id = await uid();
+      if (!id) throw new Error('로그인이 필요해요.');
+      const { error } = await sb.storage.from('avatars').remove([`${id}/avatar.jpg`]);
+      if (error) throw error;
+      const result = await sb.from('profiles').update({ avatar_url: null }).eq('id', id);
+      if (result.error) throw result.error;
+    },
+    async deleteAccount() {
+      const { error } = await sb.rpc('delete_my_account');
+      if (error) throw error;
+      await sb.auth.signOut({ scope: 'local' });
+    },
     auth,
 
     async loadCatalog(): Promise<Catalog> {
@@ -181,7 +237,7 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
       }
 
       const [profile, rating, board, preds, settled] = await Promise.all([
-        sb.from('profiles').select('handle, league_order, favorite_team_ids, onboarded_at')
+        sb.from('profiles').select('handle, avatar_url, league_order, favorite_team_ids, onboarded_at')
           .eq('id', userId).single(),
         sb.from('ratings').select('rating, lifetime_points, balance, streak, settled_matches')
           .eq('user_id', userId).order('season', { ascending: false }).limit(1).single(),
@@ -198,6 +254,7 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
 
       return {
         handle: profile.data.handle,
+        avatarUrl: profile.data.avatar_url,
         leagueOrder: profile.data.league_order,
         favoriteTeamIds: profile.data.favorite_team_ids ?? [],
         onboarded: Boolean(profile.data.onboarded_at),
@@ -260,7 +317,7 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
       const me = await uid();
       const { data, error } = await sb
         .from('leaderboard')
-        .select('user_id, rank, handle, rating, accuracy, prev_rank')
+        .select('user_id, rank, handle, avatar_url, rating, accuracy, prev_rank')
         .order('rank')
         .limit(50);
       if (error) throw error;
@@ -272,7 +329,7 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
       if (!me) return null;
       const { data, error } = await sb
         .from('leaderboard')
-        .select('user_id, rank, handle, rating, accuracy, prev_rank')
+        .select('user_id, rank, handle, avatar_url, rating, accuracy, prev_rank')
         .eq('user_id', me)
         .maybeSingle();
       if (error) throw error;
@@ -367,7 +424,7 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
     async loadChat(fixtureId): Promise<ChatMessage[]> {
       const { data, error } = await sb
         .from('chat_messages')
-        .select('id, body, created_at, user_id, profiles(handle)')
+        .select('id, body, created_at, user_id, profiles(handle,avatar_url)')
         .eq('channel', `match:${fixtureId}`)
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
@@ -424,13 +481,14 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
         .channel(`match:${fixtureId}`, { config: { private: false, presence: { key: '' } } })
         .on('broadcast', { event: 'chat.message' }, (payload) => {
           const p = payload.payload as {
-            id: number; userId: string; handle?: string; body: string; at: string;
+            id: number; userId: string; handle?: string; avatar?: string; body: string; at: string;
           };
           // 트리거가 보내주는 것만 믿는다. 없는 필드를 그럴듯하게 채우지 않고,
           // 닉네임이 비어도 콜백이 죽지 않게 한다 — 죽으면 이후 메시지가 전부 안 붙는다.
           const handle = p.handle?.trim() || '알 수 없음';
           onMessage({
             id: String(p.id),
+            avatarUrl: p.avatar,
             fixtureId,
             userId: p.userId,
             handle,
@@ -563,6 +621,7 @@ const EMPTY_STATS: MyStats = {
 };
 
 interface RankRowSource {
+  avatar_url?: string | null;
   user_id: string;
   rank: number;
   handle: string;
@@ -574,6 +633,7 @@ interface RankRowSource {
 function toRankRow(r: RankRowSource, me: string | null): RankRow {
   return {
     rank: r.rank,
+    avatarUrl: r.avatar_url,
     handle: r.handle,
     initial: r.handle.slice(0, 1),
     accuracy: Number(r.accuracy ?? 0),
@@ -650,7 +710,7 @@ function toEvent(r: RawEvent): MatchEvent {
 
 interface MessageRow {
   id: number; body: string; created_at: string; user_id?: string | null;
-  profiles: { handle: string } | { handle: string }[] | null;
+  profiles: { handle: string; avatar_url?: string | null } | { handle: string; avatar_url?: string | null }[] | null;
 }
 
 /**
@@ -663,6 +723,7 @@ function toMessage(m: MessageRow, fixtureId: number, mine: boolean): ChatMessage
   const handle = profile?.handle ?? '익명';
   return {
     id: String(m.id),
+    avatarUrl: profile?.avatar_url,
     fixtureId,
     userId: m.user_id ?? null,
     handle,

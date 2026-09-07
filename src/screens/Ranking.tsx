@@ -1,3 +1,4 @@
+import { Avatar } from '../components/Avatar';
 import { useState } from 'react';
 import { TierChip } from '../components/TierChip';
 import { IconCrown, IconDown, IconRank, IconUp } from '../components/icons';
@@ -96,7 +97,7 @@ export function Ranking() {
                   {r.rank}
                 </span>
                 <Change value={r.change} />
-                <span className="avatar" style={{ width: 32, height: 32 }}>{r.initial}</span>
+                <Avatar url={r.avatarUrl} name={r.handle} size={32}/>
                 <span className="small" style={{ flex: 1, minWidth: 0, fontWeight: r.isMe ? 700 : 500 }}>
                   {r.handle}
                   {r.isMe && <span className="tiny" style={{ color: 'var(--accent)' }}> · 나</span>}
@@ -159,7 +160,7 @@ function MyRankCard({ row, tier }: { row: RankRow | null; tier: Tier | null }) {
         className="avatar"
         style={{ width: 36, height: 36, background: 'rgba(255,255,255,.22)', color: '#fff' }}
       >
-        {row.initial}
+        <Avatar url={row.avatarUrl} name={row.handle} size={44}/>
       </span>
       <span style={{ flex: 1, minWidth: 0 }}>
         <span className="h3" style={{ display: 'block', fontSize: 14 }}>{row.handle}</span>
@@ -247,7 +248,7 @@ function Podium({
           boxShadow: top ? 'var(--glow-gold)' : '0 3px 0 0 var(--line-strong)',
         }}
       >
-        {row.initial}
+        <Avatar url={row.avatarUrl} name={row.handle} size={44}/>
       </span>
       <span
         className={top ? 'h3' : 'small'}

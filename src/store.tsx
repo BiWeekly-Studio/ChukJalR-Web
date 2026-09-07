@@ -215,6 +215,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // 토스 연결 해제나 다른 기기의 계정 삭제를 복귀 시 확인한다.
+  useEffect(() => {
+    let active = true;
+    const verify = () => {
+      if (document.visibilityState !== 'visible') return;
+      void repository.auth.current().then(user => {
+        if (active) dispatch({ type: 'auth', user });
+      }).catch(() => { /* 일시적인 네트워크 실패로 로그아웃시키지 않는다 */ });
+    };
+    document.addEventListener('visibilitychange', verify);
+    return () => { active = false; document.removeEventListener('visibilitychange', verify); };
+  }, []);
+
   // 3. 로그인된 사람의 기록. 사람이 바뀌면 다시 받는다.
   const userId = state.authUser?.id ?? null;
   useEffect(() => {

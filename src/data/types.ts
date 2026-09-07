@@ -155,6 +155,7 @@ export interface Prediction {
 export type ReportReason = 'SPAM' | 'ABUSE' | 'SEXUAL' | 'ADVERT' | 'OTHER';
 
 export interface ChatMessage {
+  avatarUrl?: string | null;
   id: string;
   fixtureId: number;
   /** 발화자. 차단하려면 필요하다 */
@@ -172,6 +173,7 @@ export interface ChatMessage {
 }
 
 export interface RankRow {
+  avatarUrl?: string | null;
   rank: number;
   handle: string;
   initial: string;
@@ -205,6 +207,7 @@ export interface BadgeDef {
 
 /** 내 기록 화면이 쓰는 집계값. 서버 my_stats() 의 응답 형태다. */
 export interface MyStats {
+  curve?: number[];
   settled: number;
   hits: number;
   byLeague: { leagueId: number; n: number; accuracy: number }[];

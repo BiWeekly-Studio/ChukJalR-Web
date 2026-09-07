@@ -31,7 +31,7 @@ interface TossTokenResponse {
 
 interface TossUserResponse {
   resultType: string;
-  success?: { userKey: string; name?: string | null; email?: string | null };
+  success?: { userKey: number; name?: string | null; email?: string | null };
   error?: unknown;
 }
 
@@ -44,7 +44,7 @@ function json(body: unknown, status = 200) {
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-region',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
@@ -119,27 +119,29 @@ Deno.serve(async (req) => {
       client,
     } as RequestInit);
     const me = (await meRes.json()) as TossUserResponse;
-    if (!meRes.ok || me.resultType !== 'SUCCESS' || !me.success?.userKey) {
+    if (!meRes.ok || me.resultType !== 'SUCCESS' ||
+        !Number.isSafeInteger(me.success?.userKey) || me.success!.userKey <= 0) {
       console.error('토스 사용자 조회 실패', meRes.status, me.error);
       return json({ error: 'TOSS_USER_FAILED' }, 502);
     }
 
-    const { userKey, name } = me.success;
-    const email = `${userKey.toLowerCase()}@${SYNTHETIC_DOMAIN}`;
+    const userKey = String(me.success!.userKey);
+    const email = `${userKey}@${SYNTHETIC_DOMAIN}`;
     const password = await derivePassword(userKey, pepper);
 
     const url = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
 
-    // 3) 처음 온 사람이면 만든다. handle 은 on_auth_user_created 트리거가 집어간다.
+    // 3) 처음 온 사람이면 만든다. 토스의 name 은 암호문이므로 저장하지 않는다.
+    // 공개 닉네임은 on_auth_user_created 트리거가 자동 생성한다.
     let session = await admin.auth.signInWithPassword({ email, password });
     if (session.error) {
       const created = await admin.auth.admin.createUser({
         email,
         password,
         email_confirm: true, // 합성 주소라 확인 메일을 보낼 곳이 없다
-        user_metadata: { toss_user_key: userKey, handle: name ?? undefined },
+        user_metadata: { toss_user_key: userKey },
       });
       if (created.error) {
         console.error('Supabase 유저 생성 실패', created.error);

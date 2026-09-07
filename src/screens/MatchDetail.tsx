@@ -1,3 +1,4 @@
+import { Avatar } from '../components/Avatar';
 import { useEffect, useRef, useState } from 'react';
 import { Crest } from '../components/Crest';
 import { LeagueMark } from '../components/LeagueMark';
@@ -295,7 +296,7 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
         <div className="msgs">
           {chat !== 'BEFORE' && visible.map((m) => (
             <div key={m.id} className={`msg${m.mine ? ' mine' : ''}`}>
-              {!m.mine && <span className="avatar">{m.initial}</span>}
+              {!m.mine && <Avatar url={m.avatarUrl} name={m.handle}/>}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: m.mine ? 'flex-end' : 'flex-start' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   {!m.mine && <span className="tiny" style={{ fontWeight: 700, color: 'var(--ink-2)' }}>{m.handle}</span>}

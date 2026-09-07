@@ -24,6 +24,11 @@ const mockAuth: Auth = {
 /** 백엔드 없이 화면을 돌리기 위한 구현. 상태는 store 가 localStorage 에 보관한다. */
 export const mockRepository: Repository = {
   kind: 'mock',
+  async loadHistory() { return []; },
+  async setHandle(handle) { return handle.trim(); },
+  async setAvatar(image) { return URL.createObjectURL(image); },
+  async removeAvatar() {},
+  async deleteAccount() { localStorage.removeItem('chukjalal.v1'); },
   auth: mockAuth,
 
   async loadCatalog(): Promise<Catalog> {

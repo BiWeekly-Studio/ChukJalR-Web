@@ -923,3 +923,18 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent
 .strow .who .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .strow .num { text-align: center; font-size: 12px; }
 .strow .pos { text-align: left; font-size: 12px; font-weight: 700; }
+
+/* iOS와 같은 기록·계정 관리 */
+.feature-card { margin-top: 12px; padding: 16px; }
+.profile-sheet { border: 0; border-radius: 24px; padding: 0; background: var(--paper); color: var(--ink); width: min(94vw, 520px); max-height: 90dvh; box-shadow: 0 16px 70px #0004; }
+.profile-sheet::backdrop { background: #171b2d66; }
+.profile-sheet header { position: sticky; top: 0; background: var(--paper); padding: 16px 20px; justify-content: space-between; z-index: 1; }
+.profile-sheet-body { padding: 0 20px 24px; }
+.history-summary { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+.history-row { display:flex; justify-content:space-between; gap:12px; padding:14px; margin:8px 0; }
+.history-row p { margin: 5px 0 0; }
+.profile-edit-photo { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin:12px 0 24px; }
+.profile-edit-photo input { display:block; max-width:190px; margin-top:8px; }
+.profile-name { display:block; width:100%; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:14px; padding:14px; margin:8px 0; font:inherit; box-sizing:border-box; }
+.profile-text-button { border:0; background:none; color:var(--accent); font:inherit; font-size:12px; padding:6px 0; }
+.profile-delete { display:block; margin:18px auto; background:none; border:0; color:var(--ink-3); font:inherit; font-size:12px; padding:10px; }
