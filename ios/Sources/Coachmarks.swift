@@ -52,7 +52,7 @@ enum Tour {
               waitFor: "confidence", pad: 6),
         .init(key: "confidence",
               title: "얼마나 확신하세요?",
-              body: "확신이 클수록 맞혔을 때 많이 얻고, 틀렸을 때 많이 잃어요. 여기가 축잘알의 핵심입니다.",
+              body: "확신도가 높을수록 예측 지수가 크게 오르거나 내려가요. 포인트를 걸거나 차감하지 않아요.",
               pad: 6),
         .init(key: "nav",
               title: "매일 아침 8시에 순위 확정",

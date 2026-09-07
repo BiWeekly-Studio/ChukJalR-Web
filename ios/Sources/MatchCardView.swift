@@ -235,30 +235,37 @@ struct MatchCardView: View {
             .padding(.top, 10)
 
             if let preview {
+                Text("예상 지수 변화").font(T.body(11, .semibold)).foregroundStyle(T.ink2)
+                    .padding(.top, 12)
                 HStack(spacing: 8) {
                     Text("맞히면").font(T.body(11)).foregroundStyle(T.ink3)
                     Text(Fmt.signed(preview.ifCorrect)).font(T.num(15)).foregroundStyle(T.win)
                     Text("틀리면").font(T.body(11)).foregroundStyle(T.ink3)
                     Text(Fmt.signed(preview.ifWrong)).font(T.num(15)).foregroundStyle(T.ink3)
                     Spacer()
-                    Text("+\(preview.pointsIfCorrect)점")
+                    Text("적중 +\(preview.pointsIfCorrect) XP")
                         .font(T.body(11, .heavy)).foregroundStyle(.white)
                         .padding(.horizontal, 9).frame(height: 23)
                         .background(T.gradGold, in: Capsule())
                 }
-                .padding(.top, 12)
+                .padding(.top, 6)
             } else {
-                Text("아직 예측이 모이지 않아 점수 폭이 정해지지 않았어요. 마감 때 서버가 계산합니다.")
+                Text("예상 지수 변화는 아직 확인할 수 없어요. 최종 점수는 예측 마감 후 정해집니다.")
                     .font(T.body(11)).foregroundStyle(T.ink3)
                     .padding(.top, 12)
             }
+
+            Text("예측에 포인트를 쓰지 않아요. 틀려도 누적 포인트는 줄지 않아요.")
+                .font(T.body(11)).foregroundStyle(T.ink3)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 8)
 
             Button("이걸로 예측하기") { commit(pick, hover) }
                 .buttonStyle(CTAStyle())
                 .padding(.top, 12)
 
             if hover == .certain {
-                Text("확신은 아껴 쓰세요. 속으로 80% 이상 확신할 때만 이득입니다.")
+                Text("확신도가 높을수록 지수 변화가 커져요. 실제로 생각하는 확신도를 골라주세요.")
                     .font(T.body(11)).foregroundStyle(T.ink3)
                     .frame(maxWidth: .infinity)
                     .padding(.top, 9)
@@ -277,9 +284,9 @@ struct MatchCardView: View {
     private var burstSeed: Int? {
         store.celebrated?.fixtureId == fixture.id ? store.celebrated?.stamp : nil
     }
-    /// 기준선이 없으면 얻을 점수를 계산할 근거가 없다. 숫자를 지어내지 않는다.
+    /// 결과가 나오기 전에는 포인트가 확정된 것처럼 표시하지 않는다.
     private var burstLabel: String {
-        store.celebrated?.points.map { "+\($0)점 예약" } ?? "예측 완료"
+        "예측 완료"
     }
 
     // MARK: 아래 한 줄
@@ -291,18 +298,22 @@ struct MatchCardView: View {
                 Spacer()
                 Text("경기 당일에만 예측할 수 있어요").font(T.body(11)).foregroundStyle(T.ink3)
             } else if let saved {
-                Text(saved.confidence.label).font(T.body(11)).foregroundStyle(T.ink3)
                 if let q = fixture.baseline {
                     let p = Scoring.preview(q, saved.pick, saved.confidence, streak: store.me.streak)
-                    Text("·").foregroundStyle(T.ink3)
-                    Text("맞히면 \(Fmt.signed(p.ifCorrect)) / 틀리면 \(Fmt.signed(p.ifWrong))")
-                        .font(T.body(11)).foregroundStyle(T.ink3)
-                    Spacer()
-                    Text("+\(p.pointsIfCorrect)점")
-                        .font(T.body(11, .heavy)).foregroundStyle(T.gold)
-                        .padding(.horizontal, 9).frame(height: 23)
-                        .background(T.goldSoft, in: Capsule())
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack {
+                            Text(saved.confidence.label).font(T.body(11)).foregroundStyle(T.ink3)
+                            Spacer()
+                            Text("적중 예상 +\(p.pointsIfCorrect) XP")
+                                .font(T.body(11, .heavy)).foregroundStyle(T.gold)
+                                .padding(.horizontal, 9).frame(height: 23)
+                                .background(T.goldSoft, in: Capsule())
+                        }
+                        Text("예상 지수 · 맞히면 \(Fmt.signed(p.ifCorrect)) / 틀리면 \(Fmt.signed(p.ifWrong))")
+                            .font(T.body(11)).foregroundStyle(T.ink3)
+                    }
                 } else {
+                    Text(saved.confidence.label).font(T.body(11)).foregroundStyle(T.ink3)
                     Spacer()
                     Text("점수는 마감 때 정해져요").font(T.body(11)).foregroundStyle(T.ink3)
                 }

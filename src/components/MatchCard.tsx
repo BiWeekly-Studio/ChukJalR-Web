@@ -57,13 +57,9 @@ export function MatchCard({
 
   function commit(c: Confidence) {
     if (!active || !f) return;
-    // 기준선이 없으면 얻을 점수를 계산할 근거가 없다. 숫자를 지어내지 않는다.
-    const gain = f.baseline
-      ? previewScore(f.baseline, active, c, state.streak).pointsIfCorrect
-      : null;
     predict(fixtureId, active, c);
     setDraft(null);
-    setBurst({ seed: Date.now(), label: gain == null ? '예측 완료' : `+${gain}점 예약` });
+    setBurst({ seed: Date.now(), label: '예측 완료' });
     haptic([12, 40, 18]);
   }
 
@@ -261,32 +257,39 @@ function ConfidenceStep({
       </div>
 
       {preview ? (
-        <div className="stake">
-          <span className="tiny muted">맞히면</span>
-          <span className="val" style={{ color: 'var(--win)' }}>
-            {signed(preview.ifCorrect)}
-          </span>
-          <span className="tiny muted">틀리면</span>
-          <span className="val" style={{ color: 'var(--ink-3)' }}>
-            {signed(preview.ifWrong)}
-          </span>
-          <span style={{ marginLeft: 'auto' }} className="chip hot">
-            <span className="flame"><IconFlame size={11} color="#fff" /></span>
-            +{preview.pointsIfCorrect}점
-          </span>
+        <div style={{ marginTop: 12 }}>
+          <div className="tiny" style={{ color: 'var(--ink-2)', fontWeight: 600 }}>예상 지수 변화</div>
+          <div className="stake" style={{ marginTop: 6, flexWrap: 'wrap' }}>
+            <span className="tiny muted">맞히면</span>
+            <span className="val" style={{ color: 'var(--win)' }}>
+              {signed(preview.ifCorrect)}
+            </span>
+            <span className="tiny muted">틀리면</span>
+            <span className="val" style={{ color: 'var(--ink-3)' }}>
+              {signed(preview.ifWrong)}
+            </span>
+            <span style={{ marginLeft: 'auto' }} className="chip hot">
+              <span className="flame"><IconFlame size={11} color="#fff" /></span>
+              적중 +{preview.pointsIfCorrect} XP
+            </span>
+          </div>
         </div>
       ) : (
         <p className="tiny muted" style={{ margin: '12px 0 0', lineHeight: 1.55 }}>
-          아직 예측이 모이지 않아 점수 폭이 정해지지 않았어요. 마감 때 서버가 계산합니다.
+          예상 지수 변화는 아직 확인할 수 없어요. 최종 점수는 예측 마감 후 정해집니다.
         </p>
       )}
+
+      <p className="tiny muted" style={{ margin: '8px 0 0', lineHeight: 1.55 }}>
+        예측에 포인트를 쓰지 않아요. 틀려도 누적 포인트는 줄지 않아요.
+      </p>
 
       <button className="cta" style={{ height: 48, marginTop: 12 }} onClick={() => onPick(hover)}>
         이걸로 예측하기
       </button>
       {hover === 3 && (
         <p className="tiny muted" style={{ margin: '9px 0 0', textAlign: 'center' }}>
-          확신은 아껴 쓰세요. 속으로 80% 이상 확신할 때만 이득입니다.
+          확신도가 높을수록 지수 변화가 커져요. 실제로 생각하는 확신도를 골라주세요.
         </p>
       )}
     </div>
@@ -372,20 +375,24 @@ function Footline({ fixtureId }: { fixtureId: number }) {
     ? previewScore(f.baseline, saved.pick, saved.confidence, state.streak)
     : null;
   return (
-    <div className="stake" style={{ marginTop: 12 }}>
-      <span className="tiny muted">{CONFIDENCE_LABEL[saved.confidence]}</span>
+    <div style={{ marginTop: 12 }}>
       {preview ? (
         <>
-          <span className="tiny muted">·</span>
-          <span className="tiny muted">
-            맞히면 {signed(preview.ifCorrect)} / 틀리면 {signed(preview.ifWrong)}
-          </span>
-          <span style={{ marginLeft: 'auto' }} className="chip gold">
-            +{preview.pointsIfCorrect}점
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span className="tiny muted">{CONFIDENCE_LABEL[saved.confidence]}</span>
+            <span style={{ marginLeft: 'auto' }} className="chip gold">
+              적중 예상 +{preview.pointsIfCorrect} XP
+            </span>
+          </div>
+          <div className="tiny muted" style={{ marginTop: 5 }}>
+            예상 지수 · 맞히면 {signed(preview.ifCorrect)} / 틀리면 {signed(preview.ifWrong)}
+          </div>
         </>
       ) : (
-        <span className="tiny muted" style={{ marginLeft: 'auto' }}>점수는 마감 때 정해져요</span>
+        <div className="stake" style={{ marginTop: 0 }}>
+          <span className="tiny muted">{CONFIDENCE_LABEL[saved.confidence]}</span>
+          <span className="tiny muted" style={{ marginLeft: 'auto' }}>점수는 마감 때 정해져요</span>
+        </div>
       )}
     </div>
   );

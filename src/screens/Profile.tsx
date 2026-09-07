@@ -198,7 +198,7 @@ export function Profile({ onReplayTutorial }: { onReplayTutorial?: () => void })
                         {enough ? `${Math.round(c.actual * 100)}%` : '—'}
                       </span>
                       <span className="tiny muted" style={{ width: 62, textAlign: 'right' }}>
-                        {enough ? `건 값 ${Math.round(c.expected * 100)}%` : `${c.n}건`}
+                        {enough ? `예상 ${Math.round(c.expected * 100)}%` : `${c.n}건`}
                       </span>
                     </div>
                   );
@@ -297,6 +297,14 @@ export function Profile({ onReplayTutorial }: { onReplayTutorial?: () => void })
                 </div>
               );
             })}
+          </div>
+        </Section>
+
+        <Section title="예측 지수와 포인트">
+          <div className="tiny muted" style={{ lineHeight: 1.7 }}>
+            <p>예측 지수는 결과와 확신도에 따라 오르거나 내려가는 실력 평가 점수예요.</p>
+            <p>누적 포인트는 레벨을 올리는 XP예요. 예측에 포인트를 쓰지 않고, 틀려도 누적 포인트는 줄지 않아요.</p>
+            <p>참여는 무료이며 현금 결제, 상금, 포인트 환전 기능은 없어요.</p>
           </div>
         </Section>
 
@@ -431,8 +439,8 @@ function CalibrationNote({ rows }: { rows: MyStats['calibration'] }) {
   }
   return (
     <p className="tiny muted" style={{ margin: '11px 0 0' }}>
-      &lsquo;{CONFIDENCE_LABEL[worst.confidence]}&rsquo;에서 실제 적중률이 건 값보다 {Math.abs(gap)}%p 낮아요.
-      확신을 조금 아껴 쓰면 지수가 올라갑니다.
+      &lsquo;{CONFIDENCE_LABEL[worst.confidence]}&rsquo;에서 실제 적중률이 예상 확률보다 {Math.abs(gap)}%p 낮아요.
+      예측할 때 확신도를 조금 낮춰보세요.
     </p>
   );
 }

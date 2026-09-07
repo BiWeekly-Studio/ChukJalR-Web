@@ -36,7 +36,7 @@ struct ProfileView: View {
                             .background(T.accentSoft, in: RoundedRectangle(cornerRadius: 11))
                         VStack(alignment: .leading, spacing: 2) {
                             Text("예측 기록").font(T.display(13, .heavy))
-                            Text("어제 뭘 걸었고 어떻게 끝났는지")
+                            Text("내 예측과 실제 결과를 비교해요")
                                 .font(T.body(11)).foregroundStyle(T.ink3)
                         }
                         Spacer()
@@ -71,6 +71,7 @@ struct ProfileView: View {
                     .environmentObject(store)
                     .padding(.horizontal, 20).padding(.top, 12)
 
+                scoringGuide.padding(.horizontal, 20).padding(.top, 24)
                 chatPolicy.padding(.horizontal, 20).padding(.top, 24)
                 accountCard.padding(.horizontal, 20).padding(.top, 24)
                 deleteRow.frame(maxWidth: .infinity)
@@ -248,12 +249,27 @@ struct ProfileView: View {
             let gap = Int(((worst.actual - worst.expected) * 100).rounded())
             Text(gap >= -8
                  ? "확신한 만큼 맞히고 있어요. 이게 진짜 축잘알의 조건입니다."
-                 : "‘\(worst.confidence.label)’에서 실제 적중률이 건 값보다 \(abs(gap))%p 낮아요. 확신을 조금 아껴 쓰면 지수가 올라갑니다.")
+                 : "‘\(worst.confidence.label)’에서 실제 적중률이 예상 확률보다 \(abs(gap))%p 낮아요. 예측할 때 확신도를 조금 낮춰보세요.")
                 .font(T.body(11)).foregroundStyle(T.ink3).padding(.top, 11)
         }
     }
 
     // MARK: 운영정책 · 계정
+
+    private var scoringGuide: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle("예측 지수와 포인트")
+            VStack(alignment: .leading, spacing: 8) {
+                Text("예측 지수는 결과와 확신도에 따라 오르거나 내려가는 실력 평가 점수예요.")
+                Text("누적 포인트는 레벨을 올리는 XP예요. 예측에 포인트를 쓰지 않고, 틀려도 누적 포인트는 줄지 않아요.")
+                Text("참여는 무료이며 현금 결제, 상금, 포인트 환전 기능은 없어요.")
+            }
+            .font(T.body(12)).foregroundStyle(T.ink2)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(15)
+            .background(T.card, in: RoundedRectangle(cornerRadius: 16))
+        }
+    }
 
     private var chatPolicy: some View {
         VStack(alignment: .leading, spacing: 0) {

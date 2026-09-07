@@ -98,7 +98,7 @@ struct StatTabs: View {
             Text("통계").font(T.display(14, .heavy))
 
             if stats.settled == 0 {
-                Text("경기가 정산되면 리그별 강약과 확신도 정확도, 어느 쪽에 잘 거는지가 여기 모입니다.")
+                Text("경기 결과가 반영되면 리그별 강약과 확신도 정확도, 어떤 결과를 잘 예측하는지가 여기 모입니다.")
                     .font(T.body(12)).foregroundStyle(T.ink3).lineSpacing(3)
                     .padding(.top, 10)
             } else {
@@ -177,7 +177,7 @@ struct StatTabs: View {
                             tint: c.actual - c.expected < -0.08 ? AnyShapeStyle(T.ink4) : nil)
                         Text(enough ? "\(Int((c.actual * 100).rounded()))%" : "—")
                             .font(T.num(14)).frame(width: 40, alignment: .trailing)
-                        Text(enough ? "건 값 \(Int((c.expected * 100).rounded()))%" : "\(c.n)건")
+                        Text(enough ? "예상 \(Int((c.expected * 100).rounded()))%" : "\(c.n)건")
                             .font(T.body(11)).foregroundStyle(T.ink3)
                             .frame(width: 62, alignment: .trailing)
                     }
