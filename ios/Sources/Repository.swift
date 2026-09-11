@@ -18,6 +18,7 @@ protocol Repository {
     /// 리그 순위표. 팀 옆의 등수와 순위표 화면이 같은 값을 본다.
     func loadStandings() async throws -> [StandingRow]
     func saveOnboarding(leagueOrder: [Int], favoriteTeamIds: [Int]) async throws
+    func saveLeagueOrder(_ order: [Int], userId: String) async throws
 
     // 경기 상세
     /// 이벤트·선발명단·상대전적·기록. 없는 항목은 빈 값이다.
@@ -48,15 +49,33 @@ protocol Repository {
 
 /// 실제 백엔드. 스키마와 RLS 는 웹과 완전히 같다.
 struct SupabaseRepository: Repository {
+    func leagueNotifications(id: Int? = nil, enabled: Bool? = nil) async throws -> [LeagueNotification] {
+        try await Supabase.shared.refreshIfNeeded()
+        var body: [String: Any] = [:]
+        if let id, let enabled { body = ["p_league_id": id, "p_enabled": enabled] }
+        let data = try await Supabase.shared.rpc("league_notification_settings", body: body)
+        return try JSONDecoder().decode([LeagueNotification].self, from: data)
+    }
+
+    func loadSettlementRecap() async throws -> SettlementRecapData {
+        try await Supabase.shared.refreshIfNeeded()
+        let data = try await Supabase.shared.rpc("pending_settlement_recap", body: [:])
+        return try JSONDecoder().decode(SettlementRecapData.self, from: data)
+    }
+    func acknowledgeSettlementRecap(ids: [String]) async throws {
+        try await Supabase.shared.refreshIfNeeded()
+        _ = try await Supabase.shared.rpc("ack_settlement_recap", body: ["p_ids": ids])
+    }
+
     func loadCatalog() async throws -> Catalog {
         async let leaguesData = Supabase.shared.get("leagues?select=id,name,short_name,country")
-        async let teamsData = Supabase.shared.get("teams?select=id,league_id,name,name_ko,abbr,color,tint,logo_url")
-        let horizon = ISO8601DateFormatter().string(from: Date().addingTimeInterval(14 * 86400))
+        async let teamsData = CatalogPaging.load("teams?select=id,league_id,name,name_ko,abbr,color,tint,logo_url,team_competitions(league_id)&order=id", fetch: Supabase.shared.get)
+        let horizon = ISO8601DateFormatter().string(from: Date().addingTimeInterval(60 * 86400))
         let since = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-3 * 86400))
-        async let fixturesData = Supabase.shared.get(
+        async let fixturesData = CatalogPaging.load(
             "fixtures?select=id,league_id,round,home_team_id,away_team_id,venue,kickoff_at,opens_at,lock_at,state,home_goals_ft,away_goals_ft,result"
             + ",home_goals_live,away_goals_live,elapsed"
-            + "&kickoff_at=lte.\(horizon)&kickoff_at=gte.\(since)&state=neq.VOID&order=kickoff_at")
+            + "&kickoff_at=lte.\(horizon)&kickoff_at=gte.\(since)&state=neq.VOID&order=kickoff_at,id", fetch: Supabase.shared.get)
 
         let fixtureData = try await fixturesData
         let ids = ((try? JSONSerialization.jsonObject(with: fixtureData)) as? [[String: Any]])?
@@ -117,6 +136,10 @@ struct SupabaseRepository: Repository {
     func saveOnboarding(leagueOrder: [Int], favoriteTeamIds: [Int]) async throws {
         try await Supabase.shared.saveOnboarding(leagueOrder: leagueOrder,
                                                  favoriteTeamIds: favoriteTeamIds)
+    }
+
+    func saveLeagueOrder(_ order: [Int], userId: String) async throws {
+        try await Supabase.shared.saveLeagueOrder(order, userId: userId)
     }
 
     // MARK: 경기 상세

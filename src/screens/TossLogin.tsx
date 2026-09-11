@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Wordmark } from '../components/Logo';
 import { repository } from '../data';
 import { haptic } from '../lib/anim';
+import { LoginPromotionNotice } from '../components/FirstVisitPromotion';
 
 /**
  * 앱인토스 미니앱의 로그인 화면.
@@ -32,23 +33,14 @@ export function TossLogin() {
 
   return (
     <div className="app">
-      <div className="scroll pad screen" style={{ display: 'grid', placeItems: 'center', paddingTop: 'var(--safe-top)' }}>
-        <div style={{ textAlign: 'center', maxWidth: 320 }}>
-          <span className="brandhero">
-            <Wordmark width={250} />
-          </span>
-          <p className="small muted" style={{ margin: '16px 0 0', lineHeight: 1.7 }}>
-            축구 승부를 예측하고 내 실력을 확인해요.
-            <br />
-            토스 계정으로 바로 시작할 수 있어요.
-          </p>
-
-          {error && (
-            <p className="autherror" role="alert" style={{ textAlign: 'left' }}>
-              {error}
-            </p>
-          )}
-        </div>
+      <div className="scroll pad screen toss-login-content">
+        <div className="login-brand"><Wordmark width={190} /></div>
+        <p className="eyebrow">EVERY MATCH. YOUR CALL.</p>
+        <h1>축구를 보는 눈,<br /><span>예측으로 증명해요.</span></h1>
+        <p>오늘의 승부를 예측하고,<br />나만의 축구 기록을 쌓아보세요.</p>
+        <div className="login-matchline"><i />경기 예측 · 실력 랭킹 · 함께하는 응원</div>
+        <LoginPromotionNotice />
+        {error && <p className="autherror" role="alert">{error}</p>}
       </div>
 
       <div className="pad" style={{ paddingBottom: 'calc(24px + var(--safe-bottom))' }}>

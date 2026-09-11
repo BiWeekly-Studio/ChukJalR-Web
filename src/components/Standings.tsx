@@ -11,8 +11,8 @@ import { useApp } from '../store';
  * 순위표를 못 받았거나 승격팀이라 표에 없으면 아무것도 그리지 않는다 —
  * '0위' 나 '-' 를 붙이면 없는 정보를 있는 것처럼 만든다.
  */
-export function RankTag({ teamId }: { teamId: number }) {
-  const r = teamRank(teamId);
+export function RankTag({ teamId, leagueId }: { teamId: number; leagueId?: number }) {
+  const r = teamRank(teamId, leagueId);
   if (r == null) return null;
   // 상위권과 강등권만 색으로 가른다. 나머지는 조용히 둔다.
   const tone = r <= 4 ? 'var(--accent)' : r >= 18 ? 'var(--cool)' : 'var(--ink-3)';
@@ -24,7 +24,7 @@ export function RankTag({ teamId }: { teamId: number }) {
 }
 
 /** 리그 탭 아래의 순위표 진입. 상위 세 팀을 미리 보여줘야 누를 이유가 생긴다. */
-export function StandingsLink({ leagueId }: { leagueId: number }) {
+export function StandingsLink({ leagueId, onOpenChange }: { leagueId: number; onOpenChange?: (open: boolean) => void }) {
   const [open, setOpen] = useState(false);
   const top = standingsOf(leagueId).slice(0, 3);
   if (top.length === 0) return null;
@@ -36,6 +36,7 @@ export function StandingsLink({ leagueId }: { leagueId: number }) {
         onClick={() => {
           haptic(9);
           setOpen(true);
+          onOpenChange?.(true);
         }}
       >
         <span className="small" style={{ fontWeight: 700, color: 'var(--ink-2)' }}>순위표</span>
@@ -49,7 +50,7 @@ export function StandingsLink({ leagueId }: { leagueId: number }) {
         </span>
         <span style={{ marginLeft: 'auto', color: 'var(--ink-4)' }}>›</span>
       </button>
-      {open && <StandingsSheet leagueId={leagueId} onClose={() => setOpen(false)} />}
+      {open && <StandingsSheet leagueId={leagueId} onClose={() => { setOpen(false); onOpenChange?.(false); }} />}
     </>
   );
 }

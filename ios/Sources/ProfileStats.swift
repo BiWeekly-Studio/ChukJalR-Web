@@ -143,7 +143,7 @@ struct StatTabs: View {
 
     private var league: some View {
         VStack(spacing: 10) {
-            ForEach(store.leagues) { l in
+            ForEach(store.leagues.filter { CompetitionCatalog.isMajor($0.id) }) { l in
                 let row = stats.byLeague.first { $0.leagueId == l.id }
                 HStack(spacing: 11) {
                     Text(l.short).font(T.body(12)).foregroundStyle(T.ink3)

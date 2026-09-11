@@ -4,47 +4,47 @@ import SwiftUI
 /// 한쪽만 고치면 두 플랫폼이 갈라지므로, 색을 바꿀 때는 반드시 양쪽을 함께 본다.
 enum T {
     // 바탕과 글자
-    static let paper      = Color(hex: 0xF5F2EA)
-    static let paper2     = Color(hex: 0xECE6D9)
-    static let card       = Color(hex: 0xFFFFFF)
-    static let card2      = Color(hex: 0xF4EFE4)
-    static let ink        = Color(hex: 0x16140F)
-    static let ink2       = Color(hex: 0x645D51)
-    static let ink3       = Color(hex: 0x9C9385)
-    static let ink4       = Color(hex: 0xBDB5A6)
-    static let line       = Color(hex: 0xE7E0D3)
-    static let line2      = Color(hex: 0xF0EBE0)
-    static let lineStrong = Color(hex: 0xD8CFBE)
+    static let paper      = DesignTokens.paper
+    static let paper2     = DesignTokens.paper2
+    static let card       = DesignTokens.card
+    static let card2      = DesignTokens.card2
+    static let ink        = DesignTokens.ink
+    static let ink2       = DesignTokens.ink2
+    static let ink3       = DesignTokens.ink3
+    static let ink4       = DesignTokens.ink4
+    static let line       = DesignTokens.line
+    static let line2      = DesignTokens.line2
+    static let lineStrong = DesignTokens.lineStrong
 
-    // 키 컬러 — 단색이 아니라 인디고→바이올렛 그라데이션이 기본이다
-    static let accent     = Color(hex: 0x2F57F2)
-    static let accent2    = Color(hex: 0x7B46F0)
-    static let accentDeep = Color(hex: 0x1B36AD)
-    static let accentSoft = Color(hex: 0xE9EDFF)
-    static let accentFill = Color(hex: 0xF0F3FF)
-    static let accentLine = Color(hex: 0xC6D0FB)
+    // Matchday 네이비. 원본은 design/system/tokens.json.
+    static let accent     = DesignTokens.accent
+    static let accent2    = DesignTokens.accent2
+    static let accentDeep = DesignTokens.accentDeep
+    static let accentSoft = DesignTokens.accentSoft
+    static let accentFill = DesignTokens.accentFill
+    static let accentLine = DesignTokens.accentLine
 
     // 포인트·스트릭
-    static let gold     = Color(hex: 0x8A5C05)
-    static let goldInk  = Color(hex: 0xD98B0B)
-    static let goldSoft = Color(hex: 0xFDF0D5)
+    static let gold     = DesignTokens.gold
+    static let goldInk  = DesignTokens.goldInk
+    static let goldSoft = DesignTokens.goldSoft
 
-    static let hot     = Color(hex: 0xFF5F2E)
-    static let win     = Color(hex: 0x0FA968)
-    static let winSoft = Color(hex: 0xE2F7ED)
-    static let cool     = Color(hex: 0xD1492A)
-    static let coolSoft = Color(hex: 0xFBE6DD)
+    static let hot     = DesignTokens.hot
+    static let win     = DesignTokens.win
+    static let winSoft = DesignTokens.winSoft
+    static let cool     = DesignTokens.cool
+    static let coolSoft = DesignTokens.coolSoft
 
     static let gradAccent = LinearGradient(
-        colors: [Color(hex: 0x3A63FF), Color(hex: 0x7B46F0)],
+        colors: [DesignTokens.accentDeep, DesignTokens.accent],
         startPoint: .topLeading, endPoint: .bottomTrailing)
 
     static let gradGold = LinearGradient(
-        colors: [Color(hex: 0xFFC02E), Color(hex: 0xFF7A1A)],
+        colors: [Color(hex: 0xAA780B), Color(hex: 0x986511)],
         startPoint: .topLeading, endPoint: .bottomTrailing)
 
     static let gradWin = LinearGradient(
-        colors: [Color(hex: 0x22C97E), Color(hex: 0x0B8F57)],
+        colors: [DesignTokens.win, DesignTokens.win],
         startPoint: .topLeading, endPoint: .bottomTrailing)
 
     /// 웹과 같은 가족을 쓴다. iOS 에는 이 폰트가 없어 Resources/Fonts 에 번들한다 —
@@ -78,18 +78,7 @@ enum T {
     static let ease   = Animation.easeOut(duration: 0.24)
 }
 
-extension Color {
-    init(hex: UInt32) {
-        self.init(
-            .sRGB,
-            red:   Double((hex >> 16) & 0xFF) / 255,
-            green: Double((hex >> 8) & 0xFF) / 255,
-            blue:  Double(hex & 0xFF) / 255,
-            opacity: 1)
-    }
-}
-
-/// 웹의 .cta — 눌리면 살짝 내려앉는 두꺼운 버튼
+/// Primary Matchday action, shared across onboarding and prediction controls.
 struct CTAStyle: ButtonStyle {
     var fill: AnyShapeStyle = AnyShapeStyle(T.gradAccent)
     var foreground: Color = .white
@@ -101,7 +90,7 @@ struct CTAStyle: ButtonStyle {
             .foregroundStyle(foreground)
             .frame(maxWidth: .infinity, minHeight: 56)
             .background(enabled ? fill : AnyShapeStyle(T.lineStrong), in: RoundedRectangle(cornerRadius: 16))
-            .shadow(color: enabled ? T.accent.opacity(0.35) : .clear, radius: 12, y: 6)
+            .opacity(configuration.isPressed ? 0.85 : 1)
             .offset(y: configuration.isPressed ? 2 : 0)
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }

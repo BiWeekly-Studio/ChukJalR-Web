@@ -17,6 +17,11 @@ struct Team: Identifiable, Codable, Hashable {
     /// 팀 상징색 (엠블럼을 못 받았을 때의 대체 표시에 쓴다)
     let colorHex: UInt32
     let tintHex: UInt32
+    var competitionIds: [Int]? = nil
+
+    func participates(in ids: [Int]) -> Bool {
+        (competitionIds ?? [leagueId]).contains { ids.contains($0) }
+    }
 }
 
 enum WindowState { case upcoming, open, locked, finished }
@@ -47,6 +52,7 @@ struct Fixture: Identifiable, Codable {
     let liveAway: Int?
     /// 경과 분. 하프타임에는 45 에서 멈춘다
     let elapsed: Int?
+    var roundLabel: String? = nil
 
     /// 지금 매치데이에 속한 경기인지.
     ///
@@ -289,7 +295,8 @@ func crowdLevel(_ participants: Int?) -> CrowdLevel {
 // MARK: - 랭킹 · 기록
 
 struct RankRow: Identifiable {
-    var id: String { handle }
+    var userID: String = ""
+    var id: String { userID.isEmpty ? handle : userID }
     let rank: Int
     let handle: String
     let accuracy: Double

@@ -432,3 +432,30 @@ verify_jwt = false
 
 [functions.toss-unlink]
 verify_jwt = false
+
+# ES256 sessions are verified explicitly with auth.getUser before every action.
+[functions.fresh-start]
+verify_jwt = false
+
+[functions.supporter]
+verify_jwt = false
+
+[functions.supporter-webhook]
+verify_jwt = false
+
+[functions.toss-notifications]
+verify_jwt = false
+
+[functions.toss-notifications-send]
+verify_jwt = false
+
+# ES256 sessions are checked through auth.getUser. Payout identity is server-owned.
+[functions.toss-promotion]
+verify_jwt = false
+
+# User JWT and Apple JWS are checked explicitly by the handlers.
+[functions.apple-iap]
+verify_jwt = false
+
+[functions.apple-notifications]
+verify_jwt = false

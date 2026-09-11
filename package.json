@@ -9,7 +9,12 @@
     "preview": "vite preview",
     "test": "node --test tests/*.test.mjs",
     "build:toss": "VITE_AUTH_MODE=toss npm run build && ait build",
-    "build:web": "VITE_AUTH_MODE=standalone npm run build"
+    "build:toss:ads:test": "node scripts/build-toss-ads.mjs test",
+    "build:toss:ads:live": "node scripts/build-toss-ads.mjs live",
+    "build:web": "VITE_AUTH_MODE=standalone npm run build",
+    "build:toss:iap": "node scripts/build-toss-iap.mjs",
+    "design:tokens": "node scripts/build-design-tokens.mjs",
+    "design:brand": "node scripts/build-brand.mjs"
   },
   "dependencies": {
     "@apps-in-toss/web-framework": "^3.2.0",

@@ -43,7 +43,7 @@ export function Onboarding() {
   }
 
   return (
-    <div className="app">
+    <div className="app onboarding-app">
       <div className="pad" style={{ paddingTop: 'calc(var(--safe-top) + 18px)', display: 'flex', gap: 6 }}>
         {[0, 1].map((i) => (
           <span
@@ -108,7 +108,7 @@ function LeagueStep({
         보시나요?
       </h1>
       <p className="small muted" style={{ marginTop: 10 }}>
-        고른 순서대로 홈 화면 탭이 정렬돼요. 나중에 설정에서 바꿀 수 있어요.
+        각 대회 분류 안에서 고른 순서대로 보여드려요. 홈의 ‘순서’ 버튼에서 언제든 바꿀 수 있어요.
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 26 }}>
@@ -165,7 +165,7 @@ function TeamStep({
   onToggle: (id: number) => void;
 }) {
   const pool = useMemo(
-    () => allTeams().filter((t) => leagueIds.includes(t.leagueId)),
+    () => allTeams().filter((t) => (t.competitionIds ?? [t.leagueId]).some(id => leagueIds.includes(id))),
     [leagueIds]
   );
 
@@ -177,9 +177,10 @@ function TeamStep({
   const grouped = useMemo(() => {
     const map = new Map<number, Team[]>();
     for (const t of results) {
-      const list = map.get(t.leagueId) ?? [];
+      const groupId = leagueIds.find(id => (t.competitionIds ?? [t.leagueId]).includes(id)) ?? t.leagueId;
+      const list = map.get(groupId) ?? [];
       list.push(t);
-      map.set(t.leagueId, list);
+      map.set(groupId, list);
     }
     for (const list of map.values()) list.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
     return leagueIds.map((id) => [id, map.get(id) ?? []] as const).filter(([, l]) => l.length > 0);

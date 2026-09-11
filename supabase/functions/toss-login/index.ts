@@ -142,6 +142,7 @@ Deno.serve(async (req) => {
         password,
         email_confirm: true, // 합성 주소라 확인 메일을 보낼 곳이 없다
         user_metadata: { toss_user_key: userKey },
+        app_metadata: { toss_user_key: userKey },
       });
       if (created.error) {
         console.error('Supabase 유저 생성 실패', created.error);
@@ -154,6 +155,12 @@ Deno.serve(async (req) => {
       console.error('세션 발급 실패', session.error);
       return json({ error: 'SESSION_FAILED' }, 500);
     }
+
+    // Purchase identity must be server-owned; user_metadata is editable by clients.
+    const linked = await admin.auth.admin.updateUserById(session.data.user!.id, {
+      app_metadata: { ...session.data.user!.app_metadata, toss_user_key: userKey },
+    });
+    if (linked.error) return json({ error: 'IDENTITY_LINK_FAILED' }, 500);
 
     // 4) 클라이언트는 이 두 토큰으로 setSession 한다
     return json({

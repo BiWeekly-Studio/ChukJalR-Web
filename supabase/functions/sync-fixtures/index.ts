@@ -1,37 +1,17 @@
+import { competitionLabel, isSupportedCompetition, scheduleDates } from './competitions.ts';
 /**
- * API-Football → Postgres 수집기 (명세 12.1, 14.1)
- *
- * 설계 목표는 하나다: **API 호출을 최소로 쓴다.**
- *
- *   ?mode=schedule   주 1회. 향후 1개월 일정을 리그별로 받아온다.        4회
- *   ?mode=teams      시즌 시작 및 월 1회. 팀 카탈로그.                  4회
- *   ?mode=results    10분마다. 단, 지금 열려 있고 아직 안 끝난 경기가
- *                    있을 때만 호출한다. 없으면 API를 아예 부르지 않는다. 0~2회
- *   ?mode=standings  하루 1회. 리그 순위표. 화면의 등수와 순위표 화면이 쓴다. 4회
- *   ?mode=priors     주 1회. 저장된 순위표로 팀 전력을 재 경기별 기준 확률을
- *                    만든다. API 를 부르지 않는다.                        0회
- *   ?mode=odds       하루 1회. 북메이커 배당 → 기준 확률. 모델보다 정확하다. 30~60회
- *   ?mode=live       1분마다. 진행 중 경기의 점수·경과. 점수가 바뀐 경기만
- *                    이벤트를 따로 받는다. 없으면 0회.                    0~3회
- *   ?mode=lineups    5분마다. 킥오프 75분 전부터, 아직 못 받은 경기만.    0~10회
- *   ?mode=h2h        하루 1회. 새로 들어온 경기의 상대 전적.              0~40회
- *   ?mode=stats      하루 1회. 끝난 경기의 점유율·슈팅.                   0~30회
- *   ?mode=status     수동. 요금제와 남은 호출량을 확인한다.               1회
- *
- * results 모드는 폴링할 경기 id 를 DB 에서 먼저 뽑아 `?ids=` 로 정확히 그것만
- * 요청한다. 리그 전체나 날짜 전체를 훑지 않으므로 응답도 작고 호출도 적다.
- *
- * 주간 예산 (유럽 주말 기준)
- *   일정 4 + 팀 1 + 기준확률 4 + 결과 폴링 약 200  ≈ 210회/주  ≈ 30회/일
- *
- * 지금 계정은 Pro(7,500회/일)라 이 정도는 여유가 많다. 그래도 필요 없는 호출은
- * 하지 않는다 — 남는 한도는 라이브 스코어나 배당 같은, 실제로 값을 더하는 쪽에 쓴다.
- * 요금제와 잔여량은 ?mode=status 로 확인한다.
+ * API-Football → Postgres 수집기.
+ * schedule: 매일 과거 3일~향후 60일, 날짜별 전체 경기에서 국내 4개 리그와
+ * API World 카탈로그 국제대회를 골라 반영한다. 65회 호출/일.
+ * 팀 대표 소속은 보존하고 team_competitions에 복수 대회 소속을 기록한다.
+ * teams/standings/priors: 기존 국내 4개 리그. 컵 조별 순위를 국내 리그 표로 섞지 않는다.
+ * results/live/lineups/odds/h2h/stats: DB 경기 ID 기준이므로 새 대회도 동일하게 처리한다.
+ * 세부 통계·배당이 없는 경기는 없는 그대로 표시한다.
  */
 
 const API_BASE = 'https://v3.football.api-sports.io';
-const LEAGUES = [39, 140, 78, 135]; // EPL, 라리가, 분데스리가, 세리에A
-const SCHEDULE_DAYS = 30;
+const LEAGUES = [39, 140, 78, 135, 61]; // EPL, 라리가, 분데스리가, 세리에A
+const SCHEDULE_DAYS = 60;
 const IDS_PER_CALL = 20; // API-Football 의 ?ids= 상한
 // 이 값 이상은 우리가 만든 테스트 경기다 (scripts/test-match.sh). API 에는 없으므로
 // 물어보면 빈 응답만 돌아오고 호출만 낭비된다.
@@ -79,7 +59,7 @@ function api(key: string): Api {
       if (slot > now) await new Promise((r) => setTimeout(r, slot - now));
 
       self.calls += 1;
-      const res = await fetch(`${API_BASE}${path}`, { headers: { 'x-apisports-key': key } });
+      const res = await fetch(`${API_BASE}${path}`, { headers: { 'x-apisports-key': key }, signal: AbortSignal.timeout(20000) });
       if (!res.ok) throw new Error(`api-football ${res.status} on ${path}`);
       const body = await res.json();
       if (body.errors && Object.keys(body.errors).length > 0) {
@@ -154,21 +134,50 @@ async function syncTeams(sb: Db, a: Api, season: number) {
   }
 }
 
-/** 주 1회. 향후 1개월 일정. 리그당 한 번씩. */
-async function syncSchedule(sb: Db, a: Api, season: number) {
-  const from = new Date().toISOString().slice(0, 10);
-  const to = new Date(Date.now() + SCHEDULE_DAYS * 864e5).toISOString().slice(0, 10);
+/** 날짜별 조회는 월드컵 예선·네이션스리그의 서로 다른 시즌 연도도 놓치지 않는다. */
+async function syncSchedule(sb: Db, a: Api, _season: number) {
+  const { response: world } = await a.get('/leagues?country=World');
+  const competitions = world as { league: { id: number; name: string; logo: string } }[];
+  const worldIds = new Set(competitions.map(c => c.league.id));
+  // 각 날짜는 API가 제공한 실제 경기만 반영한다. 과거 시즌을 현재 일정으로 이동하지 않는다.
+  const days = scheduleDates(new Date(), SCHEDULE_DAYS);
+  const collected: ApiFixture[] = [];
+  await pool(days, 3, async date => {
+    const { response } = await a.get(`/fixtures?date=${date}`);
+    collected.push(...(response as ApiFixture[]).filter(f => isSupportedCompetition(f.league.id, worldIds)));
+  });
+  const rows = [...new Map(collected.map(f => [f.fixture.id, f])).values()];
+  const present = new Set(rows.map(f => f.league.id));
+  // 주 대회는 일정이 아직 없어도 선택할 수 있다. 그 외 국제대회는 실제 일정이 있을 때 등록한다.
+  const core = new Set([2, 3, 848, 1, 4, 5, 6, 7, 9, 10, 22, 29, 30, 31, 32, 33, 34, 35, 36, 37]);
+  const catalog = competitions.filter(c => isSupportedCompetition(c.league.id, worldIds) && (present.has(c.league.id) || core.has(c.league.id)));
+  if (catalog.length) await sb.upsert('leagues', catalog.map(c => ({
+    id: c.league.id, ...competitionLabel(c.league.id, c.league.name), country: '국제', logo_url: c.league.logo,
+  })));
 
-  let total = 0;
-  for (const leagueId of LEAGUES) {
-    const { response } = await a.get(
-      `/fixtures?league=${leagueId}&season=${season}&from=${from}&to=${to}`
-    );
-    const rows = (response as ApiFixture[]).map(toRow);
-    if (rows.length) await sb.upsert('fixtures', rows);
-    total += rows.length;
+  // 클럽이 챔스에 출전해도 기존 국내 리그 소속·한글 이름·색은 보존한다.
+  const existing: { id: number; league_id: number; abbr?: string }[] = [];
+  for (let offset = 0; ; offset += 500) {
+    const page = await sb.select<{ id: number; league_id: number; abbr?: string }>('teams', `select=id,league_id,abbr&order=id&limit=500&offset=${offset}`);
+    existing.push(...page);
+    if (page.length < 500) break;
   }
-  return total;
+  const primary = new Map(existing.map(t => [t.id, t.league_id]));
+  const abbreviations = new Map(existing.map(t => [t.id, t.abbr]));
+  const teams = new Map<number, { id: number; league_id: number; name: string; abbr: string; logo_url: string }>();
+  const memberships = new Map<string, { team_id: number; league_id: number }>();
+  // 국내 리그 팀부터 처리해 신규 팀의 대표 소속도 안정적으로 선택한다.
+  rows.sort((a, b) => Number(LEAGUES.includes(b.league.id)) - Number(LEAGUES.includes(a.league.id)));
+  for (const f of rows) for (const t of [f.teams.home, f.teams.away]) {
+    if (!primary.has(t.id)) primary.set(t.id, f.league.id);
+    teams.set(t.id, { id: t.id, league_id: primary.get(t.id)!, name: t.name, abbr: abbreviations.get(t.id) ?? abbrOf(t.name, null),
+      logo_url: `https://media.api-sports.io/football/teams/${t.id}.png` });
+    memberships.set(`${t.id}:${f.league.id}`, { team_id: t.id, league_id: f.league.id });
+  }
+  for (let i = 0, values = [...teams.values()]; i < values.length; i += 200) await sb.upsert('teams', values.slice(i, i + 200));
+  for (let i = 0, values = [...memberships.values()]; i < values.length; i += 300) await sb.upsert('team_competitions', values.slice(i, i + 300), 'team_id,league_id');
+  for (let i = 0; i < rows.length; i += 200) await sb.upsert('fixtures', rows.slice(i, i + 200).map(toRow));
+  return { fixtures: rows.length, competitions: [...present].sort((a,b) => a-b), teams: teams.size, days: days.length };
 }
 
 /**
@@ -913,13 +922,17 @@ Deno.serve(async (req: Request) => {
     // 이 함수는 JWT 검증 없이 배포된다 (cron 이 불러야 하므로).
     // 대신 공유 토큰을 요구한다 — 없으면 아무나 호출해 API 쿼터를 태울 수 있다.
     const syncToken = Deno.env.get('SYNC_TOKEN');
-    if (syncToken && req.headers.get('x-sync-token') !== syncToken) {
+    if (!syncToken || req.headers.get('x-sync-token') !== syncToken) {
       return Response.json({ error: 'forbidden' }, { status: 403 });
     }
 
     const mode = params.get('mode') ?? 'results';
     const sb = db(url, serviceKey);
     const a = api(key);
+    if (mode === 'competitions') {
+      const { response } = await a.get('/leagues?country=World');
+      return Response.json({ ok: true, competitions: response, apiCalls: a.calls });
+    }
     // 유럽 시즌 표기: 7월 이후는 그 해 연도를 쓴다.
     const now = new Date();
     // 무료 플랜은 2022~2024 시즌만 열린다. 개발 중에는 ?season= 으로 내려서 쓴다.
@@ -933,7 +946,7 @@ Deno.serve(async (req: Request) => {
 
     if (mode === 'schedule') {
       const n = await syncSchedule(sb, a, season);
-      return Response.json({ ok: true, mode, season, fixtures: n, apiCalls: a.calls });
+      return Response.json({ ok: true, mode, season, ...n, apiCalls: a.calls });
     }
 
     // 요금제로 열리는 엔드포인트와 남은 호출량이 다르다. 추측하지 말고 물어본다.

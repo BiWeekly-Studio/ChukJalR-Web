@@ -9,6 +9,7 @@ struct ProfileView: View {
     @EnvironmentObject var store: Store
     @EnvironmentObject var auth: Auth
     @State private var policyOpen = false
+    @State private var profileTab = 0
 
     private var stats: MyStats { store.stats }
     private var inPlacement: Bool { store.me.settledMatches < Progression.placementMatches }
@@ -16,14 +17,22 @@ struct ProfileView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
+                Text("MY MATCHDAY").font(T.body(10, .bold)).tracking(1.5).foregroundStyle(T.ink3).padding(.horizontal, 20).padding(.top, 16)
                 HStack {
-                    Text("내 기록").font(T.display(22))
+                    Text("내 기록").font(T.display(26))
                     Spacer()
                     Chip(text: "\(Fmt.comma(store.me.balance))점", icon: "bolt.fill", style: .gold)
                 }
                 .padding(.horizontal, 20).padding(.top, 8)
 
                 profileCard.padding(.horizontal, 20).padding(.top, 12)
+                Picker("프로필 메뉴", selection: $profileTab) {
+                    Text("기록").tag(0)
+                    Text("응원·도전").tag(1)
+                    Text("설정").tag(2)
+                }.pickerStyle(.segmented).padding(.horizontal, 20).padding(.top, 18)
+
+                if profileTab == 0 {
                 statRow.padding(.horizontal, 20).padding(.top, 12)
 
                 trend.padding(.horizontal, 20).padding(.top, 12)
@@ -67,6 +76,11 @@ struct ProfileView: View {
                     }
                 }
 
+                }
+                if profileTab == 1 {
+                    MembershipView().padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 24)
+                }
+                if profileTab == 2 {
                 NotificationSettingsCard()
                     .environmentObject(store)
                     .padding(.horizontal, 20).padding(.top, 12)
@@ -76,6 +90,7 @@ struct ProfileView: View {
                 accountCard.padding(.horizontal, 20).padding(.top, 24)
                 deleteRow.frame(maxWidth: .infinity)
                     .padding(.top, 16).padding(.bottom, 28)
+                }
             }
         }
         .background(T.paper)
@@ -133,7 +148,7 @@ struct ProfileView: View {
         .padding(EdgeInsets(top: 14, leading: 16, bottom: 16, trailing: 16))
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(T.card, in: RoundedRectangle(cornerRadius: 20))
-        .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(T.line, lineWidth: 1))
     }
 
     // MARK: 프로필 카드
@@ -154,9 +169,10 @@ struct ProfileView: View {
                                 .background(.white.opacity(0.2), in: Circle())
                         }
                     }
-                    .overlay(Circle().stroke(.white.opacity(0.55), lineWidth: 2.5))
+                    .overlay(Circle().stroke(store.mySupporter.flatMap { $0.active ? Color(hex: store.team($0.teamID).colorHex) : nil } ?? .white.opacity(0.55), lineWidth: 2.5))
                     VStack(alignment: .leading, spacing: 5) {
                         Text(store.me.handle).font(T.display(18))
+                        SupporterBadgeView(badge: store.mySupporter)
                         HStack(spacing: 6) {
                             Text("Lv.\(store.level.level)").font(T.display(11, .heavy))
                                 .padding(.horizontal, 8).frame(height: 22)
@@ -205,7 +221,7 @@ struct ProfileView: View {
             .background(T.card)
         }
         .clipShape(RoundedRectangle(cornerRadius: 26))
-        .shadow(color: .black.opacity(0.10), radius: 14, y: 6)
+        .overlay(RoundedRectangle(cornerRadius: 26).stroke(T.line, lineWidth: 1))
     }
 
     private var statRow: some View {
@@ -262,7 +278,7 @@ struct ProfileView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("예측 지수는 결과와 확신도에 따라 오르거나 내려가는 실력 평가 점수예요.")
                 Text("누적 포인트는 레벨을 올리는 XP예요. 예측에 포인트를 쓰지 않고, 틀려도 누적 포인트는 줄지 않아요.")
-                Text("참여는 무료이며 현금 결제, 상금, 포인트 환전 기능은 없어요.")
+                Text("예측 참여는 무료예요. 새 출발권과 응원 프로필 팩은 선택 구매 상품이며, 상금이나 포인트 환전 기능은 없어요.")
             }
             .font(T.body(12)).foregroundStyle(T.ink2)
             .fixedSize(horizontal: false, vertical: true)
@@ -353,7 +369,7 @@ struct ProfileView: View {
                 Button("취소", role: .cancel) {}
             } message: {
                 Text("예측 기록·지수·포인트가 모두 사라지고 되돌릴 수 없어요. "
-                     + "채팅에 남긴 글은 가려집니다.")
+                     + "채팅에 남긴 글은 가려집니다. 구독은 자동 해지되지 않으니 Apple 구독 관리에서 별도로 해지해주세요. 구매 상품은 새 계정으로 이전되지 않아요.")
             }
     }
 

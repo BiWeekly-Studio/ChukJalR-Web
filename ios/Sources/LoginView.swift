@@ -10,8 +10,10 @@ struct LoginView: View {
         VStack(spacing: 0) {
             Spacer()
 
-            PlateLogo(width: 260)
-            Text("찍는 게 아니라 읽는 사람들의 리그.")
+            Text("WELCOME TO MATCHDAY").font(T.body(10, .bold)).tracking(2).foregroundStyle(T.ink3).padding(.bottom, 24)
+            PlateLogo(width: 220)
+            Text("오늘의 승부,\n당신의 한 수.").font(T.display(30)).multilineTextAlignment(.center).padding(.top, 24)
+            Text("예측하고, 함께 보고, 실력을 기록해요.")
                 .font(T.body(13))
                 .foregroundStyle(T.ink3)
                 .padding(.top, 16)

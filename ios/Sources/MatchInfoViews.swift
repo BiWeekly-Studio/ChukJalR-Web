@@ -37,7 +37,7 @@ struct InfoCard<Content: View>: View {
         .padding(EdgeInsets(top: 14, leading: 16, bottom: 16, trailing: 16))
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(T.card, in: RoundedRectangle(cornerRadius: 20))
-        .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
+        .shadow(color: T.ink.opacity(0.035), radius: 2, y: 1)
     }
 
     private var head: some View {

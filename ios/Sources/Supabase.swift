@@ -39,6 +39,30 @@ actor Supabase {
 
     var currentUser: User? { session?.user }
 
+    /// 오래 백그라운드에 있던 앱의 결과 조회를 위해 만료 직전 세션만 갱신한다.
+    /// 네트워크 응답을 기다리는 동안 로그아웃/계정 전환됐다면 옛 세션을 복원하지 않는다.
+    func refreshIfNeeded() async throws {
+        guard let before = session else { throw Failure.http(401, "로그인이 필요해요.") }
+        if let expiry = before.expires_at, expiry > Date().timeIntervalSince1970 + 60 { return }
+        var request = URLRequest(url: URL(string: url + "/auth/v1/token?grant_type=refresh_token")!)
+        request.httpMethod = "POST"
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(["refresh_token": before.refresh_token])
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw Failure.http((response as? HTTPURLResponse)?.statusCode ?? 0, Self.message(from: data))
+        }
+        let renewed = try JSONDecoder().decode(Session.self, from: data)
+        guard session?.user.id == before.user.id, renewed.user.id == before.user.id else {
+            throw Failure.http(401, "계정이 변경됐어요.")
+        }
+        if session?.refresh_token == before.refresh_token {
+            session = renewed
+            Keychain.write(Self.refreshKey, renewed.refresh_token)
+        }
+    }
+
     // MARK: 세션 보관
     // 액세스 토큰은 키체인에 두는 게 원칙이지만, 지금은 리프레시 토큰만 있으면
     // 세션을 다시 세울 수 있으므로 그것만 저장한다.
@@ -86,6 +110,28 @@ actor Supabase {
         return s
     }
 
+    func invoke(_ function: String, body: [String: Any], userID: String) async throws -> Data {
+        try await refreshIfNeeded()
+        guard session?.user.id == userID, let token = session?.access_token else {
+            throw Failure.http(401, "LOGIN_REQUIRED")
+        }
+        var request = URLRequest(url: URL(string: url + "/functions/v1/" + function)!)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 45
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard session?.user.id == userID else { throw Failure.http(401, "LOGIN_REQUIRED") }
+        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(code) else {
+            let error = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? String
+            throw Failure.http(code, error ?? "VERIFICATION_PENDING")
+        }
+        return data
+    }
+
     /// 로그인한 사용자로 테이블을 읽는다
     func get(_ path: String) async throws -> Data {
         var req = URLRequest(url: URL(string: url + "/rest/v1/" + path)!)
@@ -98,6 +144,27 @@ actor Supabase {
             throw Failure.http((response as? HTTPURLResponse)?.statusCode ?? 0, Self.message(from: data))
         }
         return data
+    }
+
+    func saveLeagueOrder(_ order: [Int], userId: String) async throws {
+        try await refreshIfNeeded()
+        guard session?.user.id == userId, let token = session?.access_token else {
+            throw Failure.http(401, "로그인이 필요해요.")
+        }
+        var req = URLRequest(url: URL(string: url + "/rest/v1/profiles?id=eq.\(userId)&select=id")!)
+        req.httpMethod = "PATCH"
+        req.setValue(anonKey, forHTTPHeaderField: "apikey")
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("return=representation", forHTTPHeaderField: "Prefer")
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["league_order": order])
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(code) else {
+            throw Failure.http(code, Self.tableMessage(from: data))
+        }
+        guard let rows = try JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+              rows.count == 1, rows[0]["id"] as? String == userId else { throw Failure.badResponse }
     }
 
     /// 온보딩 결과를 프로필에 저장한다

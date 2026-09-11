@@ -1,3 +1,4 @@
+import type { SupporterBadgeData } from '../lib/supporter';
 import type { Confidence, Distribution, Outcome, Tier } from '../lib/scoring';
 
 export interface League {
@@ -10,6 +11,7 @@ export interface League {
 }
 
 export interface Team {
+  competitionIds?: number[];
   id: number;
   leagueId: number;
   /** 화면에 쓰는 이름. 한글명이 있으면 그것 */
@@ -28,6 +30,7 @@ export interface Fixture {
   leagueId: number;
   /** 라운드. 원본에 없으면 null — 0R 같은 지어낸 값을 만들지 않는다 */
   round: number | null;
+  roundLabel?: string | null;
   homeTeamId: number;
   awayTeamId: number;
   /** 경기장. 원본에 없으면 null */
@@ -155,6 +158,7 @@ export interface Prediction {
 export type ReportReason = 'SPAM' | 'ABUSE' | 'SEXUAL' | 'ADVERT' | 'OTHER';
 
 export interface ChatMessage {
+  supporter?: SupporterBadgeData | null;
   avatarUrl?: string | null;
   id: string;
   fixtureId: number;
@@ -173,6 +177,7 @@ export interface ChatMessage {
 }
 
 export interface RankRow {
+  supporter?: SupporterBadgeData | null;
   avatarUrl?: string | null;
   rank: number;
   handle: string;

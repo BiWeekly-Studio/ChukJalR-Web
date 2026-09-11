@@ -76,7 +76,7 @@ struct TierChip: View {
         case .placement:   pair = [0xA49A89, 0x857C6D]
         case .bronze:      pair = [0xD08C53, 0xA35F2C]
         case .silver:      pair = [0xB9C2CC, 0x7F8B98]
-        case .gold:        pair = [0xFFC02E, 0xFF7A1A]
+        case .gold:        pair = [0xAA780B, 0x986511]
         case .platinum:    pair = [0x56D6C4, 0x1F9E97]
         case .diamond:     pair = [0x64C8FF, 0x2F6BF2]
         case .master:      pair = [0xA06BFF, 0x6127E0]

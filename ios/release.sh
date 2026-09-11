@@ -42,8 +42,8 @@ echo "빌드 번호 $CURRENT → $NEXT"
 command -v xcodegen >/dev/null || { echo "xcodegen 이 필요합니다: brew install xcodegen"; exit 1; }
 xcodegen generate >/dev/null
 
-OUT=build/release
-rm -rf "$OUT"
+VERSION=$(grep -E '^\s+MARKETING_VERSION:' project.yml | cut -d'"' -f2)
+OUT="build/release-${VERSION}-${NEXT}"
 mkdir -p "$OUT"
 
 cat > "$OUT/ExportOptions.plist" <<PLIST
@@ -71,7 +71,7 @@ xcodebuild archive \
   -archivePath "$OUT/Chukjalal.xcarchive" \
   -allowProvisioningUpdates \
   DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
-  | grep -E "error:|warning: .*deprecat|ARCHIVE SUCCEEDED" || true
+  > "$OUT/archive.log" 2>&1 || { tail -80 "$OUT/archive.log"; exit 1; }
 
 [ -d "$OUT/Chukjalal.xcarchive" ] || { echo "아카이브 실패"; exit 1; }
 
@@ -81,7 +81,7 @@ xcodebuild -exportArchive \
   -exportOptionsPlist "$OUT/ExportOptions.plist" \
   -exportPath "$OUT/export" \
   -allowProvisioningUpdates \
-  | grep -E "error:|EXPORT SUCCEEDED" || true
+  > "$OUT/export.log" 2>&1 || { tail -80 "$OUT/export.log"; exit 1; }
 
 IPA=$(find "$OUT/export" -name '*.ipa' | head -1)
 [ -n "$IPA" ] || { echo "내보내기 실패"; exit 1; }
@@ -89,9 +89,18 @@ echo "완료: $IPA"
 
 if [ "${1:-}" = "upload" ]; then
   echo "업로드 중…"
-  xcrun altool --upload-app -f "$IPA" -t ios \
-    --apiKey "${ASC_KEY_ID:?ASC_KEY_ID 가 필요합니다}" \
-    --apiIssuer "${ASC_ISSUER_ID:?ASC_ISSUER_ID 가 필요합니다}"
+  if [ -n "${ASC_KEY_ID:-}" ] && [ -n "${ASC_ISSUER_ID:-}" ]; then
+    xcrun altool --upload-app -f "$IPA" -t ios \
+      --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+  else
+    cp "$OUT/ExportOptions.plist" "$OUT/UploadOptions.plist"
+    /usr/libexec/PlistBuddy -c 'Add :destination string upload' "$OUT/UploadOptions.plist"
+    /usr/libexec/PlistBuddy -c 'Add :manageAppVersionAndBuildNumber bool false' "$OUT/UploadOptions.plist"
+    xcodebuild -exportArchive -archivePath "$OUT/Chukjalal.xcarchive" \
+      -exportOptionsPlist "$OUT/UploadOptions.plist" -exportPath "$OUT/upload" \
+      -allowProvisioningUpdates > "$OUT/upload.log" 2>&1 || { tail -60 "$OUT/upload.log"; exit 1; }
+    echo "App Store Connect 업로드 완료: $VERSION ($NEXT)"
+  fi
 else
   echo
   echo "업로드하려면:  ./release.sh upload"

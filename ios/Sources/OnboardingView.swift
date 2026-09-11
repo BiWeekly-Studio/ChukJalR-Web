@@ -13,6 +13,7 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            HStack { PlateLogo(width: 110); Spacer(); Text("나만의 매치데이").font(T.body(11)).foregroundStyle(T.ink3) }.padding(.horizontal, 20).padding(.top, 12)
             // 진행 표시
             HStack(spacing: 6) {
                 ForEach(0..<2, id: \.self) { i in
@@ -72,7 +73,8 @@ struct OnboardingView: View {
                     .font(T.body(12)).foregroundStyle(T.ink3).padding(.top, 10)
 
                 VStack(spacing: 10) {
-                    ForEach(store.leagues) { l in
+                    Text("메이저 대회부터 골라보세요").font(T.body(11)).foregroundStyle(T.ink3).frame(maxWidth: .infinity, alignment: .leading)
+                    ForEach(store.leagues.sorted { CompetitionCatalog.isMajor($0.id) && !CompetitionCatalog.isMajor($1.id) }) { l in
                         let idx = picked.firstIndex(of: l.id)
                         Button {
                             Haptics.tap()
@@ -110,7 +112,7 @@ struct OnboardingView: View {
     // MARK: 최애 팀
 
     private var pool: [Team] {
-        store.teams.filter { picked.contains($0.leagueId) }
+        store.teams.filter { $0.participates(in: picked) }
     }
     private var results: [Team] {
         pool.filter { Hangul.matches(query, $0.name, $0.abbr) }

@@ -20,6 +20,10 @@ final class Store: ObservableObject {
     @Published private(set) var badges: [BadgeDef] = []
     /// 팀 id → 순위. 카드마다 배열을 훑지 않으려고 미리 편다.
     @Published private(set) var standings: [Int: StandingRow] = [:]
+    @Published private(set) var myRank: RankRow?
+    @Published private(set) var supporters: [String: SupporterInfo] = [:]
+    @Published private(set) var mySupporter: SupporterInfo?
+    @Published private(set) var rankingFailed = false
     @Published var error: String?
     /// 예측 확정 순간의 연출을 띄우기 위한 방아쇠.
     /// stamp 는 같은 경기를 다시 확정했을 때도 연출이 한 번 더 재생되게 하는 도장이다.
@@ -36,7 +40,7 @@ final class Store: ObservableObject {
 
     func team(_ id: Int) -> Team {
         teamsById[id] ?? Team(id: id, leagueId: 0, name: "—", abbr: "—", logoUrl: nil,
-                              colorHex: 0x9C9385, tintHex: 0xF0EBE0)
+                              colorHex: 0x8895A6, tintHex: 0xF0F3F6)
     }
     func league(_ id: Int) -> League {
         leagues.first { $0.id == id } ?? League(id: id, name: "—", short: "—", country: "")
@@ -47,15 +51,24 @@ final class Store: ObservableObject {
 
     /// 유저가 고른 순서대로 정렬된 리그
     var orderedLeagues: [League] {
-        let order = me.leagueOrder.isEmpty ? leagues.map(\.id) : me.leagueOrder
-        return order.compactMap { id in leagues.first { $0.id == id } }
+        CompetitionCatalog.ordered(leagues, preferred: me.leagueOrder)
     }
 
     /// 이 팀의 현재 등수. 순위표를 못 받았거나 승격팀이면 nil — 0위를 만들지 않는다.
-    func rank(_ teamId: Int) -> Int? { standings[teamId]?.rank }
+    func rank(_ teamId: Int, leagueId: Int? = nil) -> Int? {
+        guard let row = standings[teamId], leagueId == nil || row.leagueId == leagueId else { return nil }
+        return row.rank
+    }
 
     func isFavorite(_ f: Fixture) -> Bool {
         me.favoriteTeamIds.contains(f.homeTeamId) || me.favoriteTeamIds.contains(f.awayTeamId)
+    }
+
+    func refreshResultProfile() async {
+        guard let id = await Supabase.shared.currentUser?.id,
+              let profile = try? await repo.loadMe(),
+              await Supabase.shared.currentUser?.id == id else { return }
+        me = profile
     }
 
     func load() async {
@@ -70,7 +83,7 @@ final class Store: ObservableObject {
             predictions = Dictionary(uniqueKeysWithValues:
                 try await repo.loadPredictions().map { ($0.fixtureId, $0) })
             // 랭킹·통계·뱃지는 없어도 앱이 떠야 한다. 실패하면 빈 채로 둔다.
-            ranking = (try? await repo.loadRanking()) ?? []
+            await refreshRanking()
             stats = (try? await repo.loadMyStats()) ?? MyStats()
             badges = (try? await repo.loadBadges()) ?? []
             // 순위표는 없어도 앱이 떠야 한다. 못 받으면 등수만 안 보인다.
@@ -84,11 +97,53 @@ final class Store: ObservableObject {
         ready = true
     }
 
+    func refreshRanking() async {
+        guard let id = await Supabase.shared.currentUser?.id else { return }
+        do {
+            let rows = try await repo.loadRanking()
+            let mine = Decode.ranking(try await Supabase.shared.get(
+                "leaderboard?select=user_id,rank,handle,avatar_url,rating,accuracy,prev_rank&user_id=eq.\(id)&limit=1"), me: id).first
+            guard await Supabase.shared.currentUser?.id == id else { return }
+            ranking = rows; myRank = mine; rankingFailed = false
+            await refreshSupporters()
+        } catch { rankingFailed = true }
+    }
+
+    func refreshSupporters(users: [String] = []) async {
+        guard let id = await Supabase.shared.currentUser?.id else { return }
+        let ids = [id] + Array(Set(users + ranking.map(\.userID))).filter { !$0.isEmpty && $0 != id }.prefix(99)
+        guard let data = try? await Supabase.shared.rpc("supporter_badges", body: ["p_users": Array(ids.prefix(100))]),
+              let rows = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+              await Supabase.shared.currentUser?.id == id else { return }
+        for user in ids { supporters[user] = nil }
+        for row in rows {
+            if let uid = row["user_id"] as? String, let team = row["team_id"] as? Int {
+                supporters[uid] = SupporterInfo(teamID: team, expiresAt: Decode.date(row["expires_at"] as? String))
+            }
+        }
+        mySupporter = supporters[id]
+    }
+
     /// 알림 재예약. 예측·최애 팀·일정이 바뀌면 기존 예약이 어긋나므로 통째로 다시 깐다.
+    @Published var notificationLeagues: [LeagueNotification] = []
+    @Published var notificationLeagueError = false
+    func refreshNotificationLeagues() async {
+        do {
+            notificationLeagues = try await SupabaseRepository().leagueNotifications()
+            notificationLeagueError = false
+        } catch {
+            notificationLeagues = [] // Fail closed instead of re-enabling an opted-out league.
+            notificationLeagueError = true
+        }
+    }
     func scheduleReminders() async {
+        guard let userId = await Supabase.shared.currentUser?.id else { return }
+        await refreshNotificationLeagues()
+        guard !Task.isCancelled, await Supabase.shared.currentUser?.id == userId else { return }
+        let allowed = Set(notificationLeagues.filter { $0.enabled }.map(\.id))
         await Notifications.reschedule(
             // 지난 경기는 뺀다. 예약 상한(64)이 있어서 자리를 낭비하면 안 된다.
-            fixtures: fixtures.filter { $0.kickoffAt > .now },
+            fixtures: fixtures.filter { $0.kickoffAt > .now && allowed.contains($0.leagueId) && $0.state == "SCHEDULED" },
             predicted: Set(predictions.keys),
             isFavorite: { [weak self] in self?.isFavorite($0) ?? false },
             teamName: { [weak self] in self?.team($0).name ?? "" })
@@ -107,6 +162,18 @@ final class Store: ObservableObject {
         } catch {
             self.error = error.localizedDescription
         }
+    }
+
+    func saveLeagueOrder(_ preferred: [Int]) async throws {
+        guard let userId = await Supabase.shared.currentUser?.id else {
+            throw Supabase.Failure.http(401, "로그인이 필요해요.")
+        }
+        let order = CompetitionCatalog.ordered(leagues, preferred: preferred).map(\.id)
+        try await repo.saveLeagueOrder(order, userId: userId)
+        guard await Supabase.shared.currentUser?.id == userId else {
+            throw Supabase.Failure.http(401, "계정이 변경됐어요.")
+        }
+        me.leagueOrder = order
     }
 
     // MARK: 프로필 편집

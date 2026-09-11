@@ -5,6 +5,7 @@ struct ChukjalalApp: App {
     @StateObject private var auth = Auth()
     @StateObject private var store = Store()
     @StateObject private var router = Router()
+    @StateObject private var purchases = Purchases()
     /// 원격 알림 등록 결과는 AppDelegate 로만 온다
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     /// 알림 델리게이트는 화면이 그려지기 전에 붙어 있어야 한다 — 알림으로 앱을
@@ -17,6 +18,7 @@ struct ChukjalalApp: App {
                 .environmentObject(auth)
                 .environmentObject(store)
                 .environmentObject(router)
+                .environmentObject(purchases)
                 .task {
                     if notifications == nil {
                         let r = router
@@ -84,6 +86,8 @@ struct LoadFailedView: View {
 
 /// 하단 탭. 채팅은 별도 탭이 아니다 — 경기에 들어가야 나온다.
 struct HomeView: View {
+    @EnvironmentObject var purchases: Purchases
+    @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject var store: Store
     @EnvironmentObject var router: Router
     @State private var showTour = !Tour.seen
@@ -119,6 +123,10 @@ struct HomeView: View {
             .ignoresSafeArea()
         }
         .overlay { LevelUpOverlay() }
+        .overlay { SettlementRecapView(blocked: showTour || !store.ready) }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active && store.ready { Task { await store.scheduleReminders(); await purchases.refresh(); await store.refreshSupporters() } }
+        }
     }
 }
 
@@ -152,6 +160,7 @@ struct TabBar: View {
 }
 
 struct RootView: View {
+    @EnvironmentObject var purchases: Purchases
     @EnvironmentObject var auth: Auth
     @EnvironmentObject var store: Store
 
@@ -163,10 +172,10 @@ struct RootView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(T.paper)
         case .signedOut:
-            LoginView()
-        case .signedIn:
+            LoginView().task { await purchases.setUser(nil) }
+        case .signedIn(let userId):
             // 로그인한 뒤에 내 데이터를 받는다. 그 전에는 아무 숫자도 그리지 않는다.
-            SignedInView().task { await store.load() }
+            SignedInView().id(userId).task { await store.load(); await purchases.setUser(userId) }
         }
     }
 }

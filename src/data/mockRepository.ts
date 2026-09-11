@@ -23,7 +23,14 @@ const mockAuth: Auth = {
 
 /** 백엔드 없이 화면을 돌리기 위한 구현. 상태는 store 가 localStorage 에 보관한다. */
 export const mockRepository: Repository = {
+  async firstVisitReward() { return {status:'ended',amount:50,newlyPaid:false}; },
+  async loadSettlementRecap() { return { items: [], remaining: 0 }; },
+  async acknowledgeSettlementRecap() {},
+  async leagueNotifications(){return LEAGUES.map(l=>({id:l.id,name:l.name,major:true,enabled:true}));},
+  async notifications(){return {items:['lock','kickoff','chat','settlement'].map(kind=>({kind:kind as import('../lib/notifications').NotificationKind,templateCode:'',available:false,enabled:false}))};},
+  async supporter() { return {active:false,teamId:null,expiresAt:null,autoRenew:false,pending:false}; },
   kind: 'mock',
+  async freshStart() { throw new Error('TOSS_LOGIN_REQUIRED'); },
   async loadHistory() { return []; },
   async setHandle(handle) { return handle.trim(); },
   async setAvatar(image) { return URL.createObjectURL(image); },
@@ -53,6 +60,7 @@ export const mockRepository: Repository = {
   },
 
   async saveOnboarding() {},
+  async saveLeagueOrder() {},
   async upsertPrediction() {},
   async loadRanking() { return RANKING; },
   async loadMyRank() { return null; },

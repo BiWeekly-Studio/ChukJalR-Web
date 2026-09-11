@@ -6,6 +6,7 @@ import SwiftUI
 /// 안내, 허용했으면 종류별 토글. 거부한 사람에게 토글만 보여주면 켜도 안 온다.
 struct NotificationSettingsCard: View {
     @EnvironmentObject var store: Store
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var authorized = false
     @State private var canAsk = true
@@ -66,12 +67,14 @@ struct NotificationSettingsCard: View {
                 }
                 .padding(.top, 12)
             }
+            LeagueNotificationSettings()
         }
         .padding(EdgeInsets(top: 14, leading: 16, bottom: 16, trailing: 16))
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(T.card, in: RoundedRectangle(cornerRadius: 20))
-        .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
+        .shadow(color: T.ink.opacity(0.035), radius: 2, y: 1)
         .task { await refresh() }
+        .onChange(of: scenePhase) { phase in if phase == .active { Task { await store.scheduleReminders(); await refresh() } } }
     }
 
     private func toggle(_ kind: NotificationKind) -> some View {

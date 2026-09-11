@@ -16,8 +16,8 @@ struct Burst: View {
     @State private var fired = false
 
     private static let colors: [Color] = [
-        Color(hex: 0x3A63FF), Color(hex: 0x7B46F0), Color(hex: 0xFFC02E),
-        Color(hex: 0xFF7A1A), Color(hex: 0x22C97E), Color(hex: 0xFF5F2E),
+        DesignTokens.lime, DesignTokens.accent2, DesignTokens.lineStrong,
+        DesignTokens.win, DesignTokens.limeSoft, DesignTokens.card,
     ]
     private static let count = 14
 

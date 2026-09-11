@@ -1,3 +1,4 @@
+import { SupporterBadge } from '../components/SupporterBadge';
 import { Avatar } from '../components/Avatar';
 import { useEffect, useRef, useState } from 'react';
 import { Crest } from '../components/Crest';
@@ -18,9 +19,9 @@ import { useApp } from '../store';
 
 /** 홈 · 무 · 원정. 키 컬러와 반대편 색을 써서 한눈에 갈린다. */
 const SEG_COLOR = [
-  'linear-gradient(90deg, #3a63ff, #7b46f0)',
+  'var(--accent)',
   'var(--line-strong)',
-  'linear-gradient(90deg, #ff7a4a, #d1492a)',
+  'var(--cool)',
 ];
 const DOT_COLOR = ['var(--accent)', 'var(--line-strong)', 'var(--cool)'];
 
@@ -154,7 +155,7 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
     : null;
 
   return (
-    <div className="sheet">
+    <div className="sheet match-detail">
       <div className="appbar" style={{ paddingTop: 'calc(var(--safe-top) + 14px)' }}>
         <button className="backbtn" onClick={onBack} aria-label="뒤로">
           <IconBack />
@@ -173,7 +174,7 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <LeagueMark leagueId={f.leagueId} size={16} />
                 <span className="tiny" style={{ color: 'var(--accent-deep)', fontWeight: 600 }}>
-                  {[league(f.leagueId).name, f.round == null ? null : `${f.round}R`]
+                  {[league(f.leagueId).name, f.roundLabel ?? (f.round == null ? null : `${f.round}R`)]
                     .filter(Boolean)
                     .join(' ')}
                 </span>
@@ -181,7 +182,7 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
               {f.venue && <span className="tiny muted">{f.venue}</span>}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', marginTop: 16, position: 'relative' }}>
-              <Side teamId={f.homeTeamId} name={home.name} />
+              <Side leagueId={f.leagueId} teamId={f.homeTeamId} name={home.name} />
               <div style={{ textAlign: 'center', padding: '0 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7 }}>
                 {inPlay ? (
                   <span className="livepill"><i />LIVE</span>
@@ -199,7 +200,7 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
                   {finished ? '경기 종료' : inPlay ? (elapsed != null ? `${elapsed}분 진행` : '진행 중') : '킥오프'}
                 </div>
               </div>
-              <Side teamId={f.awayTeamId} name={away.name} />
+              <Side leagueId={f.leagueId} teamId={f.awayTeamId} name={away.name} />
             </div>
           </div>
           {saved && finished && state.settlements[fixtureId] && (
@@ -296,10 +297,11 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
         <div className="msgs">
           {chat !== 'BEFORE' && visible.map((m) => (
             <div key={m.id} className={`msg${m.mine ? ' mine' : ''}`}>
-              {!m.mine && <Avatar url={m.avatarUrl} name={m.handle}/>}
+              {!m.mine && <Avatar supporter={m.supporter} url={m.avatarUrl} name={m.handle}/>}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: m.mine ? 'flex-end' : 'flex-start' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   {!m.mine && <span className="tiny" style={{ fontWeight: 700, color: 'var(--ink-2)' }}>{m.handle}</span>}
+                  <SupporterBadge badge={m.supporter}/>
                   {/* 등급을 모르는 메시지(지난 기록)에는 뱃지를 붙이지 않는다 */}
                   {!m.mine && m.topPercent != null && (
                     <span
@@ -423,12 +425,12 @@ export function MatchDetail({ fixtureId, onBack }: { fixtureId: number; onBack: 
   );
 }
 
-function Side({ teamId, name }: { teamId: number; name: string }) {
+function Side({ teamId, name, leagueId }: { teamId: number; name: string; leagueId: number }) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, minWidth: 0 }}>
       <Crest teamId={teamId} size={50} />
       <span className="small" style={{ fontWeight: 700, textAlign: 'center' }}>{name}</span>
-      <RankTag teamId={teamId} />
+      <RankTag teamId={teamId} leagueId={leagueId} />
     </div>
   );
 }

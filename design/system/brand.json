@@ -1,0 +1,9 @@
+{
+  "name": "축잘알 기존 워드로고 · Matchday 컬러",
+  "identity": "기존 축잘알 세 글자, 알의 축구공, 판 형태와 -4도 기울기를 유지",
+  "source": "src/components/Logo.tsx",
+  "nativeSource": "ios/Sources/PlateLogo.swift",
+  "palette": "design/system/tokens.json",
+  "icon": "기존 한 글자 축 아이콘의 형태에 네이비·라임 적용",
+  "minimumWordmarkWidth": 112
+}

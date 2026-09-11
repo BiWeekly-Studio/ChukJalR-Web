@@ -8,8 +8,12 @@ struct PredictView: View {
     /// 경기 상세는 별도 탭이 아니라 이 화면 위에 덮인다 — 채팅이 경기에 속하기 때문이다
     @State private var opened: Fixture?
     @State private var standingsOpen = false
+    @State private var orderOpen = false
+    @State private var majorGroup = true
 
-    private var activeLeague: Int { tab ?? store.orderedLeagues.first?.id ?? 0 }
+    private var groupedLeagues: [League] { store.orderedLeagues.filter { CompetitionCatalog.isMajor($0.id) == majorGroup } }
+    private var activeLeague: Int { groupedLeagues.contains { $0.id == tab } ? tab! : groupedLeagues.first?.id ?? 0 }
+    private var featured: Fixture? { favMatches.first ?? today.first ?? upcoming.first }
 
     private var inLeague: [Fixture] { store.fixtures.filter { $0.leagueId == activeLeague } }
     /// 예측은 매치데이가 열린 경기만 가능하다. 나머지는 예고로만 보여준다 (명세 2.1).
@@ -26,20 +30,38 @@ struct PredictView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 header.padding(.horizontal, 20).padding(.top, 8)
-                hud.padding(.horizontal, 20).padding(.top, 12).tour("hud")
+                HStack(alignment: .bottom) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("MATCHDAY").font(T.body(10, .bold)).tracking(1.5).foregroundStyle(T.ink3)
+                        Text("오늘의 승부,\n당신의 한 수.").font(T.display(29)).lineSpacing(0)
+                    }
+                    Spacer()
+                    Text(Fmt.dateHeading(.now)).font(T.body(11)).foregroundStyle(T.ink3)
+                }.padding(.horizontal, 20).padding(.top, 22)
+                competitionPicker.padding(.horizontal, 20).padding(.top, 14)
                 leagueTabs.padding(.top, 14)
+                if let featured {
+                    HStack {
+                        Text(featured.window() == .upcoming ? "다가오는 매치" : "오늘의 매치").font(T.display(17))
+                        Spacer()
+                        Text("MATCH OF THE DAY").font(T.body(9, .bold)).tracking(1).foregroundStyle(T.ink3)
+                    }.padding(.horizontal, 20).padding(.top, 22)
+                    MatchCardView(fixture: featured, featured: true) { opened = featured }
+                        .padding(.horizontal, 20).padding(.top, 12)
+                }
+                hud.padding(.horizontal, 20).padding(.top, 14).tour("hud")
                 standingsLink.padding(.horizontal, 20).padding(.top, 12)
                 sectionHead.padding(.horizontal, 20).padding(.top, 16)
 
                 VStack(alignment: .leading, spacing: 13) {
                     if !favMatches.isEmpty {
                         SectionLabel(text: "내 팀 경기", accent: true)
-                        ForEach(Array(favMatches.enumerated()), id: \.element.id) { i, f in
+                        ForEach(Array(favMatches.filter { $0.id != featured?.id }.enumerated()), id: \.element.id) { i, f in
                             MatchCardView(fixture: f, index: i) { opened = f }
                         }
                         SectionLabel(text: "\(store.league(activeLeague).name)의 남은 경기")
                     }
-                    ForEach(Array(rest.enumerated()), id: \.element.id) { i, f in
+                    ForEach(Array(rest.filter { $0.id != featured?.id }.enumerated()), id: \.element.id) { i, f in
                         MatchCardView(fixture: f, index: favMatches.count + i) { opened = f }
                     }
 
@@ -47,7 +69,7 @@ struct PredictView: View {
 
                     if !upcoming.isEmpty {
                         SectionLabel(text: "다가오는 경기").padding(.top, 6)
-                        ForEach(upcoming.prefix(6)) { f in
+                        ForEach(upcoming.filter { $0.id != featured?.id }.prefix(6)) { f in
                             UpcomingRow(fixture: f) { opened = f }
                         }
                     }
@@ -56,8 +78,13 @@ struct PredictView: View {
             }
         }
         .background(T.paper)
+        .refreshable { await store.load() }
         .sheet(isPresented: $standingsOpen) {
             StandingsView(leagueId: activeLeague).environmentObject(store)
+        }
+        .sheet(isPresented: $orderOpen) {
+            LeagueOrderEditorView(order: store.orderedLeagues.map(\.id), major: CompetitionCatalog.isMajor(activeLeague))
+                .environmentObject(store)
         }
         .fullScreenCover(item: $opened) { f in
             MatchDetailView(fixture: f).environmentObject(store)
@@ -70,6 +97,7 @@ struct PredictView: View {
     private func openPending(_ id: Int?) {
         guard let id, let f = store.fixtures.first(where: { $0.id == id }) else { return }
         // 그 경기가 속한 리그로 옮겨야 뒤로 나왔을 때 화면이 어긋나지 않는다
+        majorGroup = CompetitionCatalog.isMajor(f.leagueId)
         tab = f.leagueId
         opened = f
         router.pendingFixtureId = nil
@@ -89,37 +117,27 @@ struct PredictView: View {
     /// 같은 말("아직 아무것도 없다")을 네 번 하는 꼴이었다.
     /// 지금 무엇을 향해 가고 있는지 한 줄로 말하고, 나머지는 보조로 내린다.
     private var hud: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                Text("Lv.\(store.level.level)")
-                    .font(T.display(13, .black)).foregroundStyle(.white)
-                    .padding(.horizontal, 9).frame(height: 28)
-                    .background(T.gradAccent, in: RoundedRectangle(cornerRadius: 9))
-                TierChip(tier: store.tier)
-                Spacer()
-                if !today.isEmpty {
-                    Text("오늘 \(predicted)/\(today.count)")
-                        .font(T.body(11, .heavy))
-                        .foregroundStyle(predicted == today.count && predicted > 0 ? T.win : T.ink3)
+        HStack(spacing: 14) {
+            VStack(spacing: 2) {
+                Text("\(store.level.level)").font(T.num(23))
+                Text("LEVEL").font(T.body(8, .bold))
+            }.frame(width: 50, height: 58).background(DesignTokens.limeSoft, in: RoundedRectangle(cornerRadius: 13))
+            VStack(alignment: .leading, spacing: 6) {
+                Text("나의 축잘알 지수").font(T.body(10)).foregroundStyle(T.ink3)
+                HStack {
+                    Text(Fmt.comma(store.me.rating)).font(T.num(21))
+                    TierChip(tier: store.tier)
                 }
+                XPTrack(progress: goalProgress, height: 4)
             }
-
-            // 지금 향하는 목표 — 이 카드에서 제일 큰 글자
-            Text(goalHeadline)
-                .font(T.display(inPlacement ? 22 : 26))
-                .foregroundStyle(T.ink)
-                .padding(.top, 10)
-
-            XPTrack(progress: goalProgress, height: 8).padding(.top, 10)
-
-            Text(goalCaption)
-                .font(T.body(11)).foregroundStyle(T.ink3)
-                .padding(.top, 7)
+            Spacer(minLength: 4)
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("오늘의 예측").font(T.body(10)).foregroundStyle(T.ink3)
+                Text("\(predicted) / \(today.count)").font(T.num(18))
+            }
         }
-        .padding(EdgeInsets(top: 15, leading: 16, bottom: 15, trailing: 16))
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(T.card, in: RoundedRectangle(cornerRadius: 20))
-        .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
+        .padding(14).background(T.card, in: RoundedRectangle(cornerRadius: 17))
+        .overlay(RoundedRectangle(cornerRadius: 17).stroke(T.line, lineWidth: 1))
     }
 
     private var inPlacement: Bool { store.me.settledMatches < Progression.placementMatches }
@@ -147,10 +165,44 @@ struct PredictView: View {
         return "Lv.\(store.level.level + 1)까지 \(store.level.into) / \(store.level.need)"
     }
 
+    private var competitionPicker: some View {
+        HStack {
+            HStack(spacing: 4) {
+                groupButton("메이저", major: true)
+                groupButton("기타 대회", major: false)
+            }.padding(3).background(T.paper2, in: Capsule())
+            Spacer()
+            Menu {
+                Section("메이저 대회") {
+                    ForEach(store.orderedLeagues.filter { CompetitionCatalog.isMajor($0.id) }) { league in
+                        Button(league.name) { majorGroup = true; tab = league.id }
+                    }
+                }
+                Section("기타 대회") {
+                    ForEach(store.orderedLeagues.filter { !CompetitionCatalog.isMajor($0.id) }) { league in
+                        Button(league.name) { majorGroup = false; tab = league.id }
+                    }
+                }
+            } label: {
+                Label("전체 대회", systemImage: "chevron.down").font(T.body(11)).foregroundStyle(T.ink3).frame(minHeight: 44)
+            }.accessibilityLabel("리그·국제대회 선택")
+            Button { tab = activeLeague; orderOpen = true } label: {
+                Image(systemName: "arrow.up.arrow.down").font(.system(size: 12)).frame(width: 34, height: 44)
+            }.accessibilityLabel("리그 순서 편집").foregroundStyle(T.ink2)
+        }
+    }
+    private func groupButton(_ label: String, major: Bool) -> some View {
+        Button { majorGroup = major } label: {
+            Text(label).font(T.body(12, .semibold)).foregroundStyle(T.ink2)
+                .padding(.horizontal, 12).frame(height: 32)
+                .background(majorGroup == major ? T.card : .clear, in: Capsule())
+        }.buttonStyle(.plain).accessibilityAddTraits(majorGroup == major ? .isSelected : [])
+    }
+
     private var leagueTabs: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(store.orderedLeagues) { l in
+                ForEach(groupedLeagues) { l in
                     let on = activeLeague == l.id
                     Button {
                         Haptics.tap()

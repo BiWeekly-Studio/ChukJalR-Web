@@ -1,5 +1,10 @@
+import {NotificationSettings} from '../components/NotificationSettings';
+import { SupporterMembership } from '../components/SupporterMembership';
+import { SupporterBadge } from '../components/SupporterBadge';
+import { SELF_AUTH } from '../lib/env';
+import { FreshStart } from '../components/FreshStart';
 import { TierChip } from '../components/TierChip';
-import { IconBolt, IconFlame, IconLock, IconTarget } from '../components/icons';
+import { IconBolt, IconLock } from '../components/icons';
 import { leagues as allLeagues, team } from '../data/catalog';
 import { repository } from '../data';
 import { useState } from 'react';
@@ -11,6 +16,8 @@ import type { BadgeDef, MyStats } from '../data/types';
 import { comma } from '../lib/format';
 import { CONFIDENCE_LABEL, PLACEMENT_MATCHES } from '../lib/scoring';
 import { useApp } from '../store';
+import { isMajorCompetition } from '../lib/competitions';
+import { FirstVisitRewardInfo } from '../components/FirstVisitPromotion';
 
 /** 캘리브레이션 표본이 이보다 적으면 숫자를 보여주지 않는다. 오해를 부른다. */
 const MIN_CALIBRATION_N = 5;
@@ -20,9 +27,10 @@ const MIN_FAN_BIAS_N = 10;
 export function Profile({ onReplayTutorial }: { onReplayTutorial?: () => void }) {
   const { state, level, tier } = useApp();
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [panel, setPanel] = useState<'record' | 'support' | 'settings'>('record');
   const badges = useAsync<BadgeDef[]>(() => repository.loadBadges(), []);
   const stats = useAsync<MyStats | null>(() => repository.loadMyStats(), null);
-  const leagues = allLeagues();
+  const leagues = allLeagues().filter(l => isMajorCompetition(l.id));
   const hasRecord = (stats?.settled ?? 0) > 0;
   const inPlacement = state.settledMatches < PLACEMENT_MATCHES;
   const accuracy = hasRecord ? stats!.hits / stats!.settled : null;
@@ -33,110 +41,31 @@ export function Profile({ onReplayTutorial }: { onReplayTutorial?: () => void })
   const rating = useCountUpInt(state.rating, 1200);
 
   return (
-    <div className="scroll screen">
-      <div className="pad" style={{ paddingTop: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 36 }}>
-          <span className="h1" style={{ fontSize: 22 }}>내 기록</span>
-          <span className="chip gold" style={{ fontSize: 11 }}>
-            <IconBolt size={12} color="var(--gold-ink)" />
-            {comma(state.balance)}점
-          </span>
+    <div className="scroll screen profile-screen">
+      <header className="page-heading pad">
+        <p className="eyebrow">MY MATCHDAY</p>
+        <div><h1>나의 축구 기록</h1><span className="balance-chip"><IconBolt size={12} color="var(--ink-2)" />{comma(state.balance)} P</span></div>
+        <p>쌓이는 예측, 선명해지는 나의 실력.</p>
+      </header>
+      <div className="pad">
+        <section className="profile-identity" aria-label="나의 프로필">
+          <div className="profile-person"><Avatar supporter={state.supporter} url={state.avatarUrl} name={state.handle} size={48} /><div><h2>{state.handle}</h2><SupporterBadge badge={state.supporter} /><span>Lv.{level.level} <TierChip tier={tier} /></span></div></div>
+          <div className="profile-rating"><span>축잘알 지수</span><strong>{comma(rating)}</strong><p>{inPlacement ? `순위 진입까지 ${PLACEMENT_MATCHES - state.settledMatches}경기` : state.topPercent == null ? '다음 순위 발표를 기다려주세요' : `전체 유저 중 상위 ${state.topPercent}%`}</p></div>
+          <div className="profile-level"><div className="track"><i style={{width:`${Math.round(level.progress * 100)}%`}} /></div><span>Lv.{level.level + 1}까지 {Math.max(0, level.need - level.into)}점</span></div>
+        </section>
+        <div className="profile-panels" role="tablist" aria-label="내 기록 메뉴">
+          {([{id:'record',label:'기록'}, {id:'support',label:'응원·도전'}, {id:'settings',label:'설정'}] as const).map(item => <button key={item.id} id={`profile-tab-${item.id}`} role="tab" aria-selected={panel === item.id} aria-controls={`profile-panel-${item.id}`} onClick={() => setPanel(item.id)}>{item.label}</button>)}
         </div>
-
-        {/* 프로필 카드 — 앱에서 가장 자랑스러운 화면이어야 한다 */}
-        <div className="card in" style={{ marginTop: 12, borderRadius: 26, padding: 0, overflow: 'hidden' }}>
-          <div
-            style={{
-              background: 'var(--grad-accent)', color: '#fff', padding: '18px 18px 20px',
-              position: 'relative', overflow: 'hidden',
-            }}
-          >
-            <div className="row">
-              <Avatar url={state.avatarUrl} name={state.handle} size={54} />
-              <div style={{ minWidth: 0 }}>
-                <div className="h2" style={{ fontSize: 18 }}>{state.handle}</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5 }}>
-                  <span className="lvbadge" style={{ height: 22, minWidth: 24, fontSize: 11, background: 'rgba(255,255,255,.24)', boxShadow: 'none' }}>
-                    Lv.{level.level}
-                  </span>
-                  <TierChip tier={tier} />
-                </div>
-              </div>
-              <span style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                <span className="num" style={{ display: 'block', fontSize: 26, lineHeight: 1 }}>{comma(rating)}</span>
-                <span className="tiny" style={{ opacity: 0.8 }}>축잘알 지수</span>
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginTop: 18 }}>
-              {inPlacement ? (
-                <>
-                  <span className="small" style={{ opacity: 0.85 }}>아직</span>
-                  <span className="num" style={{ fontSize: 32, lineHeight: 0.92 }}>배치 중</span>
-                </>
-              ) : state.topPercent == null ? (
-                /* 배치는 끝났지만 아직 순위 발표 전. 없는 등수를 만들어 보여주지 않는다 */
-                <>
-                  <span className="small" style={{ opacity: 0.85 }}>다음 발표에</span>
-                  <span className="num" style={{ fontSize: 30, lineHeight: 0.92 }}>순위 첫 등록</span>
-                </>
-              ) : (
-                <>
-                  <span className="small" style={{ opacity: 0.85 }}>전체 유저 중</span>
-                  <span className="num" style={{ fontSize: 36, lineHeight: 0.92 }}>
-                    상위 {state.topPercent}%
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-
-          <div style={{ padding: '14px 18px 16px' }}>
-            <div className="track" style={{ marginTop: 0 }}>
-              <i style={{ width: `${Math.round(level.progress * 100)}%` }} />
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 9 }}>
-              <span className="tiny muted">다음 레벨까지 {Math.max(0, level.need - level.into)}점</span>
-              <span className="tiny" style={{ color: 'var(--ink-2)' }}>
-                {inPlacement
-                  ? `순위까지 ${PLACEMENT_MATCHES - state.settledMatches}경기`
-                  : `Lv.${level.level + 1}까지 ${level.into}/${level.need}`}
-              </span>
-            </div>
-          </div>
+        {panel === 'record' && <div id="profile-panel-record" role="tabpanel" aria-labelledby="profile-tab-record">
+        <div className="profile-stats">
+          <div><strong>{accuracy == null ? '—' : `${accPct}%`}</strong><span>적중률</span></div>
+          <div><strong>{settledN}</strong><span>누적 예측</span></div>
+          <div><strong>{state.streak}</strong><span>연속 적중</span></div>
         </div>
-
-        <div style={{ display: 'flex', gap: 9, marginTop: 12 }}>
-          <div className="stat in" style={{ ['--i' as string]: 1 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              <IconTarget size={15} color="var(--accent)" />
-              <span className="num grad" style={{ fontSize: 25 }}>
-                {accuracy == null ? '—' : `${accPct}%`}
-              </span>
-            </span>
-            <span className="tiny muted">적중률</span>
-          </div>
-          <div className="stat in" style={{ ['--i' as string]: 2 }}>
-            <span className="num" style={{ fontSize: 25 }}>{settledN}</span>
-            <span className="tiny muted">누적 예측</span>
-          </div>
-          <div
-            className="stat in"
-            style={{ ['--i' as string]: 3, background: 'var(--gold-soft)', boxShadow: '0 3px 0 0 var(--gold-shadow)' }}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              <span className={state.streak >= 3 ? 'flame' : undefined}>
-                <IconFlame size={15} color="var(--gold-ink)" />
-              </span>
-              <span className="num grad gold" style={{ fontSize: 25 }}>{state.streak}</span>
-            </span>
-            <span className="tiny" style={{ color: 'var(--gold)' }}>연속 적중</span>
-          </div>
-        </div>
-
         <RatingTrend stats={stats} />
-        <button className="ghostcta" style={{marginTop:12}} onClick={()=>setHistoryOpen(true)}>예측 기록 · 내 예측과 실제 결과 비교</button>
-        {historyOpen && <History close={()=>setHistoryOpen(false)} />}
+        <FirstVisitRewardInfo />
+        <button className="profile-history-link" onClick={() => setHistoryOpen(true)}><span>예측 기록</span><span>내 예측과 실제 결과 비교 ↗</span></button>
+        {historyOpen && <History close={() => setHistoryOpen(false)} />}
         <Section title="리그별 적중률">
           {!hasRecord ? (
             <Pending text="경기가 정산되면 리그별로 어디에 강한지 보여드려요." />
@@ -296,11 +225,19 @@ export function Profile({ onReplayTutorial }: { onReplayTutorial?: () => void })
           </div>
         </Section>
 
+        </div>}
+        {panel === 'support' && <div id="profile-panel-support" role="tabpanel" aria-labelledby="profile-tab-support">
+          <div className="profile-panel-intro"><h2>응원도 도전도, 나답게.</h2><p>내 팀을 표현하고 새로운 기록에 도전해보세요.</p></div>
+          <SupporterMembership />
+          <FreshStart />
+        </div>}
+        {panel === 'settings' && <div id="profile-panel-settings" role="tabpanel" aria-labelledby="profile-tab-settings">
+        <NotificationSettings />
         <Section title="예측 지수와 포인트">
           <div className="tiny muted" style={{ lineHeight: 1.7 }}>
             <p>예측 지수는 결과와 확신도에 따라 오르거나 내려가는 실력 평가 점수예요.</p>
             <p>누적 포인트는 레벨을 올리는 XP예요. 예측에 포인트를 쓰지 않고, 틀려도 누적 포인트는 줄지 않아요.</p>
-            <p>참여는 무료이며 현금 결제, 상금, 포인트 환전 기능은 없어요.</p>
+            <p>{SELF_AUTH ? '참여는 무료이며 현금 결제, 상금, 포인트 환전 기능은 없어요.' : '예측 참여는 무료예요. 개인 도전 새 출발권과 응원 프로필 팩은 선택 구매 상품이며, 상금이나 포인트 환전 기능은 없어요.'}</p>
           </div>
         </Section>
 
@@ -319,6 +256,7 @@ export function Profile({ onReplayTutorial }: { onReplayTutorial?: () => void })
         <ProfileAccount />
         <p className="tiny muted" style={{textAlign:'center'}}><a href="./terms.html" target="_blank" rel="noreferrer">이용약관</a> · <a href="./privacy.html" target="_blank" rel="noreferrer">개인정보 처리방침</a></p>
 
+        </div>}
         <div style={{ height: 24 }} />
       </div>
     </div>
@@ -341,7 +279,7 @@ function ChatPolicy() {
         onClick={() => setOpen((v) => !v)}
       >
         <span className="h3" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <span style={{ width: 3, height: 13, borderRadius: 2, background: 'var(--grad-accent)' }} />
+
           채팅 운영정책
         </span>
         <span className="tiny muted">{open ? '접기' : '보기'}</span>
@@ -416,15 +354,15 @@ function CalibrationNote({ rows }: { rows: MyStats['calibration'] }) {
 
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginTop: 24 }}>
+    <section className="profile-section">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <span className="h3" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <span style={{ width: 3, height: 13, borderRadius: 2, background: 'var(--grad-accent)' }} />
+
           {title}
         </span>
         {hint && <span className="tiny muted">{hint}</span>}
       </div>
       {children}
-    </div>
+    </section>
   );
 }

@@ -7,6 +7,7 @@ import { fixture, fixtures, hydrate, hydrateStandings, leagues } from './data/ca
 import { windowState } from './lib/window';
 import { repository } from './data';
 import type { AuthUser, MeSnapshot } from './data/repository';
+import { normalizeLeagueOrder } from './lib/competitions';
 
 /**
  * 앱인토스 주의: LocalStorage 는 미니앱이 삭제되면 함께 사라진다.
@@ -60,7 +61,7 @@ type Action =
   | { type: 'completeOnboarding'; leagueOrder: number[]; favoriteTeamIds: number[] }
   | { type: 'predict'; fixtureId: number; pick: Outcome; confidence: Confidence }
   | { type: 'clearPrediction'; fixtureId: number }
-  | { type: 'reorderLeagues'; leagueOrder: number[] };
+  | { type: 'reorderLeagues'; leagueOrder: number[]; userId: string };
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -134,6 +135,7 @@ function reducer(state: AppState, action: Action): AppState {
     }
 
     case 'reorderLeagues':
+      if (state.authUser?.id !== action.userId) return state;
       return { ...state, leagueOrder: action.leagueOrder };
 
     default:
@@ -150,6 +152,7 @@ interface Ctx {
   authUser: AuthUser | null;
   predict: (fixtureId: number, pick: Outcome, confidence: Confidence) => void;
   completeOnboarding: (leagueOrder: number[], favoriteTeamIds: number[]) => void;
+  saveLeagueOrder: (leagueOrder: number[]) => Promise<void>;
   signOut: () => Promise<void>;
   level: ReturnType<typeof levelFromPoints>;
   tier: ReturnType<typeof tierFromPercentile>;
@@ -296,6 +299,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const saveLeagueOrder = useCallback(async (preferred: number[]) => {
+    if (!userId) throw new Error('NOT_AUTHENTICATED');
+    const leagueOrder = normalizeLeagueOrder(preferred, leagues().map(l => l.id));
+    await repository.saveLeagueOrder(leagueOrder, userId);
+    dispatch({ type: 'reorderLeagues', leagueOrder, userId });
+  }, [userId]);
+
   const signOut = useCallback(async () => {
     try {
       await repository.auth.signOut();
@@ -335,13 +345,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       authUser: state.authUser,
       predict,
       completeOnboarding,
+      saveLeagueOrder,
       signOut,
       level: levelFromPoints(state.lifetimePoints),
       tier: tierFromPercentile(state.topPercent, state.settledMatches),
       isFavoriteFixture,
       todoCount,
     }),
-    [state, ready, predict, completeOnboarding, signOut, isFavoriteFixture, todoCount]
+    [state, ready, predict, completeOnboarding, saveLeagueOrder, signOut, isFavoriteFixture, todoCount]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
@@ -358,9 +369,9 @@ export function useOrderedLeagues() {
   const { state } = useApp();
   return useMemo(() => {
     const all = leagues();
-    const order = state.leagueOrder.length ? state.leagueOrder : all.map((l) => l.id);
+    const order = normalizeLeagueOrder(state.leagueOrder, all.map((l) => l.id));
     return order.map((id) => all.find((l) => l.id === id)).filter((l): l is NonNullable<typeof l> => Boolean(l));
-  }, [state.leagueOrder]);
+  }, [state.leagueOrder, state.catalogReady]);
 }
 
 /**

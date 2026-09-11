@@ -1,3 +1,4 @@
+import tokens from '../../design/system/tokens.json';
 import { useId } from 'react';
 
 /**
@@ -39,7 +40,7 @@ export function BallMark({
 }
 
 /** 색이 채워진 공. 그라데이션 배경 위에 얹는 용도 */
-export function BallSolid({ size = 24, ink = '#3a63ff' }: { size?: number; ink?: string }) {
+export function BallSolid({ size = 24, ink = tokens.colors.accent }: { size?: number; ink?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
       <circle cx="12" cy="12" r="9.6" fill="#fff" />
@@ -59,32 +60,21 @@ export function BallSolid({ size = 24, ink = '#3a63ff' }: { size?: number; ink?:
  * 앱 아이콘. 둥근 사각형 안에 공.
  * 앱인토스 목록에서는 이 형태로만 보이므로 여백을 넉넉히 둔다.
  */
-export function LogoIcon({ size = 40, radius = 0.28 }: { size?: number; radius?: number }) {
-  const id = useId();
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" aria-label="축잘알">
-      <defs>
-        <linearGradient id={`lg-${id}`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#3a63ff" />
-          <stop offset="100%" stopColor="#7b46f0" />
-        </linearGradient>
-      </defs>
-      <rect width="64" height="64" rx={64 * radius} fill={`url(#lg-${id})`} />
-      <g transform="translate(14 14) scale(1.5)">
-        <circle cx="12" cy="12" r="9.6" fill="#fff" />
-        <polygon points={PENTAGON} fill="#3a63ff" />
-        {SPOKES.map(([x1, y1, x2, y2], i) => (
-          <line
-            key={i}
-            x1={x1} y1={y1} x2={x2} y2={y2}
-            stroke="#3a63ff" strokeWidth="1.9" strokeLinecap="round"
-          />
-        ))}
+export function LogoIcon({ size = 40, radius = 0.24 }: { size?: number; radius?: number }) {
+  const shape = chuk();
+  return <svg width={size} height={size} viewBox="0 0 100 100" role="img" aria-label="축잘알" style={{display:'block',flexShrink:0}}>
+    <rect width={100} height={100} rx={radius*100} fill={tokens.colors.ink} />
+    <g transform="translate(50 50) scale(0.447368421) rotate(-4) translate(-50 -50)">
+      <rect x={-26} y={-15} width={152} height={152} rx={18} fill={tokens.colors['accent-deep']} stroke={tokens.colors.ink} strokeWidth={13} />
+      <rect x={-26} y={-26} width={152} height={152} rx={18} fill={tokens.colors.lime} stroke={tokens.colors.ink} strokeWidth={13} />
+      <g fill={tokens.colors.ink} stroke={tokens.colors.ink} strokeWidth={16} strokeLinejoin="round">
+        {shape.rects.map(([x,y,w,h],i)=><rect key={i} x={x} y={y} width={w} height={h} />)}
+        {shape.lines.map(([x1,y1,x2,y2],i)=><line key={i} x1={x1} y1={y1} x2={x2} y2={y2} />)}
       </g>
-    </svg>
-  );
+      <Strokes shape={shape} fill={tokens.colors.ink} />
+    </g>
+  </svg>;
 }
-
 
 /* ------------------------------------------------------------------ */
 /* 축잘알 로고                                                          */
@@ -157,26 +147,29 @@ const at = (a: number, radius: number) => {
 const PANEL_POINTS = ANGLES.map((a) => at(a, PANEL).map((n) => n.toFixed(1)).join(',')).join(' ');
 
 function Strokes({ shape, fill, stroke }: { shape: Shape; fill: string; stroke?: string }) {
+  // Paint touching bars in one compound path to avoid hairline raster seams.
+  // The rectangle and butt-capped line geometry is unchanged.
+  const d = [
+    ...shape.rects.map(([x,y,w,h]) => `M${x} ${y}h${w}v${h}h${-w}Z`),
+    ...shape.lines.map(([x1,y1,x2,y2,w]) => {
+      const length = Math.hypot(x2-x1,y2-y1);
+      const nx = -(y2-y1)/length*w/2, ny = (x2-x1)/length*w/2;
+      return `M${x1-nx} ${y1-ny}L${x2-nx} ${y2-ny}L${x2+nx} ${y2+ny}L${x1+nx} ${y1+ny}Z`;
+    }),
+  ].join(' ');
   return (
-    <g fill={fill} stroke={stroke ?? fill} strokeWidth={0}>
-      {shape.rects.map(([x, y, w, h], i) => (
-        <rect key={`r${i}`} x={x} y={y} width={w} height={h} />
-      ))}
-      {shape.lines.map(([x1, y1, x2, y2, w], i) => (
-        <line key={`l${i}`} x1={x1} y1={y1} x2={x2} y2={y2} strokeWidth={w} />
-      ))}
-    </g>
+    <path d={d} fill={fill} stroke={stroke ?? fill} strokeWidth={0} />
   );
 }
 
 export type LogoTone = 'onLight' | 'onDark';
 
 const PALETTE: Record<LogoTone, { plate: string; shadow: string; inkA: string; inkB: string }> = {
-  onLight: { plate: '#3a63ff', shadow: '#1b2a7a', inkA: '#ffffff', inkB: '#ffc02e' },
-  onDark: { plate: '#ffffff', shadow: '#c9d2ff', inkA: '#3a63ff', inkB: '#ff8a1a' },
+  onLight: { plate: tokens.colors.ink, shadow: tokens.colors['accent-deep'], inkA: tokens.colors.card, inkB: tokens.colors.lime },
+  onDark: { plate: tokens.colors.ink, shadow: tokens.colors['accent-deep'], inkA: tokens.colors.card, inkB: tokens.colors.lime },
 };
-const OUTLINE = '#141233';
-const BALL_INK = '#3a63ff';
+const OUTLINE = tokens.colors.ink;
+const BALL_INK = tokens.colors.ink;
 
 /**
  * 로고. width 는 그림자·기울기까지 포함한 전체 폭이고, 높이는 비율로 따라온다.
@@ -189,7 +182,7 @@ export function Wordmark({ width = 200, tone = 'onLight' }: { width?: number; to
   const plate = (dy: number, fill: string) => (
     <rect
       x={-PAD} y={-PAD + dy} width={BLOCK_W + PAD * 2} height={CELL + PAD * 2} rx={18}
-      fill={fill} stroke={OUTLINE} strokeWidth={13}
+      fill={fill} stroke={tone === 'onDark' ? tokens.colors['line-strong'] : OUTLINE} strokeWidth={13}
     />
   );
 

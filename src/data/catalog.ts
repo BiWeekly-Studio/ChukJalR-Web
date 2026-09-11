@@ -37,7 +37,10 @@ export function hydrateStandings(rows: StandingRow[]) {
 }
 
 /** 이 팀의 현재 등수. 순위표를 못 받았거나 승격팀이면 null — 0위를 만들지 않는다 */
-export const rank = (teamId: number): number | null => _rankByTeam.get(teamId)?.rank ?? null;
+export const rank = (teamId: number, leagueId?: number): number | null => {
+  const row = _rankByTeam.get(teamId);
+  return row && (leagueId === undefined || row.leagueId === leagueId) ? row.rank : null;
+};
 export const standingsOf = (leagueId: number): StandingRow[] => _tableByLeague.get(leagueId) ?? [];
 
 export const leagues = (): League[] => _leagues;

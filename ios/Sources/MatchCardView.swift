@@ -5,6 +5,7 @@ struct MatchCardView: View {
     @EnvironmentObject var store: Store
     let fixture: Fixture
     var index: Int = 0
+    var featured = false
     /// 대진 머리를 누르면 경기 상세로. 보기 버튼은 그대로 예측에 쓰인다.
     var onOpen: () -> Void = {}
 
@@ -13,6 +14,12 @@ struct MatchCardView: View {
     @State private var draft: Outcome?
     @State private var hover: Confidence = .fairly
 
+    private var ink: Color { featured ? .white : T.ink }
+    private var secondary: Color { featured ? DesignTokens.matchSecondary : T.ink2 }
+    private var muted: Color { featured ? DesignTokens.matchMuted : T.ink3 }
+    private var dimmed: Color { featured ? DesignTokens.matchDim : T.ink4 }
+    private var line: Color { featured ? DesignTokens.matchLine : T.line }
+    private var option: Color { featured ? DesignTokens.matchOption : T.card }
     private var saved: Prediction? { store.predictions[fixture.id] }
     private var phase: WindowState { fixture.window() }
     private var canPredict: Bool { phase == .open }
@@ -41,20 +48,20 @@ struct MatchCardView: View {
                     .padding(.bottom, 14)
             }
 
-            header
+            if featured { featuredHeader } else { header }
             // 코치마크는 첫 카드만 가리킨다 — 같은 키가 여러 개면 어디를 뚫을지 알 수 없다
             options.padding(.top, 14).tour("options", when: index == 0)
 
             if let active {
-                confidence(active).padding(.top, 14).tour("confidence", when: index == 0)
+                confidence(active).padding(featured ? 12 : 0).background(featured ? T.card : .clear, in: RoundedRectangle(cornerRadius: 14)).padding(.top, 14).tour("confidence", when: index == 0)
             }
             else { footline.padding(.top, 12) }
         }
         .padding(store.isFavorite(fixture)
                  ? EdgeInsets(top: 0, leading: 15, bottom: 15, trailing: 15)
                  : EdgeInsets(top: 15, leading: 15, bottom: 15, trailing: 15))
-        .background(T.card, in: RoundedRectangle(cornerRadius: 22))
-        .shadow(color: .black.opacity(0.10), radius: 14, y: 6)
+        .background(featured ? DesignTokens.matchSurface : T.card, in: RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(featured ? DesignTokens.matchLine : T.line, lineWidth: 1))
         .overlay { Burst(seed: burstSeed, label: burstLabel) }
         .animation(T.spring, value: draft)
         .opacity(appeared ? 1 : 0)
@@ -73,28 +80,62 @@ struct MatchCardView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Text(home.name).font(T.display(16, .heavy))
-                    RankTag(rank: store.rank(fixture.homeTeamId))
-                    Text("vs").font(T.display(16, .heavy)).foregroundStyle(T.ink4)
+                    RankTag(rank: store.rank(fixture.homeTeamId, leagueId: fixture.leagueId))
+                    Text("vs").font(T.display(16, .heavy)).foregroundStyle(dimmed)
                     Text(away.name).font(T.display(16, .heavy))
-                    RankTag(rank: store.rank(fixture.awayTeamId))
+                    RankTag(rank: store.rank(fixture.awayTeamId, leagueId: fixture.leagueId))
                 }
                 .lineLimit(1).minimumScaleFactor(0.8)
 
-                Text(subtitle).font(T.body(11)).foregroundStyle(T.ink3).lineLimit(1)
+                Text(subtitle).font(T.body(11)).foregroundStyle(muted).lineLimit(1)
             }
             Spacer(minLength: 4)
             statusChip
             Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .bold)).foregroundStyle(T.ink4)
+                .font(.system(size: 11, weight: .bold)).foregroundStyle(dimmed)
         }
         .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
 
+    private var featuredHeader: some View {
+        Button(action: onOpen) {
+            VStack(spacing: 18) {
+                HStack {
+                    Text(store.league(fixture.leagueId).name).font(T.body(11, .semibold))
+                    Spacer()
+                    Text(Fmt.kickoff(fixture.kickoffAt)).font(T.body(10))
+                }.foregroundStyle(DesignTokens.matchSecondary)
+                HStack(spacing: 10) {
+                    featuredTeam(home)
+                    VStack(spacing: 6) {
+                        if let h = fixture.homeGoals ?? fixture.liveHome, let a = fixture.awayGoals ?? fixture.liveAway {
+                            Text("\(h) : \(a)").font(T.num(29)).foregroundStyle(.white)
+                        } else {
+                            Text("VS").font(T.num(24)).foregroundStyle(DesignTokens.matchDim)
+                        }
+                        statusChip
+                    }.frame(minWidth: 55)
+                    featuredTeam(away)
+                }
+                if let venue = fixture.venue {
+                    Text(venue).font(T.body(10)).foregroundStyle(DesignTokens.matchMuted).lineLimit(1)
+                }
+            }.padding(.vertical, 4).contentShape(Rectangle())
+        }.buttonStyle(.plain)
+    }
+    private func featuredTeam(_ team: Team) -> some View {
+        VStack(spacing: 10) {
+            Crest(team: team, size: 50)
+            Text(team.name).font(T.display(16)).foregroundStyle(.white).lineLimit(2).multilineTextAlignment(.center)
+        }.frame(maxWidth: .infinity)
+    }
+
     private var subtitle: String {
         var parts = [store.league(fixture.leagueId).name]
-        if let r = fixture.round { parts[0] += " \(r)R" }
+        if let label = fixture.roundLabel { parts[0] += " \(label)" }
+        else if let r = fixture.round { parts[0] += " \(r)R" }
         if phase == .finished, let h = fixture.homeGoals, let a = fixture.awayGoals {
             parts.append("종료 \(h) : \(a)")
         } else if let h = fixture.liveHome, let a = fixture.liveAway {
@@ -148,17 +189,17 @@ struct MatchCardView: View {
                 }
                 Text(label(o))
                     .font(T.body(14, chosen || isResult ? .heavy : .semibold))
-                    .foregroundStyle(T.ink)
+                    .foregroundStyle(ink)
                 Spacer(minLength: 8)
                 if showCrowd, let q = fixture.baseline {
                     Text(Fmt.pct(q[o.index]))
                         .font(T.num(15, .heavy))
-                        .foregroundStyle(hit ? T.win : T.ink2)
+                        .foregroundStyle(hit ? T.win : secondary)
                 } else if canPredict {
                     // 여론이 없을 때도 누를 수 있는 줄이라는 게 보여야 한다
                     Image(systemName: "chevron.right")
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(T.ink4)
+                        .foregroundStyle(dimmed)
                 }
             }
             .padding(.horizontal, 14)
@@ -178,20 +219,20 @@ struct MatchCardView: View {
         }
         .buttonStyle(.plain)
         .disabled(!canPredict)
-        .background(T.card)
+        .background(option)
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .stroke(chosen || isDraft || isResult ? T.accent : T.line,
+                .stroke(chosen || isDraft || isResult ? (featured ? DesignTokens.lime : T.accent) : line,
                         lineWidth: chosen || isDraft || isResult ? 2 : 1.5))
         .opacity(dim || (!canPredict && phase != .finished) ? 0.45 : 1)
     }
 
     private func fillColor(_ o: Outcome) -> Color {
         switch o {
-        case .home: return T.accentSoft
-        case .draw: return T.card2
-        case .away: return T.coolSoft
+        case .home: return featured ? DesignTokens.matchOptionFill : T.accentSoft
+        case .draw: return featured ? DesignTokens.matchOptionFill : T.card2
+        case .away: return featured ? DesignTokens.matchOptionFill : T.coolSoft
         }
     }
 
@@ -294,15 +335,15 @@ struct MatchCardView: View {
     @ViewBuilder private var footline: some View {
         HStack(spacing: 8) {
             if phase == .upcoming {
-                Text(Fmt.opens(fixture.opensAt)).font(T.body(11)).foregroundStyle(T.ink3)
+                Text(Fmt.opens(fixture.opensAt)).font(T.body(11)).foregroundStyle(muted)
                 Spacer()
-                Text("경기 당일에만 예측할 수 있어요").font(T.body(11)).foregroundStyle(T.ink3)
+                Text("경기 당일에만 예측할 수 있어요").font(T.body(11)).foregroundStyle(muted)
             } else if let saved {
                 if let q = fixture.baseline {
                     let p = Scoring.preview(q, saved.pick, saved.confidence, streak: store.me.streak)
                     VStack(alignment: .leading, spacing: 5) {
                         HStack {
-                            Text(saved.confidence.label).font(T.body(11)).foregroundStyle(T.ink3)
+                            Text(saved.confidence.label).font(T.body(11)).foregroundStyle(muted)
                             Spacer()
                             Text("적중 예상 +\(p.pointsIfCorrect) XP")
                                 .font(T.body(11, .heavy)).foregroundStyle(T.gold)
@@ -310,23 +351,23 @@ struct MatchCardView: View {
                                 .background(T.goldSoft, in: Capsule())
                         }
                         Text("예상 지수 · 맞히면 \(Fmt.signed(p.ifCorrect)) / 틀리면 \(Fmt.signed(p.ifWrong))")
-                            .font(T.body(11)).foregroundStyle(T.ink3)
+                            .font(T.body(11)).foregroundStyle(muted)
                     }
                 } else {
-                    Text(saved.confidence.label).font(T.body(11)).foregroundStyle(T.ink3)
+                    Text(saved.confidence.label).font(T.body(11)).foregroundStyle(muted)
                     Spacer()
-                    Text("점수는 마감 때 정해져요").font(T.body(11)).foregroundStyle(T.ink3)
+                    Text("점수는 마감 때 정해져요").font(T.body(11)).foregroundStyle(muted)
                 }
             } else {
                 Text(phase == .locked ? "예측이 마감됐어요"
                      : crowd == .none ? "아직 아무도 예측하지 않았어요"
                      : "\(fixture.participants ?? 0)명 예측 중")
-                    .font(T.body(11)).foregroundStyle(T.ink3)
+                    .font(T.body(11)).foregroundStyle(muted)
                 Spacer()
                 Text(phase == .locked ? "결과를 기다려요"
                      : crowd == .none ? "첫 예측자가 되어보세요"
                      : "보기를 누르면 확신도를 고를 수 있어요")
-                    .font(T.body(11)).foregroundStyle(T.ink3)
+                    .font(T.body(11)).foregroundStyle(muted)
             }
         }
         .lineLimit(1).minimumScaleFactor(0.85)

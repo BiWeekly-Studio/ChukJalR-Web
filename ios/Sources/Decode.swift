@@ -8,7 +8,7 @@ enum Decode {
         return f
     }()
 
-    private static func date(_ s: String?) -> Date? {
+    static func date(_ s: String?) -> Date? {
         guard let s else { return nil }
         return iso.date(from: s) ?? ISO8601DateFormatter().date(from: s)
     }
@@ -20,7 +20,7 @@ enum Decode {
     /// '#RRGGBB' → 0xRRGGBB
     private static func hex(_ s: Any?) -> UInt32 {
         guard let t = (s as? String)?.trimmingCharacters(in: CharacterSet(charactersIn: "#")),
-              let v = UInt32(t, radix: 16) else { return 0x9C9385 }
+              let v = UInt32(t, radix: 16) else { return 0x8895A6 }
         return v
     }
 
@@ -45,7 +45,8 @@ enum Decode {
             return Team(id: id, leagueId: leagueId, name: name,
                         abbr: r["abbr"] as? String ?? String(name.prefix(3)),
                         logoUrl: r["logo_url"] as? String,
-                        colorHex: hex(r["color"]), tintHex: hex(r["tint"]))
+                        colorHex: hex(r["color"]), tintHex: hex(r["tint"]),
+                        competitionIds: Array(Set([leagueId] + ((r["team_competitions"] as? [[String: Any]]) ?? []).compactMap { $0["league_id"] as? Int })))
         }
         let fs = rows(fixtures).compactMap { r -> Fixture? in
             guard let id = r["id"] as? Int, let leagueId = r["league_id"] as? Int,
@@ -67,7 +68,7 @@ enum Decode {
                 homeGoals: r["home_goals_ft"] as? Int, awayGoals: r["away_goals_ft"] as? Int,
                 result: (r["result"] as? String).flatMap(Outcome.init(rawValue:)),
                 liveHome: r["home_goals_live"] as? Int, liveAway: r["away_goals_live"] as? Int,
-                elapsed: r["elapsed"] as? Int)
+                elapsed: r["elapsed"] as? Int, roundLabel: r["round"] as? String)
         }
         return Catalog(leagues: ls, teams: ts, fixtures: fs)
     }
@@ -111,6 +112,7 @@ extension Decode {
             guard let rank = r["rank"] as? Int, let handle = r["handle"] as? String else { return nil }
             let prev = r["prev_rank"] as? Int
             return RankRow(
+                userID: r["user_id"] as? String ?? "",
                 rank: rank, handle: handle,
                 accuracy: (r["accuracy"] as? NSNumber)?.doubleValue ?? 0,
                 rating: r["rating"] as? Int ?? 0,

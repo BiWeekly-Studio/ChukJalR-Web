@@ -17,7 +17,7 @@ struct MatchLiveActivity: Widget {
             // 잠금화면 / 배너
             LockScreenView(context: context)
                 .padding(16)
-                .activityBackgroundTint(Color(white: 0.06))
+                .activityBackgroundTint(DesignTokens.matchSurface)
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             DynamicIsland {
@@ -30,17 +30,17 @@ struct MatchLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.center) {
                     VStack(spacing: 2) {
                         Text(minuteText(context)).font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(.white.opacity(0.75))
+                            .foregroundStyle(DesignTokens.matchSecondary)
                         if let leading = context.state.myPickLeading {
                             Text(leading ? "내 예측 적중 중" : "내 예측 빗나가는 중")
                                 .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(leading ? .green : .orange)
+                                .foregroundStyle(leading ? DesignTokens.lime : DesignTokens.matchDangerText)
                         }
                     }
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     Text("\(context.attributes.homeName) vs \(context.attributes.awayName)")
-                        .font(.system(size: 11)).foregroundStyle(.white.opacity(0.6))
+                        .font(.system(size: 11)).foregroundStyle(DesignTokens.matchMuted)
                 }
             } compactLeading: {
                 Text(context.attributes.homeAbbr).font(.system(size: 12, weight: .heavy))
@@ -65,7 +65,7 @@ private struct TeamBlock: View {
     let goals: Int
     var body: some View {
         VStack(spacing: 3) {
-            Text(abbr).font(.system(size: 11, weight: .bold)).foregroundStyle(.white.opacity(0.7))
+            Text(abbr).font(.system(size: 11, weight: .bold)).foregroundStyle(DesignTokens.matchSecondary)
             Text("\(goals)").font(.system(size: 26, weight: .black)).monospacedDigit()
                 .foregroundStyle(.white)
         }
@@ -82,21 +82,20 @@ private struct LockScreenView: View {
                 Text(context.state.status == .live && context.state.minute != nil
                      ? "\(context.state.minute!)'" : context.state.status.label)
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.75))
+                    .foregroundStyle(DesignTokens.matchSecondary)
                 if let leading = context.state.myPickLeading {
                     Text(leading ? "적중 중" : "빗나가는 중")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(leading ? .green : .orange)
+                        .foregroundStyle(leading ? DesignTokens.lime : DesignTokens.matchDangerText)
                 }
             }
             TeamBlock(abbr: context.attributes.awayAbbr, goals: context.state.awayGoals)
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
-                Text("축잘알").font(.system(size: 11, weight: .black))
-                    .foregroundStyle(Color(red: 0.29, green: 0.39, blue: 1))
+                PlateLogo(width: 68, tone: .onDark)
                 if let pick = context.attributes.myPick {
                     Text("내 예측 \(pick)").font(.system(size: 10))
-                        .foregroundStyle(.white.opacity(0.55))
+                        .foregroundStyle(DesignTokens.matchMuted)
                 }
             }
         }

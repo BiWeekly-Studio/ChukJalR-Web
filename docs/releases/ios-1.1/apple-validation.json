@@ -1,0 +1,29 @@
+{
+  "verifiedOn": "2026-09-11",
+  "notificationType": "TEST",
+  "notificationVersion": "2.0",
+  "deliveries": [
+    {
+      "environment": "Sandbox",
+      "signedPayloadPresent": true,
+      "attempts": [
+        {
+          "attemptDate": 1789114085553,
+          "sendAttemptResult": "SUCCESS"
+        }
+      ]
+    },
+    {
+      "environment": "Production",
+      "signedPayloadPresent": true,
+      "attempts": [
+        {
+          "attemptDate": 1789114086098,
+          "sendAttemptResult": "SUCCESS"
+        }
+      ]
+    }
+  ],
+  "sandboxPurchaseVerified": false,
+  "reviewSubmitted": false
+}

@@ -1,3 +1,7 @@
+import type { Recap } from '../lib/settlementRecap';
+import type {NotificationKind,NotificationState} from '../lib/notifications';
+import type { SupporterBadgeData, SupporterState } from '../lib/supporter';
+import type { FreshStartState } from '../lib/freshStart';
 import type {
   BadgeDef, ChatMessage, Fixture, League, MatchDetailData, MatchEvent, MyStats,
   Prediction, RankRow, ReportReason, SettlementResult, StandingRow, Team,
@@ -11,6 +15,7 @@ export interface Catalog {
 }
 
 export interface MeSnapshot {
+  supporter?: SupporterBadgeData | null;
   avatarUrl?: string | null;
   handle: string;
   leagueOrder: number[];
@@ -99,6 +104,11 @@ export interface PredictionRecord {
 }
 
 export interface Repository {
+  firstVisitReward(action: 'claim' | 'status'): Promise<import('../lib/promotion').FirstVisitReward>;
+  leagueNotifications(id?:number, enabled?:boolean):Promise<import('../lib/competitions').LeagueNotification[]>;
+  notifications(action:'status'|'set'|'latest', options?:{kind?:NotificationKind;enabled?:boolean}):Promise<NotificationState>;
+  supporter(action: 'status' | 'grant' | 'team', options?: {orderId?: string; teamId?: number}): Promise<SupporterState>;
+  freshStart(action: 'status' | 'grant' | 'start', orderId?: string): Promise<FreshStartState>;
   loadHistory(): Promise<PredictionRecord[]>;
   setHandle(handle: string): Promise<string>;
   setAvatar(image: Blob): Promise<string>;
@@ -107,9 +117,12 @@ export interface Repository {
   readonly kind: 'mock' | 'supabase';
   readonly auth: Auth;
   loadCatalog(): Promise<Catalog>;
+  loadSettlementRecap(): Promise<Recap>;
+  acknowledgeSettlementRecap(ids: string[]): Promise<void>;
   loadMe(): Promise<MeSnapshot>;
   /** 최애 팀은 최대 5개 */
   saveOnboarding(leagueOrder: number[], favoriteTeamIds: number[]): Promise<void>;
+  saveLeagueOrder(leagueOrder: number[], userId: string): Promise<void>;
   upsertPrediction(fixtureId: number, pick: Outcome, confidence: Confidence): Promise<void>;
   loadRanking(): Promise<RankRow[]>;
   /** 순위표에 오른 경우 내 행. 배치 중이면 null */

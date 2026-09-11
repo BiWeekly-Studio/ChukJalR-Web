@@ -1,3 +1,4 @@
+import type { SupporterBadgeData } from '../lib/supporter';
 import { createClient, FunctionRegion, type SupabaseClient } from '@supabase/supabase-js';
 import type { Auth, AuthUser, Catalog, MeSnapshot, OAuthProvider, PredictionRecord, Repository } from './repository';
 import type {
@@ -5,6 +6,7 @@ import type {
   Prediction, RankRow, SettlementResult, StandingRow,
 } from './types';
 import type { Confidence, Outcome } from '../lib/scoring';
+import { logPredictionSaved } from '../lib/analytics';
 
 /**
  * 실제 백엔드 구현. 명세 14장의 스키마를 그대로 읽는다.
@@ -29,6 +31,14 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
     return data.session?.user.id ?? null;
   }
 
+  async function badges(ids: string[]) {
+    const result = new Map<string, SupporterBadgeData>();
+    if (!ids.length) return result;
+    const {data, error} = await sb.rpc('supporter_badges', {p_users: [...new Set(ids)].slice(0,100)});
+    // Older servers can continue serving the game while this migration rolls out.
+    if (!error) for (const row of data ?? []) result.set(row.user_id, {teamId:Number(row.team_id),expiresAt:row.expires_at});
+    return result;
+  }
   const auth: Auth = {
     async current(): Promise<AuthUser | null> {
       const { data } = await sb.auth.getSession();
@@ -123,6 +133,38 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
 
   return {
     kind: 'supabase',
+    async firstVisitReward(action) {
+      const {data,error}=await sb.functions.invoke('toss-promotion',{region:FunctionRegion.ApNortheast2,body:{action}});
+      if(error||data?.error||!['paid','pending','retry','ended'].includes(data?.status))throw new Error('REWARD_UNAVAILABLE');
+      return data;
+    },
+    async leagueNotifications(id, enabled) {
+      const {data,error} = await sb.rpc('league_notification_settings', {p_league_id:id ?? null,p_enabled:enabled ?? null});
+      if(error)throw error;
+      return data;
+    },
+    async notifications(action,options) {
+      const {data,error}=await sb.functions.invoke('toss-notifications',{region:FunctionRegion.ApNortheast2,body:{action,...options}});
+      if(error||data?.error)throw new Error(data?.error||'NOTIFICATIONS_UNAVAILABLE');
+      return data;
+    },
+    async supporter(action, options) {
+      const {data,error} = await sb.functions.invoke('supporter', {region:FunctionRegion.ApNortheast2,body:{action,...options}});
+      if(error || data?.error) throw new Error(data?.error || 'SUPPORTER_UNAVAILABLE');
+      return data;
+    },
+    async freshStart(action, orderId) {
+      const { data, error } = await sb.functions.invoke('fresh-start', {
+        region: FunctionRegion.ApNortheast2, body: { action, orderId },
+      });
+      if (error) {
+        let code = '';
+        try { code = (await error.context?.json())?.error ?? ''; } catch { /* network error */ }
+        throw new Error(code || 'TICKET_PROCESSING_FAILED');
+      }
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
     async loadHistory() {
       const userId = await uid();
       if (!userId) throw new Error('로그인이 필요해요.');
@@ -171,12 +213,21 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
     },
     auth,
 
+    async loadSettlementRecap() {
+      const { data, error } = await sb.rpc('pending_settlement_recap');
+      if (error) throw error;
+      return data as import('../lib/settlementRecap').Recap;
+    },
+    async acknowledgeSettlementRecap(ids) {
+      const { error } = await sb.rpc('ack_settlement_recap', { p_ids: ids });
+      if (error) throw error;
+    },
     async loadCatalog(): Promise<Catalog> {
-      const horizon = new Date(Date.now() + 14 * 864e5).toISOString();
+      const horizon = new Date(Date.now() + 60 * 864e5).toISOString();
       const [leagues, teams, fixtures] = await Promise.all([
         sb.from('leagues').select('id, name, short_name, country, logo_url, flag_url'),
-        sb.from('teams').select('id, league_id, name, name_ko, abbr, color, tint, logo_url'),
-        sb
+        allRows((from, to) => sb.from('teams').select('id, league_id, name, name_ko, abbr, color, tint, logo_url, team_competitions(league_id)').order('id').range(from, to)),
+        allRows((from, to) => sb
           .from('fixtures')
           .select(
             'id, league_id, round, home_team_id, away_team_id, venue, kickoff_at, opens_at, lock_at, state, home_goals_ft, away_goals_ft, result, home_goals_live, away_goals_live, elapsed'
@@ -184,7 +235,7 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
           .lte('kickoff_at', horizon)
           .gte('kickoff_at', new Date(Date.now() - 3 * 864e5).toISOString())
           .neq('state', 'VOID')
-          .order('kickoff_at'),
+          .order('kickoff_at').order('id').range(from, to)),
       ]);
 
       if (leagues.error) throw leagues.error;
@@ -214,7 +265,7 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
           logoUrl: l.logo_url, flagUrl: l.flag_url,
         })),
         teams: teams.data.map((t) => ({
-          id: t.id, leagueId: t.league_id, name: t.name_ko ?? t.name, nameEn: t.name,
+          id: t.id, leagueId: t.league_id, competitionIds: [...new Set([t.league_id, ...t.team_competitions.map(c => c.league_id)])], name: t.name_ko ?? t.name, nameEn: t.name,
           abbr: t.abbr, logoUrl: t.logo_url,
           color: t.color, tint: t.tint,
         })),
@@ -253,6 +304,7 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
       if (preds.error) throw preds.error;
 
       return {
+        supporter: (await badges([userId])).get(userId) ?? null,
         handle: profile.data.handle,
         avatarUrl: profile.data.avatar_url,
         leagueOrder: profile.data.league_order,
@@ -297,6 +349,14 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
       if (error) throw error;
     },
 
+    async saveLeagueOrder(leagueOrder, userId) {
+      if (await uid() !== userId) throw new Error('NOT_AUTHENTICATED');
+      const { error } = await sb.from('profiles')
+        .update({ league_order: leagueOrder })
+        .eq('id', userId).select('id').single();
+      if (error) throw error;
+    },
+
     async upsertPrediction(fixtureId, pick, confidence) {
       const userId = await uid();
       if (!userId) throw new Error('NOT_AUTHENTICATED');
@@ -311,6 +371,7 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
         );
       // 마감 후에는 RLS 가 거부한다. 이건 버그가 아니라 설계다.
       if (error) throw new Error(error.code === '42501' ? 'PREDICTION_LOCKED' : error.message);
+      void logPredictionSaved(fixtureId);
     },
 
     async loadRanking(): Promise<RankRow[]> {
@@ -321,7 +382,8 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
         .order('rank')
         .limit(50);
       if (error) throw error;
-      return data.map((r) => toRankRow(r, me));
+      const bs = await badges(data.map(r=>r.user_id));
+      return data.map((r) => ({...toRankRow(r, me),supporter:bs.get(r.user_id)}));
     },
 
     async loadMyRank(): Promise<RankRow | null> {
@@ -333,7 +395,7 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
         .eq('user_id', me)
         .maybeSingle();
       if (error) throw error;
-      return data ? toRankRow(data, me) : null;
+      return data ? {...toRankRow(data, me),supporter:(await badges([me])).get(me)} : null;
     },
 
     async loadBadges(): Promise<BadgeDef[]> {
@@ -431,7 +493,8 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
         .limit(50);
       if (error) throw error;
       const me = await uid();
-      return data.reverse().map((m) => toMessage(m, fixtureId, m.user_id === me));
+      const bs = await badges(data.map(m=>m.user_id));
+      return data.reverse().map((m) => ({...toMessage(m, fixtureId, m.user_id === me),supporter:bs.get(m.user_id)}));
     },
 
     async sendChat(fixtureId, body) {
@@ -479,7 +542,7 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
 
       const channel = sb
         .channel(`match:${fixtureId}`, { config: { private: false, presence: { key: '' } } })
-        .on('broadcast', { event: 'chat.message' }, (payload) => {
+        .on('broadcast', { event: 'chat.message' }, async (payload) => {
           const p = payload.payload as {
             id: number; userId: string; handle?: string; avatar?: string; body: string; at: string;
           };
@@ -487,6 +550,7 @@ export function createSupabaseRepository(url: string, anonKey: string): Reposito
           // 닉네임이 비어도 콜백이 죽지 않게 한다 — 죽으면 이후 메시지가 전부 안 붙는다.
           const handle = p.handle?.trim() || '알 수 없음';
           onMessage({
+            supporter: (await badges([p.userId])).get(p.userId),
             id: String(p.id),
             avatarUrl: p.avatar,
             fixtureId,
@@ -655,6 +719,7 @@ function toFixture(f: FixtureRow, b?: BaselineRow): Fixture {
     id: f.id,
     leagueId: f.league_id,
     round: parseRound(f.round),
+    roundLabel: f.round,
     homeTeamId: f.home_team_id,
     awayTeamId: f.away_team_id,
     venue: f.venue?.trim() || null,
@@ -740,4 +805,15 @@ function toMessage(m: MessageRow, fixtureId: number, mine: boolean): ChatMessage
 function parseRound(raw: string | null): number | null {
   const digits = String(raw ?? '').replace(/\D/g, '');
   return digits ? Number(digits) : null;
+}
+
+// PostgREST 기본 1,000행 제한 때문에 국제대회 팀·경기가 조용히 잘리지 않게 한다.
+async function allRows<T>(query: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>) {
+  const data: T[] = [];
+  for (let from = 0; ; from += 500) {
+    const page = await query(from, from + 499);
+    if (page.error) return { data, error: page.error };
+    data.push(...(page.data ?? []));
+    if (!page.data || page.data.length < 500) return { data, error: null };
+  }
 }

@@ -1,0 +1,13 @@
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import {LeagueNotificationSettings} from '../../src/components/LeagueNotificationSettings';
+import {NotificationSettings} from '../../src/components/NotificationSettings';
+import {repository} from '../../src/data';
+import {NOTIFICATION_KINDS} from '../../src/lib/notifications';
+import '../../src/styles.css';
+let items=NOTIFICATION_KINDS.map(kind=>({kind,templateCode:'test-'+kind,available:true,enabled:kind==='lock'}));
+repository.notifications=async(action,options)=>{if(action==='set')items=items.map(x=>x.kind===options?.kind?{...x,enabled:!!options.enabled}:x);return{items};};
+let leagueItems=[{id:39,name:'프리미어리그',major:true,enabled:true},{id:78,name:'분데스리가',major:true,enabled:true},{id:61,name:'리그앙',major:true,enabled:true},{id:140,name:'라리가',major:true,enabled:true},{id:135,name:'세리에 A',major:true,enabled:true},{id:2,name:'UEFA 챔피언스리그',major:true,enabled:true},{id:3,name:'UEFA 유로파리그',major:true,enabled:true},{id:848,name:'UEFA 컨퍼런스리그',major:true,enabled:true},{id:10,name:'국가대표 친선경기',major:false,enabled:false}];
+let fail=new URLSearchParams(location.search).has('fail');
+repository.leagueNotifications=async(id,enabled)=>{if(id!==undefined){if(fail){fail=false;throw Error('test failure');}leagueItems=leagueItems.map(l=>l.id===id?{...l,enabled:!!enabled}:l);}return leagueItems;};
+createRoot(document.getElementById('root')!).render(<main style={{width:'100%',maxWidth:390,margin:'24px auto',padding:16}}><p>화면 검증용 · 실제 알림 설정 아님</p><LeagueNotificationSettings/></main>);

@@ -28,9 +28,14 @@ export DEVELOPMENT_TEAM=${DEVELOPMENT_TEAM:-}
 command -v xcodegen >/dev/null || { echo "xcodegen 이 필요합니다: brew install xcodegen"; exit 1; }
 xcodegen generate >/dev/null
 
-xcodebuild -project Chukjalal.xcodeproj -scheme Chukjalal \
+mkdir -p build
+if ! xcodebuild -project Chukjalal.xcodeproj -scheme Chukjalal \
   -destination "platform=iOS Simulator,name=$DEVICE" \
-  -derivedDataPath build/dd -allowProvisioningUpdates build "$@" | grep -E "error:|warning: unused|BUILD" || true
+  -derivedDataPath build/dd -allowProvisioningUpdates build "$@" > build/latest-build.log 2>&1; then
+  tail -80 build/latest-build.log
+  exit 1
+fi
+grep -E "warning:|BUILD" build/latest-build.log || true
 
 APP=$(find build/dd/Build/Products -name 'Chukjalal.app' -maxdepth 3 | head -1)
 [ -n "$APP" ] || { echo "빌드 산출물을 찾지 못했습니다"; exit 1; }

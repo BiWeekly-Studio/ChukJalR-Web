@@ -1,4 +1,8 @@
-import { useState } from 'react';
+import { SettlementRecap } from './components/SettlementRecap';
+import { PurchaseRecovery } from './components/FreshStart';
+import { useEffect, useState } from 'react';
+import {repository} from './data';
+import {notificationKind} from './lib/notifications';
 import { LevelUp } from './components/LevelUp';
 import { Wordmark } from './components/Logo';
 import { Auth } from './screens/Auth';
@@ -13,6 +17,7 @@ import { Predict } from './screens/Predict';
 import { Profile } from './screens/Profile';
 import { Ranking } from './screens/Ranking';
 import { useApp } from './store';
+import { FirstVisitPromotion } from './components/FirstVisitPromotion';
 
 type Tab = 'predict' | 'rank' | 'me';
 
@@ -23,11 +28,31 @@ const TABS: { id: Tab; label: string; Icon: typeof IconPredict }[] = [
 ];
 
 export function App() {
+  const {ready,authUser}=useApp();
+  return <FirstVisitPromotion userId={ready?authUser?.id:undefined}><AppContent /></FirstVisitPromotion>;
+}
+
+function AppContent() {
   const { state, dispatch, todoCount, ready, authUser } = useApp();
   const [tab, setTab] = useState<Tab>('predict');
   const [openMatch, setOpenMatch] = useState<number | null>(null);
+  const [levelUpOpen, setLevelUpOpen] = useState(false);
+  const [recapOpen, setRecapOpen] = useState(false);
   // 규칙을 모르면 아무 버튼이나 누르게 된다 → 온보딩 직후 한 번 설명한다
   const [tutorialDone, setTutorialDone] = useState(hasSeenTutorial);
+
+  useEffect(()=>{
+    if(!ready||!authUser||!state.onboarded)return;
+    const kind=notificationKind(new URLSearchParams(location.search).get('notification'));
+    if(!kind)return;
+    let active=true;
+    if(kind==='settlement')setTab('me');
+    repository.notifications('latest',{kind}).then(result=>{
+      if(active&&Number.isSafeInteger(result.fixtureId)&&Number(result.fixtureId)>0)setOpenMatch(Number(result.fixtureId));
+    }).catch(()=>{/* The destination tab remains available when history cannot load. */});
+    const url=new URL(location.href);url.searchParams.delete('notification');history.replaceState(history.state,'',url);
+    return()=>{active=false;};
+  },[ready,authUser?.id,state.onboarded]);
 
   // 세션 확인·카탈로그가 도착하기 전에는 아무것도 그리지 않는다.
   // 앱인토스는 10초 안에 첫 화면이 떠야 한다.
@@ -41,8 +66,9 @@ export function App() {
   // 채팅은 별도 탭이 아니다. 경기에 들어가야 나온다.
   return (
     <div className="app">
+      <PurchaseRecovery key={`purchases:${authUser.id}`} />
       {/* 탭이 바뀌면 화면이 통째로 갈리므로 각 화면의 .screen 등장 연출이 매번 재생된다 */}
-      {tab === 'predict' && <Predict onOpenMatch={setOpenMatch} />}
+      {tab === 'predict' && <Predict onOpenMatch={setOpenMatch} showAd={tutorialDone && openMatch == null && !levelUpOpen && !recapOpen} />}
       {tab === 'rank' && <Ranking />}
       {tab === 'me' && (
         <Profile
@@ -60,7 +86,8 @@ export function App() {
         />
       )}
 
-      <LevelUp />
+      <LevelUp onOpenChange={setLevelUpOpen} />
+      <SettlementRecap key={`recap:${authUser.id}`} blocked={!tutorialDone || openMatch != null || levelUpOpen} onOpenChange={setRecapOpen} />
 
       {/* 안내는 홈 위에서 돈다. 경기 상세가 열려 있으면 방해되므로 비켜 둔다 */}
       {!tutorialDone && tab === 'predict' && openMatch == null && (

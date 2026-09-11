@@ -8,7 +8,7 @@ import { useApp } from '../store';
  * 레벨이 오른 순간에만 뜨는 축하 오버레이.
  * 앱을 켜자마자 터지면 안 되므로 useIncreased 가 첫 렌더를 건너뛴다.
  */
-export function LevelUp() {
+export function LevelUp({ onOpenChange }: { onOpenChange?: (open: boolean) => void }) {
   const { level, tier } = useApp();
   const jumped = useIncreased(level.level, 3200);
   const [open, setOpen] = useState(false);
@@ -16,13 +16,18 @@ export function LevelUp() {
   useEffect(() => {
     if (!jumped) return;
     setOpen(true);
+    onOpenChange?.(true);
     haptic([14, 60, 22]);
-  }, [jumped]);
+  }, [jumped, onOpenChange]);
+
+  useEffect(() => () => onOpenChange?.(false), [onOpenChange]);
+
+  const close = () => { setOpen(false); onOpenChange?.(false); };
 
   if (!open) return null;
 
   return (
-    <div className="celebrate" onClick={() => setOpen(false)} role="dialog" aria-label="레벨 업">
+    <div className="celebrate" onClick={close} role="dialog" aria-label="레벨 업">
       <div className="box">
         <div className="halo">
           <span>{level.level}</span>
@@ -32,7 +37,7 @@ export function LevelUp() {
         <p className="small muted" style={{ margin: '8px 0 18px' }}>
           Lv.{level.level}{tier ? ` ${TIER_LABEL[tier]}` : ''} 달성. 계속 이 감으로 가요.
         </p>
-        <button className="cta" style={{ height: 48 }} onClick={() => setOpen(false)}>
+        <button className="cta" style={{ height: 48 }} onClick={close}>
           좋아요
         </button>
       </div>

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#14283b"/><stop offset="1" stop-color="#06151e"/></linearGradient><linearGradient id="gold" x2=".7" y2="1"><stop stop-color="#fff0be"/><stop offset=".5" stop-color="#e2b65a"/><stop offset="1" stop-color="#ae762a"/></linearGradient></defs>
+<rect width="1024" height="1024" rx="96" fill="url(#bg)"/>
+<circle cx="512" cy="440" r="324" fill="none" stroke="#ffffff" stroke-opacity=".06" stroke-width="2"/>
+<circle cx="512" cy="440" r="276" fill="none" stroke="#ffffff" stroke-opacity=".08" stroke-width="2"/>
+<path d="M512 164 752 252V468Q752 660 512 770 272 660 272 468V252Z" fill="url(#gold)"/>
+<path d="M512 199 718 275V468Q718 637 512 731 306 637 306 468V275Z" fill="#112c39"/>
+<path d="M348 462H676V524H348Z" fill="#2ba59a"/>
+<circle cx="512" cy="420" r="113" fill="#f3f6ed"/>
+<path d="m512 363 54 39-21 63h-66l-21-63Z" fill="#142c39"/>
+<path d="m422 352 36 50-39 54-18-48Zm180 0-36 50 39 54 18-48ZM453 515l26-50h66l26 50-59 18Z" fill="#142c39"/>
+<path d="m512 562 13 27 30 4-22 22 5 30-26-14-26 14 5-30-22-22 30-4Z" fill="url(#gold)"/>
+<text x="512" y="850" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="52" letter-spacing="9" fill="#f0d8a3">SUPPORTER</text>
+<text x="512" y="902" text-anchor="middle" font-family="Arial,sans-serif" font-size="19" letter-spacing="6" fill="#94afbc">YOUR TEAM. YOUR COLORS.</text>
+</svg>

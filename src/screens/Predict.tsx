@@ -1,199 +1,280 @@
-import { useState } from 'react';
+import { isMajorCompetition } from '../lib/competitions';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { Crest } from '../components/Crest';
-import { Wordmark } from '../components/Logo';
+import { BallMark, Wordmark } from '../components/Logo';
 import { MatchCard } from '../components/MatchCard';
 import { StandingsLink } from '../components/Standings';
-import { Ring } from '../components/Ring';
 import { TierChip } from '../components/TierChip';
+import { TossBanner } from '../components/TossBanner';
+import { LeagueOrderEditor } from '../components/LeagueOrderEditor';
 import { IconFlame, IconLock } from '../components/icons';
-import { fixture, fixtures as allFixtures, league, team } from '../data/catalog';
-import { haptic, useCountUpInt } from '../lib/anim';
+import { fixture, fixtures as allFixtures, team } from '../data/catalog';
+import { haptic } from '../lib/anim';
 import { isCurrentMatchday, opensLabel, windowState } from '../lib/window';
-import { dateHeading, kickoffLabel } from '../lib/format';
-import { PLACEMENT_MATCHES } from '../lib/scoring';
+import { kickoffLabel } from '../lib/format';
 import { useApp, useOrderedLeagues } from '../store';
 
-export function Predict({ onOpenMatch }: { onOpenMatch: (id: number) => void }) {
+export function Predict({
+  onOpenMatch,
+  showAd,
+}: {
+  onOpenMatch: (id: number) => void;
+  showAd: boolean;
+}) {
   const { state, level, tier, isFavoriteFixture } = useApp();
   const ordered = useOrderedLeagues();
-  const [tab, setTab] = useState<number | null>(null);
-  const activeTab = tab ?? ordered[0]?.id ?? 0;
-
+  const [tab, setTab] = useState<number | null>(null),
+    [group, setGroup] = useState<'major' | 'other'>('major');
+  const [standingsOpen, setStandingsOpen] = useState(false);
+  const [orderOpen, setOrderOpen] = useState(false);
+  const [orderSaved, setOrderSaved] = useState(false);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const grouped = ordered.filter(
+    (l) => isMajorCompetition(l.id) === (group === 'major')
+  );
+  const activeTab = grouped.some((l) => l.id === tab)
+    ? tab!
+    : (grouped[0]?.id ?? 0);
+  useEffect(() => {
+    const rail = tabsRef.current;
+    const selected = rail?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (rail && selected)
+      rail.scrollTo({
+        left:
+          selected.offsetLeft - (rail.clientWidth - selected.offsetWidth) / 2,
+        behavior: 'auto',
+      });
+  }, [activeTab, ordered]);
   const inLeague = allFixtures().filter((f) => f.leagueId === activeTab);
-  // 예측은 매치데이가 열린 경기만 가능하다. 나머지는 예고로만 보여준다. (명세 2.1)
-  // 지난 매치데이 경기는 빼야 한다 — 결과를 못 받으면 '마감' 상태로 영원히 남는다.
-  const today = inLeague.filter((f) => windowState(f) !== 'UPCOMING' && isCurrentMatchday(f));
+  const today = inLeague.filter(
+    (f) => windowState(f) !== 'UPCOMING' && isCurrentMatchday(f)
+  );
   const upcoming = inLeague.filter((f) => windowState(f) === 'UPCOMING');
-  const favMatches = today.filter((f) => isFavoriteFixture(f.id));
-  const rest = today.filter((f) => !isFavoriteFixture(f.id));
-  const predictedCount = today.filter((f) => state.predictions[f.id]).length;
-  const allDone = today.length > 0 && predictedCount === today.length;
-
+  const open = today.filter((f) => windowState(f) === 'OPEN');
+  const featured =
+    open.find((f) => isFavoriteFixture(f.id)) ??
+    open[0] ??
+    today[0] ??
+    upcoming[0];
+  const rest = today
+    .filter((f) => f.id !== featured?.id)
+    .sort(
+      (a, b) =>
+        Number(isFavoriteFixture(b.id)) - Number(isFavoriteFixture(a.id))
+    );
+  const done = today.filter((f) => state.predictions[f.id]).length;
+  const banner = showAd && !standingsOpen && !orderOpen ? <TossBanner /> : null;
+  const day = new Intl.DateTimeFormat('ko-KR', {
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+    timeZone: 'Asia/Seoul',
+  }).format(new Date());
+  const select = (id: number) => {
+    haptic(8);
+    setTab(id);
+    setGroup(isMajorCompetition(id) ? 'major' : 'other');
+  };
   return (
-    <div className="scroll screen">
-      <div className="pad" style={{ paddingTop: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 36 }}>
-          <Wordmark width={132} />
-          <StreakChip streak={state.streak} />
+    <div className="scroll screen matchday-screen">
+      <header className="matchday-header pad">
+        <Wordmark width={112} />
+        <span className="streak-counter">
+          <IconFlame size={15} color="var(--hot)" />
+          <b>{state.streak}</b> 연속 적중
+        </span>
+      </header>
+      <div className="matchday-intro pad">
+        <div>
+          <p className="eyebrow">YOUR MATCHDAY</p>
+          <h1>
+            오늘의 승부,
+            <br />
+            <span>당신의 한 수.</span>
+          </h1>
         </div>
-
-        <HudCard level={level} tier={tier} done={predictedCount} total={today.length} />
+        <span className="matchday-date">{day}</span>
       </div>
-
-      <div className="tabs" role="tablist">
-        {ordered.map((l) => (
+      <div className="competition-toolbar pad">
+        <div className="competition-groups" aria-label="대회 분류">
+          <button
+            aria-pressed={group === 'major'}
+            onClick={() => setGroup('major')}
+          >
+            메이저
+          </button>
+          <button
+            aria-pressed={group === 'other'}
+            onClick={() => setGroup('other')}
+          >
+            기타 대회
+          </button>
+        </div>
+        <label className="all-competitions">
+          전체 대회 <span aria-hidden="true">⌄</span>
+          <select
+            aria-label="전체 대회 선택"
+            value={activeTab}
+            onChange={(e) => select(Number(e.target.value))}
+          >
+            <optgroup label="메이저 대회">
+              {ordered
+                .filter((l) => isMajorCompetition(l.id))
+                .map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+            </optgroup>
+            <optgroup label="기타 대회">
+              {ordered
+                .filter((l) => !isMajorCompetition(l.id))
+                .map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+            </optgroup>
+          </select>
+        </label>
+      </div>
+      <div className="competition-tabbar">
+      <div
+        ref={tabsRef}
+        className="tabs competition-tabs"
+        role="tablist"
+        aria-label="대회 선택"
+      >
+        {grouped.map((l) => (
           <button
             key={l.id}
             role="tab"
             className="tab"
             aria-selected={activeTab === l.id}
-            onClick={() => {
-              haptic(8);
-              setTab(l.id);
-            }}
+            onClick={() => select(l.id)}
           >
             {l.short}
           </button>
         ))}
       </div>
-
-      <div className="pad" style={{ padding: '12px 20px 0' }}>
-        <StandingsLink leagueId={activeTab} />
+      <button className="league-order-trigger" aria-label="리그 순서 편집" aria-haspopup="dialog"
+        onClick={() => { setTab(activeTab); setOrderSaved(false); setOrderOpen(true); }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M4 6h10M4 12h7M4 18h7m7-12v12m-3-3 3 3 3-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        순서
+      </button>
       </div>
-
-      <div className="pad" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 10px' }}>
-        <span className="h3" style={{ fontSize: 13 }}>
-          {today.length ? `오늘의 경기 · ${dateHeading(today[0].kickoffAt)}` : '오늘 경기 없음'}
-        </span>
-        {today.length > 0 && (
-          <span className={`chip ${allDone ? 'win' : 'plain'}`} style={{ fontSize: 10.5 }}>
-            {allDone ? '오늘 예측 완료 🎉' : `${today.length - predictedCount}경기 남음`}
+      {orderSaved && <p className="league-order-saved pad" role="status">리그 순서를 저장했어요.</p>}
+      {orderOpen && <LeagueOrderEditor key={state.authUser?.id} initialGroup={group}
+        close={() => setOrderOpen(false)} onSaved={() => { setOrderOpen(false); setOrderSaved(true); }} />}
+      <div className="pad matchday-body">
+        {featured && (
+          <section aria-label="주목할 경기">
+            <div className="section-heading">
+              <h2>
+                {windowState(featured) === 'UPCOMING'
+                  ? '다가오는 매치'
+                  : '오늘의 매치'}
+              </h2>
+              <span className="eyebrow">MATCH OF THE DAY</span>
+            </div>
+            <MatchCard
+              key={featured.id}
+              fixtureId={featured.id}
+              featured
+              onOpen={() => onOpenMatch(featured.id)}
+            />
+            {banner}
+          </section>
+        )}
+        <div className="player-strip" data-tour="hud">
+          <span className="player-level">
+            {level.level}
+            <small>LEVEL</small>
           </span>
+          <div className="player-summary">
+            <span>나의 축잘알 지수</span>
+            <strong>
+              {state.rating.toLocaleString('ko-KR')}
+              <TierChip tier={tier} />
+            </strong>
+            <div
+              className="player-track"
+              role="progressbar"
+              aria-label="다음 레벨 진행률"
+              aria-valuenow={Math.round(level.progress * 100)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <i style={{ width: `${level.progress * 100}%` }} />
+            </div>
+          </div>
+          <span className="today-progress">
+            <b>
+              {done}
+              <i> / {today.length}</i>
+            </b>
+            오늘 예측
+          </span>
+        </div>
+        {rest.length > 0 && (
+          <section>
+            <div className="section-heading">
+              <h2>계속 예측해볼까요</h2>
+              <span>
+                {open.filter((f) => !state.predictions[f.id]).length}경기 남음
+              </span>
+            </div>
+            <div className="match-list">
+              {rest.map((f, i) => (
+                <MatchCard
+                  key={f.id}
+                  fixtureId={f.id}
+                  index={i + 1}
+                  onOpen={() => onOpenMatch(f.id)}
+                />
+              ))}
+            </div>
+          </section>
         )}
-      </div>
-
-      <div className="pad" style={{ display: 'flex', flexDirection: 'column', gap: 13, paddingBottom: 24 }}>
-        {favMatches.length > 0 && (
-          <>
-            <SectionLabel accent>내 팀 경기</SectionLabel>
-            {favMatches.map((f, i) => (
-              <MatchCard key={f.id} fixtureId={f.id} index={i} onOpen={() => onOpenMatch(f.id)} />
-            ))}
-            <SectionLabel>{league(activeTab).name}의 남은 경기</SectionLabel>
-          </>
-        )}
-        {rest.map((f, i) => (
-          <MatchCard
-            key={f.id}
-            fixtureId={f.id}
-            index={favMatches.length + i}
-            onOpen={() => onOpenMatch(f.id)}
-          />
-        ))}
-
+        <StandingsLink leagueId={activeTab} onOpenChange={setStandingsOpen} />
         {today.length === 0 && (
-          <div className="empty">
-            <span className="mark">
-              <IconLock size={26} color="var(--ink-4)" />
+          <div className="matchday-empty">
+            <span className="empty-match-mark">
+              <BallMark size={24} />
             </span>
-            <p className="h3" style={{ fontSize: 15, marginBottom: 6 }}>오늘 예측할 경기가 없어요</p>
-            <p className="small muted" style={{ margin: 0 }}>
-              다른 리그 탭을 눌러보거나, 아래 예고를 확인해 보세요.
-            </p>
+            <div>
+              <strong>오늘은 잠시 쉬어가는 날</strong>
+              <p>다른 대회나 다가오는 경기를 확인해보세요.</p>
+            </div>
           </div>
         )}
-
-        {upcoming.length > 0 && (
-          <>
-            <SectionLabel>다가오는 경기</SectionLabel>
-            {upcoming.slice(0, 6).map((f, i) => (
-              <UpcomingRow key={f.id} fixtureId={f.id} index={i} onOpen={() => onOpenMatch(f.id)} />
-            ))}
-          </>
+        {upcoming.filter((f) => f.id !== featured?.id).length > 0 && (
+          <section>
+            <div className="section-heading">
+              <h2>다음 킥오프</h2>
+              <span>다가오는 경기</span>
+            </div>
+            <div className="upcoming-list">
+              {upcoming
+                .filter((f) => f.id !== featured?.id)
+                .slice(0, 6)
+                .map((f, i) => (
+                  <Fragment key={f.id}>
+                    <UpcomingRow
+                      fixtureId={f.id}
+                      index={i}
+                      onOpen={() => onOpenMatch(f.id)}
+                    />
+                  </Fragment>
+                ))}
+            </div>
+          </section>
         )}
-      </div>
-    </div>
-  );
-}
-
-function SectionLabel({ children, accent }: { children: React.ReactNode; accent?: boolean }) {
-  return (
-    <div
-      className="tiny"
-      style={{
-        display: 'flex', alignItems: 'center', gap: 7, marginTop: 6,
-        fontWeight: 600, letterSpacing: '0.04em',
-        color: accent ? 'var(--accent)' : 'var(--ink-3)',
-      }}
-    >
-      <span
-        style={{
-          width: 3, height: 13, borderRadius: 2,
-          background: accent ? 'var(--grad-accent)' : 'var(--line-strong)',
-        }}
-      />
-      {children}
-    </div>
-  );
-}
-
-/** 연속 적중. 3연승부터는 칩이 불타오른다. */
-function StreakChip({ streak }: { streak: number }) {
-  const hot = streak >= 3;
-  return (
-    <span className={`chip ${hot ? 'hot' : 'plain'}`} style={{ height: 28, paddingInline: 11 }}>
-      <span className={hot ? 'flame' : undefined}>
-        <IconFlame size={14} color={hot ? '#fff' : 'var(--ink-3)'} />
-      </span>
-      <b className="num" style={{ fontSize: 13 }}>{streak}</b>
-      연속
-    </span>
-  );
-}
-
-/** 화면 최상단의 상태창 — 레벨 · 티어 · XP · 오늘 진행률을 한 덩어리로 본다. */
-function HudCard({
-  level, tier, done, total,
-}: {
-  level: { level: number; into: number; need: number; progress: number };
-  tier: React.ComponentProps<typeof TierChip>['tier'];
-  done: number;
-  total: number;
-}) {
-  const { state } = useApp();
-  const remaining = Math.max(0, level.need - level.into);
-  const xp = useCountUpInt(Math.round(level.progress * 100), 1000);
-
-  return (
-    <div className="levelcard in" data-tour="hud" style={{ marginTop: 12 }}>
-      <div className="levelrow">
-        <span className="lvbadge">Lv.{level.level}</span>
-        <span style={{ minWidth: 0, flex: 1 }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <TierChip tier={tier} />
-            <span className="tiny" style={{ color: 'var(--accent)', fontWeight: 700 }}>
-              {state.settledMatches < PLACEMENT_MATCHES
-                ? `배치 ${state.settledMatches}/${PLACEMENT_MATCHES}`
-                : state.topPercent == null
-                  ? '순위 집계 전'
-                  : `상위 ${state.topPercent}%`}
-            </span>
-          </span>
-          <span className="tiny muted" style={{ display: 'block', marginTop: 3 }}>
-            다음 레벨까지 <b style={{ color: 'var(--ink-2)' }}>{remaining}점</b>
-          </span>
-        </span>
-        {total > 0 && <Ring value={done} total={total} />}
-      </div>
-
-      <div className="track">
-        <i style={{ width: `${Math.round(level.progress * 100)}%` }} />
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-        <span className="tiny muted">XP {xp}%</span>
-        <span className="tiny muted">
-          {level.into} / {level.need}
-        </span>
+        <p className="matchday-signoff">
+          축구를 보는 또 하나의 즐거움. <BallMark size={12} />
+        </p>
       </div>
     </div>
   );
@@ -201,8 +282,14 @@ function HudCard({
 
 /** 아직 예측 창이 열리지 않은 경기. 예고만 보여준다. */
 function UpcomingRow({
-  fixtureId, index, onOpen,
-}: { fixtureId: number; index: number; onOpen: () => void }) {
+  fixtureId,
+  index,
+  onOpen,
+}: {
+  fixtureId: number;
+  index: number;
+  onOpen: () => void;
+}) {
   const f = fixture(fixtureId);
   if (!f) return null;
   const home = team(f.homeTeamId);
@@ -211,10 +298,12 @@ function UpcomingRow({
   return (
     <button
       onClick={onOpen}
-      className="row in-row"
+      className="row upcoming-row in-row"
       style={{
-        height: 62, borderRadius: 16, border: '1.5px dashed var(--line-strong)',
-        padding: '0 14px', width: '100%', textAlign: 'left',
+        minHeight: 72,
+        padding: '0 14px',
+        width: '100%',
+        textAlign: 'left',
         ['--i' as string]: index,
       }}
     >

@@ -168,7 +168,7 @@ struct MatchDetailView: View {
             .frame(maxWidth: .infinity, minHeight: 38)
             .background(on ? AnyShapeStyle(T.gradAccent) : AnyShapeStyle(T.card2),
                         in: RoundedRectangle(cornerRadius: 12))
-            .shadow(color: on ? T.accent.opacity(0.35) : .clear, radius: 10, y: 4)
+
         }
         .buttonStyle(.plain)
     }
@@ -207,10 +207,10 @@ struct MatchDetailView: View {
         VStack(spacing: 0) {
             HStack {
                 Text(leagueLine)
-                    .font(T.body(11, .semibold)).foregroundStyle(T.accentDeep)
+                    .font(T.body(11, .semibold)).foregroundStyle(DesignTokens.matchSecondary)
                 Spacer(minLength: 6)
                 if let v = fixture.venue {
-                    Text(v).font(T.body(11)).foregroundStyle(T.ink3).lineLimit(1)
+                    Text(v).font(T.body(11)).foregroundStyle(DesignTokens.matchMuted).lineLimit(1)
                 }
             }
             HStack(alignment: .top, spacing: 6) {
@@ -230,7 +230,7 @@ struct MatchDetailView: View {
                     Text(finished ? "경기 종료"
                          : inPlay ? (elapsed.map { "\($0)분 진행" } ?? "진행 중")
                          : "킥오프")
-                        .font(T.body(11)).foregroundStyle(T.ink3)
+                        .font(T.body(11)).foregroundStyle(DesignTokens.matchMuted)
                 }
                 .padding(.horizontal, 4)
                 side(away)
@@ -238,8 +238,8 @@ struct MatchDetailView: View {
             .padding(.top, 16)
         }
         .padding(16)
-        .background(T.card, in: RoundedRectangle(cornerRadius: 22))
-        .shadow(color: .black.opacity(0.10), radius: 14, y: 6)
+        .foregroundStyle(.white)
+        .background(DesignTokens.matchSurface, in: RoundedRectangle(cornerRadius: 22))
     }
 
     private var scoreLine: String {
@@ -250,7 +250,7 @@ struct MatchDetailView: View {
 
     private var leagueLine: String {
         let l = store.league(fixture.leagueId).name
-        return fixture.round.map { "\(l) \($0)R" } ?? l
+        return fixture.roundLabel.map { "\(l) \($0)" } ?? fixture.round.map { "\(l) \($0)R" } ?? l
     }
 
     private func side(_ t: Team) -> some View {
@@ -260,7 +260,7 @@ struct MatchDetailView: View {
                 Text(t.name)
                     .font(T.body(13, .heavy)).multilineTextAlignment(.center)
                     .lineLimit(2).minimumScaleFactor(0.8)
-                RankTag(rank: store.rank(t.id))
+                RankTag(rank: store.rank(t.id, leagueId: fixture.leagueId), onDark: true)
             }
         }
         .frame(maxWidth: .infinity)
@@ -291,7 +291,7 @@ struct MatchDetailView: View {
             }
             .padding(EdgeInsets(top: 14, leading: 16, bottom: 16, trailing: 16))
             .background(T.card, in: RoundedRectangle(cornerRadius: 20))
-            .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
+            .shadow(color: T.ink.opacity(0.035), radius: 2, y: 1)
         } else {
             // 여론이 없으면 분포를 그리지 않는다 — 빈 자리를 그럴듯한 숫자로 채우면 그게 가짜다
             VStack(spacing: 6) {
@@ -302,7 +302,7 @@ struct MatchDetailView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 18).padding(.horizontal, 16)
             .background(T.card, in: RoundedRectangle(cornerRadius: 20))
-            .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
+            .shadow(color: T.ink.opacity(0.035), radius: 2, y: 1)
         }
     }
 
@@ -448,6 +448,7 @@ struct MatchDetailView: View {
                 }
             }
             .padding(.horizontal, 20).padding(.top, 10)
+            .task(id: chat.visible.map(\.userId)) { await store.refreshSupporters(users: chat.visible.map(\.userId)) }
         }
     }
 
@@ -504,6 +505,7 @@ struct MatchDetailView: View {
 
 /// 말풍선 한 줄. 내 말은 오른쪽, 남의 말은 왼쪽에 붙는다.
 private struct MessageRow: View {
+    @EnvironmentObject var store: Store
     let message: ChatMessage
     let onReport: () -> Void
 
@@ -515,7 +517,7 @@ private struct MessageRow: View {
         HStack(alignment: .top, spacing: 8) {
             if message.mine { Spacer(minLength: 40) }
             if !message.mine {
-                Avatar(url: message.avatarUrl, initial: message.handle, size: 30)
+                SupporterAvatar(url: message.avatarUrl, name: message.handle, size: 30, badge: store.supporters[message.userId])
             }
             VStack(alignment: message.mine ? .trailing : .leading, spacing: 4) {
                 HStack(spacing: 6) {
@@ -533,6 +535,7 @@ private struct MessageRow: View {
                         }
                     }
                 }
+                SupporterBadgeView(badge: store.supporters[message.userId])
                 Text(message.body)
                     .font(T.body(14)).foregroundStyle(message.mine ? .white : T.ink)
                     .padding(.horizontal, 13).padding(.vertical, 9)

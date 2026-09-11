@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Burst } from './Burst';
 import { Crest } from './Crest';
 import { RankTag } from './Standings';
+import { LeagueMark } from './LeagueMark';
 import { IconCheck, IconFlame, IconX } from './icons';
 import { fixture, league, team } from '../data/catalog';
 import { haptic } from '../lib/anim';
@@ -15,8 +16,8 @@ import { useApp } from '../store';
 const FILL_CLASS: Record<Outcome, string> = { HOME: 'home', DRAW: '', AWAY: 'away' };
 
 export function MatchCard({
-  fixtureId, index = 0, onOpen,
-}: { fixtureId: number; index?: number; onOpen: () => void }) {
+  fixtureId, index = 0, onOpen, featured = false,
+}: { fixtureId: number; index?: number; onOpen: () => void; featured?: boolean }) {
   const { state, predict, isFavoriteFixture } = useApp();
   // 보기를 고르면 확신도 단계가 열린다. 이미 예측한 경기는 접힌 상태로 시작한다.
   const [draft, setDraft] = useState<Outcome | null>(null);
@@ -46,8 +47,6 @@ export function MatchCard({
   };
 
   // 한 경기에 내 팀이 둘일 수도 있다(더비). 홈 쪽을 먼저 잡는다.
-  const myTeamId = [f.homeTeamId, f.awayTeamId].find((id) => state.favoriteTeamIds.includes(id));
-  const favTeam = myTeamId != null ? team(myTeamId) : null;
 
   function choose(o: Outcome) {
     if (!canPredict) return;
@@ -65,44 +64,35 @@ export function MatchCard({
 
   return (
     <div
-      className={`card in${isFav ? ' fav' : ''}`}
+      className={`card match-card in${featured ? ' featured-match' : ''}${isFav ? ' favorite-match' : ''}`}
+      aria-label={`${home.name} 대 ${away.name}`}
       style={{ ['--i' as string]: index, position: 'relative' }}
     >
-      {favTeam && <div className="favband" style={{ background: favTeam.color }} />}
+
       <Burst seed={burst.seed} label={burst.label} />
 
-      <div className="cardhead">
-        <button className="crests" onClick={onOpen} aria-label="경기 상세 열기">
-          <Crest teamId={f.homeTeamId} />
-          <Crest teamId={f.awayTeamId} />
-        </button>
-        <button onClick={onOpen} style={{ textAlign: 'left', flex: 1, minWidth: 0 }}>
-          <div className="h3" style={{ fontSize: 16 }}>
-            {home.name} <RankTag teamId={f.homeTeamId} />{' '}
-            <span style={{ color: 'var(--ink-4)' }}>vs</span>{' '}
-            {away.name} <RankTag teamId={f.awayTeamId} />
-          </div>
-          <div className="tiny muted" style={{ marginTop: 2 }}>
-            {isFav && <b style={{ color: favTeam?.color }}>내 팀 · </b>}
-            {[league(f.leagueId).name, f.round == null ? null : `${f.round}R`]
-              .filter(Boolean)
-              .join(' ')}{' · '}
-            {phase === 'FINISHED' ? (
-              <b style={{ color: 'var(--ink-2)' }}>종료 {f.homeGoals} : {f.awayGoals}</b>
-            ) : f.liveHome != null && f.liveAway != null ? (
-              // 진행 중이면 경기장·킥오프 대신 지금 점수를 보여준다. 그게 더 궁금하다.
-              <b style={{ color: 'var(--cool)' }}>
-                {f.elapsed != null ? `${f.elapsed}' ` : ''}{f.liveHome} : {f.liveAway}
-              </b>
-            ) : (
-              [f.venue, kickoffLabel(f.kickoffAt)].filter(Boolean).join(' · ')
-            )}
-          </div>
-        </button>
-        <StatusChip phase={phase} hit={saved ? saved.pick === f.result : null} predicted={Boolean(saved) && !active} />
+      {featured && <div className="pitch-lines" aria-hidden="true"><i/><i/><i/></div>}
+      <div className="match-topline">
+        <span className="match-competition"><LeagueMark leagueId={f.leagueId} size={16}/>{league(f.leagueId).name}</span>
+        <span className="match-statuses">{isFav && <span className="favorite-label">내 팀</span>}
+          <StatusChip phase={phase} hit={saved ? saved.pick === f.result : null} predicted={Boolean(saved) && !active} />
+          {canPredict && !saved && <span className="open-label"><i/>예측 가능</span>}
+        </span>
       </div>
+      <button className="match-duel" onClick={onOpen} aria-label={`${home.name} 대 ${away.name} 경기 상세 열기`}>
+        <span className="match-team"><Crest teamId={f.homeTeamId} size={featured ? 64 : 40}/><strong>{home.name}</strong><span className="team-origin">HOME <RankTag teamId={f.homeTeamId} leagueId={f.leagueId}/></span></span>
+        <span className="match-center">
+          {phase === 'FINISHED' && f.homeGoals != null && f.awayGoals != null
+            ? <><b className="duel-score">{f.homeGoals} : {f.awayGoals}</b><span>경기 종료</span></>
+            : f.liveHome != null && f.liveAway != null
+              ? <><b className="duel-score">{f.liveHome} : {f.liveAway}</b><span className="live-label">LIVE {f.elapsed != null ? `${f.elapsed}′` : ''}</span></>
+              : <><b className="duel-vs">VS</b><span>{kickoffLabel(f.kickoffAt)}</span></>}
+        </span>
+        <span className="match-team"><Crest teamId={f.awayTeamId} size={featured ? 64 : 40}/><strong>{away.name}</strong><span className="team-origin">AWAY <RankTag teamId={f.awayTeamId} leagueId={f.leagueId}/></span></span>
+      </button>
+      {featured && <div className="match-venue">{f.venue || league(f.leagueId).name}{f.roundLabel ? ` · ${f.roundLabel}` : f.round != null ? ` · ${f.round}R` : ''}</div>}
 
-      <div className="options" data-tour={index === 0 ? 'options' : undefined}>
+      <div className="options match-options" data-tour={index === 0 ? 'options' : undefined}>
         {OUTCOMES.map((o, i) => {
           const chosen = saved?.pick === o;
           const isDraft = active === o;
@@ -118,7 +108,8 @@ export function MatchCard({
               key={o}
               type="button"
               className={`option${dim || (!canPredict && phase !== 'FINISHED') ? ' dim' : ''}`}
-              aria-pressed={chosen || isDraft || isResult}
+              aria-label={`${labels[o]}${showCrowd && f.baseline ? `, ${pct(f.baseline[i])}` : ''}`}
+              aria-pressed={active ? isDraft : chosen}
               disabled={!canPredict}
               style={{ ['--i' as string]: i }}
               onClick={() => choose(o)}
@@ -143,7 +134,7 @@ export function MatchCard({
                     </span>
                   )}
                   <span className="name" style={chosen || isResult ? { fontWeight: 700 } : undefined}>
-                    {labels[o]}
+                    {o === 'HOME' ? '홈 승' : o === 'AWAY' ? '원정 승' : '무승부'}
                   </span>
                   {isResult && !chosen && (
                     <span className="chip plain" style={{ height: 18, fontSize: 10 }}>결과</span>
@@ -356,16 +347,18 @@ function Footline({ fixtureId }: { fixtureId: number }) {
         <span className="tiny muted">
           {phase === 'LOCKED'
             ? '예측이 마감됐어요'
-            : f.participants == null || f.participants === 0
+            : f.participants == null
+              ? '참여 집계를 확인하고 있어요'
+              : f.participants === 0
               ? '아직 아무도 예측하지 않았어요'
-              : `${f.participants.toLocaleString('ko-KR')}명 예측 중`}
+              : `${f.participants.toLocaleString('ko-KR')}명 참여`}
         </span>
         <span className="tiny muted" style={{ marginLeft: 'auto' }}>
           {phase === 'LOCKED'
             ? '결과를 기다려요'
             : f.participants === 0
               ? '첫 예측자가 되어보세요'
-              : '보기를 누르면 확신도를 고를 수 있어요'}
+              : '선택 후 확신도를 골라주세요'}
         </span>
       </div>
     );

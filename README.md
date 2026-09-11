@@ -1,6 +1,8 @@
 # 축잘알 — 웹 클라이언트
 
-유럽 4대 리그 승부 예측 게임. 앱인토스(미니앱) 배포를 전제로 만든 React SPA다.
+유럽 5대 리그·UEFA 3개 대회와 지원되는 국제대회의 승부를 예측하는 앱. 앱인토스(미니앱) 배포를 전제로 만든 React SPA다.
+
+디자인 기준은 [Matchday 디자인 시스템](design/system/README.md), 최신 디자인 배포 상태는 [2026-09-10 배포 기록](docs/releases/2026-09-10-matchday-design.md)을 참고한다.
 
 ## 실행
 
@@ -76,7 +78,9 @@ supabase/
 | 서드파티 쿠키 차단 | 쿠키 세션 금지 → 토큰 기반 인증으로 설계 |
 | `wss://` 만 허용 | 채팅 실시간 연결은 wss 전제 (`MatchDetail.tsx` 주석) |
 | API 3,000 req/min | 폴링 대신 WebSocket 구독으로 설계 |
-| 외부 광고·외부 링크 금지 | 광고 SDK, 외부 링크 없음 |
+| 앱인토스 공식 광고 SDK 사용 | 예측 목록의 첫 경기 카드 다음 TossAds 배너 1개. 자체 웹은 광고를 요청하지 않음. |
+
+광고 빌드와 콘솔 지표 설정 상태는 [광고·지표 적용 기록](docs/releases/2026-09-07-ads-and-metrics.md)을 참고한다. 테스트용 `npm run build:toss:ads:test`와 운영용 `npm run build:toss:ads:live`를 분리하며, 운영 빌드에는 발급된 광고 그룹 ID가 필요하다.
 
 ## 로그인 — 배포 대상이 둘이다
 
@@ -209,3 +213,12 @@ provider 를 켜면 버튼이 저절로 생기고, 꺼져 있으면 아예 그�
 
 `src/lib/scoring.ts` 를 수정하면 `tests/scoring.test.mjs` 가 깨진다. 이건 의도된 것이다 —
 점수 공식은 출시 후 바꾸면 지수의 의미가 무너지므로, 바꿀 때마다 명세 2.5 표와 대조해야 한다.
+
+### 앱인토스 새 출발권
+
+`npm run build:toss:iap`으로 결제 기능이 포함된 번들을 빌드합니다. 상품 SKU는 콘솔 등록값이며,
+서버에서 토스 주문을 확인한 후에만 이용권을 지급합니다. 개인 도전은 공식 점수·랭킹과 분리됩니다.
+배포와 검증 내역은 [새 출발권 배포 기록](docs/releases/2026-09-07-fresh-start.md)을 참고하세요.
+
+화면 확인용 모의 결제는 `npx vite --config tests/ui/vite.config.mjs` 실행 후
+`http://127.0.0.1:4187/tests/ui/fresh-start.html`에서만 제공됩니다. 이 테스트 페이지와 SDK 모의 구현은 운영 번들에 포함되지 않습니다.

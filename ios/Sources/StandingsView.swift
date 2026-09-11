@@ -6,6 +6,7 @@ import SwiftUI
 /// '0위' 나 '-' 를 붙이면 없는 정보를 있는 것처럼 만든다.
 struct RankTag: View {
     let rank: Int?
+    var onDark = false
 
     var body: some View {
         if let rank {
@@ -21,9 +22,9 @@ struct RankTag: View {
     /// 상위권과 강등권만 색으로 가른다. 나머지는 조용히 둔다.
     private var tint: Color {
         guard let rank else { return T.ink3 }
-        if rank <= 4 { return T.accent }
-        if rank >= 18 { return T.cool }
-        return T.ink3
+        if rank <= 4 { return onDark ? DesignTokens.lime : T.accent }
+        if rank >= 18 { return onDark ? DesignTokens.matchDangerText : T.cool }
+        return onDark ? DesignTokens.matchSecondary : T.ink3
     }
 }
 

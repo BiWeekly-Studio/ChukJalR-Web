@@ -1,0 +1,78 @@
+// Run with PGLITE_MODULE pointing to the installed @electric-sql/pglite entry point.
+import {readFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+const {PGlite}=await import(process.env.PGLITE_MODULE || '@electric-sql/pglite');
+const db=new PGlite();
+await db.exec(`create role anon;create role authenticated;create role service_role;
+create schema auth;
+create function auth.uid() returns uuid language sql as $$select nullif(current_setting('test.uid',true),'')::uuid$$;
+create table leagues(id int primary key,name text,short_name text,country text);
+insert into leagues values(39,'PL','PL','England'),(10,'Friendly','Friendly','World');
+create table teams(id bigint primary key,name text,name_ko text);
+create table push_tokens(user_id uuid,token text);
+create table push_log(user_id uuid,kind text,ref_id bigint);
+create table auth.users(id uuid primary key,raw_app_meta_data jsonb);
+create table profiles(id uuid primary key references auth.users,league_order int[],favorite_team_ids int[],onboarded_at timestamptz);
+create table fixtures(id bigint primary key,league_id int,home_team_id int,away_team_id int,kickoff_at timestamptz,lock_at timestamptz,opens_at timestamptz,state text);
+create table predictions(id bigint primary key,user_id uuid,fixture_id bigint);
+create table settlements(prediction_id bigint,user_id uuid,fixture_id bigint,settled_at timestamptz,delta_rating int default 0,points int default 0);
+create function invoke_function(text,text default '') returns bigint language sql as 'select 1::bigint';
+create schema cron;create function cron.schedule(text,text,text) returns bigint language sql as 'select 1::bigint';`);
+await db.exec(readFileSync('supabase/migrations/20260908000038_toss_notifications.sql','utf8'));
+await db.exec(readFileSync('supabase/migrations/20260910000041_league_notifications.sql','utf8'));
+const u='00000000-0000-0000-0000-000000000001',other='00000000-0000-0000-0000-000000000002';
+await db.exec(`insert into auth.users values ('${u}','{"toss_user_key":"123"}'),('${other}','{}');
+insert into profiles values ('${u}','{39}','{1}',now()),('${other}','{39}','{1}',now());
+insert into fixtures values
+(1,39,1,2,now()+interval '19 minutes',now()+interval '14 minutes',now()-interval '1 hour','SCHEDULED'),
+(2,39,1,2,now()+interval '9 minutes',now()+interval '4 minutes',now()-interval '1 hour','SCHEDULED'),
+(3,39,1,2,now()+interval '59 minutes',now()+interval '54 minutes',now()-interval '1 hour','SCHEDULED'),
+(4,39,1,2,now()-interval '2 hours',now()-interval '125 minutes',now()-interval '4 hours','FINISHED'),
+(5,39,1,2,now()-interval '1 day',now()-interval '1 day',now()-interval '2 days','VOID');
+insert into predictions values(2,'${u}',2),(4,'${u}',4);
+insert into settlements(prediction_id,user_id,fixture_id,settled_at) values(4,'${u}',4,now()-interval '1 minute');
+insert into toss_notification_preferences select '${u}',kind,true,now()-interval '1 day' from toss_notification_templates;
+insert into toss_notification_preferences select '${other}',kind,true,now()-interval '1 day' from toss_notification_templates;`);
+assert.equal((await db.query('select * from claim_toss_notifications()')).rows.length,0,'unapproved templates cannot send');
+await db.exec('update toss_notification_templates set approved=true');
+let rows=[];for(let i=0;i<5;i++)rows.push(...(await db.query('select * from claim_toss_notifications()')).rows);
+assert.deepEqual(rows.map(x=>x.kind).sort(),['chat','kickoff','lock','settlement']);
+assert.ok(rows.every(x=>x.user_id===u),'native accounts excluded');
+assert.equal((await db.query('select * from claim_toss_notifications()')).rows.length,0,'unique claim prevents duplicate');
+await db.exec(`delete from toss_notification_deliveries;select set_config('test.uid','${u}',false);`);
+await db.query('select league_notification_settings(39,false)');
+assert.equal((await db.query('select * from claim_toss_notifications()')).rows.length,0,'league off blocks all four Toss kinds');
+await db.query('select league_notification_settings(39,true)');
+assert.equal((await db.query('select * from claim_toss_notifications()')).rows.length,0,'enabling league does not backfill earlier events');
+await db.exec(`update notification_league_preferences set updated_at=now()-interval '1 day';update fixtures set league_id=10;`);
+assert.equal((await db.query('select * from claim_toss_notifications()')).rows.length,0,'other leagues default off');
+await db.query('select league_notification_settings(10,true)');
+await db.exec(`update notification_league_preferences set updated_at=now()-interval '1 day';`);
+let opted=[];for(let i=0;i<4;i++)opted.push(...(await db.query('select * from claim_toss_notifications()')).rows);
+assert.deepEqual(opted.map(x=>x.kind).sort(),['chat','kickoff','lock','settlement'],'explicit other league opt-in applies to all kinds, independently of onboarding order');
+await db.exec(`insert into teams values(1,'Home',null),(2,'Away',null);insert into push_tokens values('${u}','test-token');`);
+assert.equal((await db.query('select * from pending_settlement_pushes()')).rows.length,1,'APNs uses enabled league');
+await db.query('select league_notification_settings(10,false)');
+assert.equal((await db.query('select * from pending_settlement_pushes()')).rows.length,0,'APNs uses same league opt-out');
+await db.exec(`select set_config('test.uid','${other}',false)`);
+const otherSettings=(await db.query('select league_notification_settings() as data')).rows[0].data;
+assert.equal(otherSettings.find(x=>x.id===39).enabled,true,'preferences isolated by account');
+assert.equal(otherSettings.find(x=>x.id===10).enabled,false);
+assert.equal(otherSettings.find(x=>x.id===61).major,true,'Ligue 1 seeded as major');
+await db.exec(`select set_config('test.uid','',false)`);
+await assert.rejects(db.query('select league_notification_settings()'),/LOGIN_REQUIRED/);
+await db.exec(`select set_config('test.uid','${u}',false)`);
+await assert.rejects(db.query('select league_notification_settings(39,null)'),/BAD_REQUEST/);
+await assert.rejects(db.query('select league_notification_settings(99999,true)'),/UNKNOWN_LEAGUE/);
+const perms=(await db.query("select has_function_privilege('anon','league_notification_settings(integer,boolean)','execute') as anon,has_function_privilege('authenticated','notification_league_enabled(uuid,integer)','execute') as other,has_table_privilege('authenticated','notification_league_preferences','insert') as direct")).rows;
+assert.deepEqual(perms,[{anon:false,other:false,direct:false}]);
+await db.exec('update fixtures set league_id=39');
+await db.exec(`delete from toss_notification_deliveries;update toss_notification_preferences set enabled=false;`);
+assert.equal((await db.query('select * from claim_toss_notifications()')).rows.length,0,'opt-out prevents send');
+await db.exec(`update toss_notification_preferences set enabled=true,enabled_at=now();`);
+assert.equal((await db.query('select * from claim_toss_notifications()')).rows.length,0,'no catch-up on enabling');
+await db.exec(`update toss_notification_preferences set enabled_at=now()-interval '1 day';update fixtures set state='VOID';`);
+assert.equal((await db.query('select * from claim_toss_notifications()')).rows.length,0,'void matches excluded');
+const permissions=await db.query(`select has_function_privilege('authenticated','claim_toss_notifications(integer)','execute') as client,has_table_privilege('authenticated','toss_notification_deliveries','insert') as writes`);
+assert.deepEqual(permissions.rows,[{client:false,writes:false}]);
+await db.close();console.log('PASS: league filtering/defaults/account ownership/APNs/validation/no catch-up;  notification scheduling, four kinds, consent/preferences, approval gate, duplicate suppression, cancelled matches and privileges');
