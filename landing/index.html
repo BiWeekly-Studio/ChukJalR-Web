@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>축잘알 — 축구를 읽는 사람들의 리그</title>
-<meta name="description" content="프리미어리그·라리가·분데스리가·세리에A. 경기 결과와 확신도를 예측하고, 적중률과 예측 지수로 축구를 읽는 실력을 확인하세요. 무료로 참여하고 순위를 비교하는 축구 예측 게임입니다." />
+<meta name="description" content="유럽 주요 리그·챔피언스리그·국제대회. 경기 결과와 확신도를 예측하고, 적중률과 예측 지수로 축구를 읽는 실력을 확인하세요. 무료로 참여하고 순위를 비교하는 축구 예측 게임입니다." />
 <meta property="og:title" content="축잘알 — 축구를 읽는 사람들의 리그" />
 <meta property="og:description" content="찍는 게 아니라 읽는 사람들의 리그." />
 <meta property="og:image" content="./assets/icon.png" />
@@ -16,9 +16,9 @@
 <style>
   :root {
     color-scheme: light;
-    --paper: #f5f2ea; --card: #fff; --ink: #16140f; --ink2: #645d51; --ink3: #9c9385;
-    --line: #e7e0d3; --accent: #2f57f2; --accent2: #7b46f0;
-    --grad: linear-gradient(135deg, #3a63ff, #7b46f0);
+    --paper: #F3F5F7; --card: #fff; --ink: #122036; --ink2: #45546A; --ink3: #627086;
+    --line: #E1E7ED; --accent: #193653; --accent2: #254B6C;
+    --grad: linear-gradient(135deg, #193653, #12263E);
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--paper); color: var(--ink);
@@ -36,7 +36,7 @@
   .cta { display: inline-flex; align-items: center; gap: 8px; margin-top: 26px;
          padding: 0 22px; height: 50px; border-radius: 999px; background: var(--grad);
          color: #fff; font-weight: 700; text-decoration: none; font-size: 15px;
-         box-shadow: 0 10px 26px -12px rgba(47,87,242,.75); }
+         box-shadow: 0 10px 26px -12px rgba(18,38,62,.2); }
   .cta[aria-disabled="true"] { background: var(--card); color: var(--ink3);
          box-shadow: none; border: 1.5px solid var(--line); cursor: default; }
 
@@ -45,7 +45,7 @@
            overflow-x: auto; padding: 8px 2px 20px; scroll-snap-type: x mandatory; }
   .shots img { width: 260px; flex: 0 0 auto; border-radius: 26px;
                border: 1px solid var(--line); scroll-snap-align: center;
-               box-shadow: 0 24px 50px -28px rgba(22,20,15,.5); }
+               box-shadow: 0 24px 50px -28px rgba(18,38,62,.3); }
 
   section { padding: 56px 0; }
   h2 { font-size: clamp(20px, 4.6vw, 26px); letter-spacing: -0.03em; margin: 0 0 8px; }
@@ -77,9 +77,10 @@
   <div class="wrap">
     <div class="mark"><img src="./assets/wordmark.svg" alt="축잘알" /></div>
     <p class="tagline">찍는 게 아니라, 읽는 사람들의 리그.</p>
-    <p class="sub">프리미어리그 · 라리가 · 분데스리가 · 세리에A.
+    <p class="sub">프리미어리그부터 챔피언스리그, 국제대회까지.
        오늘 경기의 결과와 확신도를 예측하고, 내 실력을 확인하세요.</p>
-    <a class="cta" aria-disabled="true" href="#">App Store 출시 준비 중</a>
+    <a class="cta" href="https://apps.apple.com/kr/app/id6808257765">App Store에서 축잘알 시작하기</a>
+    <a class="cta" href="https://minion.toss.im/hEvQnFsh">토스에서 시작하기</a>
   </div>
 </header>
 
@@ -112,9 +113,8 @@
     </div>
     <div class="card">
       <p class="num">02</p>
-      <h3>4대 리그, 매일</h3>
-      <p>일정과 결과를 매일 받아옵니다. 좋아하는 리그를 고른 순서대로 홈 화면이
-         정렬되고, 최애 팀 경기는 맨 위에 모입니다.</p>
+      <h3>내가 보는 리그 순서대로</h3>
+      <p>5대 리그와 챔피언스리그·유로파리그·컨퍼런스리그를 한눈에 봅니다. 국제대회까지 확인하고, 리그 순서와 알림을 직접 정할 수 있습니다.</p>
     </div>
     <div class="card">
       <p class="num">03</p>
@@ -138,7 +138,7 @@
       <p class="num">06</p>
       <h3>무료로 실력을 겨룹니다</h3>
       <p>예측에 돈이나 포인트를 걸거나 사용하지 않습니다. 틀려도 누적 포인트는 줄지 않으며,
-         누적 포인트로 레벨이 올라갑니다. 현금 결제, 상금, 포인트 환전 기능은 없습니다.</p>
+         누적 포인트로 레벨이 올라갑니다. 응원 프로필 팩과 새 출발권은 선택 구매 상품이며 공식 점수와 순위에는 영향을 주지 않습니다. 상금과 포인트 환전 기능은 없습니다.</p>
     </div>
   </div>
 </section>
@@ -147,6 +147,7 @@
   <nav>
     <a href="./support.html">지원 · 자주 묻는 것</a>
     <a href="./privacy.html">개인정보 처리방침</a>
+    <a href="./terms.html">이용약관</a>
     <a href="mailto:jspark@wemakedeal.co.kr">문의</a>
   </nav>
   <p style="margin:0">2026 JalR Company</p>

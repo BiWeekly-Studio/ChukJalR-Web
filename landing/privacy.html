@@ -9,24 +9,25 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" />
   <style>
     :root { color-scheme: light; }
-    body { margin: 0; background: #f5f2ea; color: #16140f;
+    body { margin: 0; background: #F3F5F7; color: #122036;
            font-family: 'IBM Plex Sans KR', -apple-system, sans-serif; line-height: 1.75; }
     main { max-width: 720px; margin: 0 auto; padding: 48px 22px 80px; }
     h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.03em; margin: 0 0 6px; }
     h2 { font-size: 17px; font-weight: 700; margin: 38px 0 10px; letter-spacing: -0.02em; }
-    p, li { font-size: 14.5px; color: #3d382e; }
+    p, li { font-size: 14.5px; color: #45546A; }
     ul { padding-left: 20px; }
-    .meta { font-size: 13px; color: #9c9385; margin: 0 0 28px; }
+    .meta { font-size: 13px; color: #627086; margin: 0 0 28px; }
     table { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 13.5px; }
-    th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid #e7e0d3; vertical-align: top; }
-    th { color: #645d51; font-weight: 600; white-space: nowrap; }
-    a { color: #2f57f2; }
+    th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid #E1E7ED; vertical-align: top; }
+    th { color: #45546A; font-weight: 600; white-space: nowrap; }
+    a { color: #193653; }
   </style>
 </head>
 <body>
 <main>
+  <img src="./assets/wordmark.svg" alt="축잘알" width="132" height="65" style="display:block;margin-bottom:24px" />
   <h1>개인정보 처리방침</h1>
-  <p class="meta">축잘알 · JalR Company · 최종 개정 2026년 9월 7일</p>
+  <p class="meta">축잘알 · JalR Company · 최종 개정 2026년 9월 11일</p>
 
   <p>축잘알은 축구 경기 결과를 예측하고 기록을 겨루는 서비스입니다. 서비스를 굴리는 데
      꼭 필요한 것만 받고, 그 밖의 목적으로는 쓰지 않습니다. 광고 식별자를 수집하지 않고,
@@ -44,9 +45,12 @@
         <td>순위표와 경기 채팅에 표시</td></tr>
     <tr><td>예측·정산 기록</td><td>경기를 예측할 때</td>
         <td>지수와 순위 계산</td></tr>
+    <tr><td>주문번호·상품 ID·Apple 거래 식별자·지급/사용/환불 시각, 구독 상태·갱신 여부·만료 시각·응원 팀, 개인 도전 기록</td><td>앱인토스 또는 iOS 상품 구매·이용 시</td><td>결제 확인, 이용권 지급·복구, 중복 지급 방지와 환불 처리</td></tr>
     <tr><td>채팅 메시지</td><td>경기 채팅에 글을 쓸 때</td>
         <td>대화 표시와 신고 처리</td></tr>
-    <tr><td>기기 푸시 토큰</td><td>알림을 허용한 경우에만</td>
+    <tr><td>알림 종류별 수신 설정·설정 시각·발송 결과</td><td>앱인토스 알림 신청·발송 시</td><td>신청한 경기·예측 알림 전송과 중복 발송 방지</td></tr>
+    <tr><td>프로모션 코드·지급 키·금액·처리 결과·시각, 토스 식별자의 단방향 해시</td><td>첫 방문 혜택 참여 시</td><td>토스 포인트 지급 확인, 재시도 및 중복 지급 방지</td></tr>
+    <tr><td>기기 푸시 토큰(iOS 앱)</td><td>알림을 허용한 경우에만</td>
         <td>마감 임박 알림과 실시간 경기 현황</td></tr>
   </table>
   <p>Apple로 로그인할 때 이메일 가리기를 선택하시면 실제 주소 대신 애플이 만든 전달용
@@ -57,21 +61,25 @@
     <li>위치 정보, 연락처, 사진 보관함 전체 — 접근하지 않습니다.
         프로필 사진은 사용자가 고른 한 장만 받습니다.</li>
     <li>광고 식별자(IDFA) — 수집하지 않고, 앱 추적 투명성 권한도 요청하지 않습니다.</li>
-    <li>제3자 광고·분석 SDK — 넣지 않았습니다.</li>
+    <li>iOS 인앱결제는 Apple StoreKit으로 처리합니다. Apple에 계정 연결용 임의 식별자(UUID)를 전달하고, 서버에서 서명된 거래를 검증하여 구매·갱신·환불을 반영합니다. Apple 계정의 암호와 카드번호는 수집하지 않습니다.</li>
+    <li>앱인토스에서는 토스 SDK로 로그인·인앱결제·이용 지표를 처리합니다. 카드번호와 결제 비밀번호는 축잘알 서버에 저장하지 않습니다.</li>
   </ul>
 
   <h2>3. 보관과 파기</h2>
   <p>정보는 서비스 제공을 위해 계정이 살아 있는 동안 보관합니다. 앱 안에서
-     <b>내 기록 → 계정 삭제</b>를 누르면 계정과 예측·정산·순위 기록이 즉시 지워지고
+     <b>나 → 설정 → 계정 삭제(iOS)</b> 또는 <b>나 → 계정 삭제(앱인토스)</b>를 누르면 계정과 예측·정산·순위 기록이 즉시 지워지고
      되돌릴 수 없습니다. 경기 채팅에 남긴 글은 다른 사람의 대화 맥락이 끊기지 않도록
      내용을 가린 채 작성자 정보만 지웁니다.</p>
   <p>신고가 접수된 메시지는 운영 검토를 위해 최대 90일간 보관한 뒤 파기합니다.</p>
+  <p>첫 방문 프로모션 지급 기록은 중복 지급 방지와 지급 문의 처리를 위해 행사 종료 후 90일까지 보관하고, 이후 매일 실행하는 파기 작업으로 삭제합니다. 탈퇴 시 계정 연결은 제거하며, 동일 토스 계정의 재가입을 통한 중복 수령을 막기 위한 단방향 해시와 지급 기록은 위 기간 동안 유지합니다.</p>
 
+  <p>결제·공급 관련 주문 기록은 전자상거래법령에 따라 5년간 보관합니다. 탈퇴 시 계정 연결을 제거하고, 해당 기록은 일반 서비스 이용에 사용하지 않습니다. 계정 연결이 제거된 주문 기록은 마지막 지급·사용·환불 시점으로부터 5년이 지난 뒤 매일 정기 작업으로 파기합니다.</p>
   <h2>4. 처리 위탁</h2>
   <p>서비스 운영을 위해 아래 사업자의 서비스를 이용합니다. 토스 로그인 서버와 데이터베이스는 대한민국 서울 리전을 사용합니다.</p>
   <ul>
     <li><b>Supabase</b> — 계정 인증, 데이터베이스, 파일 저장 (리전: 대한민국 서울)</li>
-    <li><b>비바리퍼블리카</b> — 앱인토스 로그인 및 미니앱 실행</li>
+    <li><b>Apple</b> — iOS 인앱결제, 구독 관리와 거래 검증</li>
+    <li><b>비바리퍼블리카</b> — 앱인토스 로그인, 미니앱 실행, 인앱결제 처리, 프로모션 토스 포인트 지급, 이용 지표 및 신청한 알림 전송</li>
     <li><b>Apple</b> — 푸시 알림 전송</li>
     <li><b>API-Football</b> — 경기 일정·결과 수집 (개인정보를 보내지 않습니다)</li>
   </ul>
